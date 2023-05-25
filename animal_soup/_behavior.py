@@ -6,9 +6,20 @@ from fastplotlib import ImageWidget
 from warnings import warn
 from mesmerize_core.arrays import LazyVideo
 from fastplotlib import Plot
+from fastplotlib.graphics.selectors import LinearSelector
 from scipy.io import loadmat
 from typing import *
 import numpy as np
+
+
+ETHOGRAM_COLORS = {
+    "lift": "b",
+    "handopen": "green",
+    "grab": "r",
+    "sup": "cyan",
+    "atmouth": "magenta",
+    "chew": "yellow"
+}
 
 
 class BehaviorVizContainer:
@@ -110,7 +121,7 @@ class BehaviorVizContainer:
         if self.image_widget is None:
             self.image_widget = ImageWidget(data=LazyVideo(vid_path))
 
-    def _make_ethogram_plot(self):
+    def _make_ethogram_plot(self, trial_index: int = 0):
         """
         Instantiates the ethogram plot.
         """
@@ -118,14 +129,43 @@ class BehaviorVizContainer:
         session_dir = self.local_parent_path.joinpath(row['animal_id']).joinpath(row['session_id'])
 
         if self.plot is None:
-            self.plot = Plot()
+            self.plot = Plot(size=(500, 100))
 
-        ethogram_shape = self._get_ethogram_shape(session_dir)
-        eth_dtype = self._get_ethogram(0, list(session_dir.glob("*.mat"))[0])[0].dtype
-        eth_heatmap = self.plot.add_heatmap(data=np.zeros(ethogram_shape, dtype=eth_dtype))
-        eth_selector = eth_heatmap.add_linear_selector()
+        # ethogram_shape = self._get_ethogram_shape(session_dir)
+        self.ethogram_array, self.behaviors = self._get_ethogram(trial_index, list(session_dir.glob("*.mat"))[0])
 
-        eth_selector.selection.add_event_handler(self.ethogram_event_handler)
+        colors = list(map(ETHOGRAM_COLORS.get, self.behaviors))
+
+        y_bottom = 0
+        for i, b in enumerate(self.behaviors):
+            xs = np.arange(self.ethogram_array.shape[1], dtype=np.float32)
+            ys = np.zeros(xs.size, dtype=np.float32)
+
+            lg = self.plot.add_line(
+                data=np.column_stack([xs, ys]),
+                thickness=10,
+                name=b
+            )
+
+            lg.colors = 0
+            lg.colors[self.ethogram_array[i] == 1] = ETHOGRAM_COLORS[b]
+
+            y_pos = (i * -10) - 1
+            lg.position_y = y_pos
+
+        self.ethogram_selector = LinearSelector(
+            selection=0,
+            limits=(0, self.ethogram_array.shape[1]),
+            axis="x",
+            parent=lg,
+            end_points=(y_bottom, y_pos),
+        )
+
+        self.plot.add_graphic(self.ethogram_selector)
+
+        self.ethogram_selector.selection.add_event_handler(self.ethogram_event_handler)
+        self.plot.camera.maintain_aspect = False
+        self.plot.auto_scale()
 
     def ethogram_event_handler(self, ev):
         """
@@ -149,8 +189,17 @@ class BehaviorVizContainer:
         self.image_widget.sliders["t"].value = 0
         self.image_widget.plot.graphics[0].data = self.image_widget._data[0][0]
 
-        hm_data = self._get_ethogram(int(selected_video.stem.split('_v')[-1]), row['mat_file'])[0]
-        self.plot.graphics[0].data[:hm_data.shape[0], :hm_data.shape[1]] = hm_data
+        trial_index = int(selected_video.stem.split('_v')[-1])
+        self.plot.clear()
+        self._make_ethogram_plot(trial_index=trial_index)
+        # ethogram_file_path = row['mat_file']
+        #
+        # self.ethogram_array, self.behaviors = self._get_ethogram(trial_index, ethogram_file_path)
+        # self._update_ethogram(self.ethogram_array, self.behaviors)
+
+    # def _update_ethogram(self, ethogram_array: np.ndarray, behaviors: List[str]):
+    #     self.plot.clear()
+    #     self._make_ethogram_plot()
 
     def _get_ethogram_shape(self, session_dir) -> Tuple[int, int]:
         """
