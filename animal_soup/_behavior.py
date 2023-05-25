@@ -189,7 +189,7 @@ class BehaviorVizContainer:
         self.image_widget.sliders["t"].value = 0
         self.image_widget.plot.graphics[0].data = self.image_widget._data[0][0]
 
-        trial_index = int(selected_video.stem.split('_v')[-1])
+        trial_index = int(selected_video.stem.split('_v')[-1]) - 1
         self.plot.clear()
         self._make_ethogram_plot(trial_index=trial_index)
         # ethogram_file_path = row['mat_file']
@@ -216,6 +216,7 @@ class BehaviorVizContainer:
         """
         Returns the ethogram for a given trial in a session.
         """
+        print(trial_index)
         m = loadmat(mat_path)
         behaviors = sorted([b.split('_')[0] for b in m['data'].dtype.names if 'scores' in b])
 
