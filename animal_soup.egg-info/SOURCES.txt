@@ -1,0 +1,10 @@
+LICENSE
+README.md
+setup.py
+animal_soup/__init__.py
+animal_soup/_behavior.py
+animal_soup.egg-info/PKG-INFO
+animal_soup.egg-info/SOURCES.txt
+animal_soup.egg-info/dependency_links.txt
+animal_soup.egg-info/requires.txt
+animal_soup.egg-info/top_level.txt
