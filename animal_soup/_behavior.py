@@ -195,14 +195,6 @@ class BehaviorVizContainer:
         trial_index = int(selected_video.stem.split('_v')[-1]) - 1
         self.plot.clear()
         self._make_ethogram_plot(trial_index=trial_index)
-        # ethogram_file_path = row['mat_file']
-        #
-        # self.ethogram_array, self.behaviors = self._get_ethogram(trial_index, ethogram_file_path)
-        # self._update_ethogram(self.ethogram_array, self.behaviors)
-
-    # def _update_ethogram(self, ethogram_array: np.ndarray, behaviors: List[str]):
-    #     self.plot.clear()
-    #     self._make_ethogram_plot()
 
     def _get_ethogram_shape(self, session_dir) -> Tuple[int, int]:
         """
