@@ -71,18 +71,6 @@ class _BasePathExtensions:
         else:
             raise ValueError("df path is not set")
 
-    def resolve(self, path: Union[str, Path]) -> Path:
-        path = Path(path)
-
-        if self.get_df_path().parent.joinpath(path).exists():
-            return self.get_df_path().parent.joinpath(path)
-
-        elif get_parent_raw_data_path() is not None:
-            if get_parent_raw_data_path().joinpath(path).exists():
-                return get_parent_raw_data_path().joinpath(path)
-
-        raise FileNotFoundError(f"Could not resolve full path of:\n{path}")
-
 
 @pd.api.extensions.register_dataframe_accessor("paths")
 class PathsDataFrameExtension(_BasePathExtensions):

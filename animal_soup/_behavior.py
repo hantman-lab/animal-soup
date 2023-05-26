@@ -219,7 +219,6 @@ class BehaviorVizContainer:
         """
         Returns the ethogram for a given trial in a session.
         """
-        print(trial_index)
         m = loadmat(mat_path)
         behaviors = sorted([b.split('_')[0] for b in m['data'].dtype.names if 'scores' in b])
 
