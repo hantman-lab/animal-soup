@@ -1,3 +1,5 @@
+import os.path
+
 import pandas as pd
 from ipydatagrid import DataGrid
 from ipywidgets import HBox, VBox, Select
@@ -10,6 +12,8 @@ from fastplotlib.graphics.selectors import LinearSelector
 from scipy.io import loadmat
 from typing import *
 import numpy as np
+
+from .batch_utils import get_parent_raw_data_path, PARENT_DATA_PATH, validate_path
 
 
 ETHOGRAM_COLORS = {
@@ -26,11 +30,10 @@ class BehaviorVizContainer:
     def __init__(
             self,
             dataframe: pd.DataFrame,
-            local_parent_path: str,
             start_index: int = 0
     ):
         self._dataframe = dataframe
-        self.local_parent_path = local_parent_path
+        self.local_parent_path = get_parent_raw_data_path()
 
         hide_columns = ["mat_file",
                         "session_vids",
@@ -257,3 +260,83 @@ class BehaviorVizContainer:
             HBox([self.image_widget.show(),
                   self.trial_selector]),
             self.plot.show()])
+
+
+@pd.api.extensions.register_dataframe_accessor("behavior")
+class BehaviorDataFrameVizExtension:
+    def __init__(self, df):
+        self._dataframe = df
+
+    def view(
+            self,
+            start_index: int = 0
+    ):
+        container = BehaviorVizContainer(
+            dataframe=self._dataframe,
+            start_index=start_index
+        )
+
+        return container
+
+    def add_item(
+            self,
+            animal_id: str,
+            session_id: Union[str, None] = None):
+
+        if get_parent_raw_data_path() is None:
+            raise ValueError(
+                "parent raw data path is not set, you must set it using:\n"
+                "`set_parent_raw_data_path()`"
+            )
+
+        PARENT_DATA_PATH = get_parent_raw_data_path()
+
+        animal_dir = PARENT_DATA_PATH.joinpath(animal_id)
+
+        validate_path(animal_dir)
+
+        if not os.path.exists(animal_dir):
+            raise ValueError(
+                f"animal_id path is not valid at: {animal_dir}"
+            )
+
+        if session_id is None:
+            session_dirs = sorted(animal_dir.glob('*'))
+            if len(session_dirs) == 0:
+                raise ValueError("no sessions found in this animal dir")
+            for session_dir in session_dirs:
+                session_id = session_dir.stem
+                mat_file = session_dir.joinpath('jaaba.mat')
+                session_vids = sorted(session_dir.glob('*.avi'))
+
+                s = pd.Series(
+                    {
+                        "animal_id": animal_id,
+                        "session_id": session_id,
+                        "mat_file": mat_file,
+                        "session_vids": session_vids,
+                        "notes": None
+                    }
+                )
+
+                self._dataframe.loc[self._dataframe.index.size] = s
+
+                self._dataframe.to_hdf(self._dataframe.paths.get_df_path(), key='df')
+        else:
+            mat_file = session_id.joinpath('jaaba.mat')
+            session_vids = sorted(session_id.glob('*.avi'))
+            s = pd.Series(
+                {
+                    "animal_id": animal_id,
+                    "session_id": session_id,
+                    "mat_file": mat_file,
+                    "session_vids": session_vids,
+                    "notes": None
+                }
+            )
+
+            self._dataframe.loc[self._dataframe.index.size] = s
+
+            self._dataframe.to_hdf(self._dataframe.paths.get_df_path(), key='df')
+
+
