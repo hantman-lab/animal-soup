@@ -100,6 +100,7 @@ def load_df(path: Union[str, Path]) -> pd.DataFrame:
     path = validate_path(path)
 
     df = pd.read_hdf(Path(path))
+    df.paths.set_df_path(path)
 
     return df
 

@@ -314,8 +314,9 @@ class BehaviorDataFrameVizExtension:
 
                 self._dataframe.to_hdf(self._dataframe.paths.get_df_path(), key='df')
         else:
-            mat_file = session_id.joinpath('jaaba.mat')
-            session_vids = sorted(session_id.glob('*.avi'))
+            session_dir = animal_dir.joinpath(session_id)
+            mat_file = session_dir.joinpath('jaaba.mat')
+            session_vids = sorted(session_dir.glob('*.avi'))
             s = pd.Series(
                 {
                     "animal_id": animal_id,
