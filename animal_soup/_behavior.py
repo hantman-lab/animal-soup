@@ -30,10 +30,12 @@ class BehaviorVizContainer:
     def __init__(
             self,
             dataframe: pd.DataFrame,
-            start_index: int = 0
+            start_index: int = 0,
+            deg_comparison: bool = False
     ):
         self._dataframe = dataframe
         self.local_parent_path = get_parent_raw_data_path()
+        self.deg_comparison = deg_comparison
 
         hide_columns = ["mat_file",
                         "session_vids",
@@ -60,6 +62,7 @@ class BehaviorVizContainer:
         self.trial_selector = None
         self.image_widget = None
         self.plot = None
+        self.deg_plot = None
 
         # initialize the ethogram plot and imagewidget
 
@@ -114,6 +117,9 @@ class BehaviorVizContainer:
         if self.plot is None:
             self._make_ethogram_plot()
 
+        if self.deg_plot is None and self.deg_comparison:
+            self._make_deg_ethogram_plot()
+
     def _make_image_widget(self):
         """
         Instantiates image widget.
@@ -137,7 +143,7 @@ class BehaviorVizContainer:
         # ethogram_shape = self._get_ethogram_shape(session_dir)
         self.ethogram_array, self.behaviors = self._get_ethogram(trial_index, list(session_dir.glob("*.mat"))[0])
 
-        colors = list(map(ETHOGRAM_COLORS.get, self.behaviors))
+        #colors = list(map(ETHOGRAM_COLORS.get, self.behaviors))
 
         y_bottom = 0
         for i, b in enumerate(self.behaviors):
@@ -170,6 +176,57 @@ class BehaviorVizContainer:
         self.plot.camera.maintain_aspect = False
         self.plot.auto_scale()
 
+    def _make_deg_ethogram_plot(self, trial_index: int = 0):
+        row = self._dataframe.iloc[self.current_row]
+        session_dir = self.local_parent_path.joinpath(row['animal_id']).joinpath(row['session_id'])
+
+        if self.deg_plot is None:
+            self.deg_plot = Plot(size=(500, 100))
+
+        try:
+            self.deg_ethogram_array = np.load(session_dir.joinpath(self.trial_selector.value).with_suffix('.npy'))
+        except FileNotFoundError:
+            self.deg_plot.clear()
+            return
+
+        y_bottom = 0
+        for i, b in enumerate(self.behaviors):
+            xs = np.arange(self.deg_ethogram_array.shape[1], dtype=np.float32)
+            ys = np.zeros(xs.size, dtype=np.float32)
+
+            lg = self.deg_plot.add_line(
+                data=np.column_stack([xs, ys]),
+                thickness=10,
+                name=b
+            )
+
+            lg.colors = 0
+            lg.colors[self.deg_ethogram_array[i] == 1] = ETHOGRAM_COLORS[b]
+
+            y_pos = (i * -10) - 1
+            lg.position_y = y_pos
+
+        self.deg_ethogram_selector = LinearSelector(
+            selection=0,
+            limits=(0, self.deg_ethogram_array.shape[1]),
+            axis="x",
+            parent=lg,
+            end_points=(y_bottom, y_pos),
+        )
+
+        self.deg_plot.add_graphic(self.deg_ethogram_selector)
+
+        self.deg_ethogram_selector.selection.add_event_handler(self.deg_ethogram_event_handler)
+        self.deg_plot.camera.maintain_aspect = False
+        self.deg_plot.auto_scale()
+
+    def deg_ethogram_event_handler(self, ev):
+        """
+        Event handler called for linear selector.
+        """
+        ix = ev.pick_info["selected_index"]
+        self.image_widget.sliders["t"].value = ix
+
     def ethogram_event_handler(self, ev):
         """
         Event handler called for linear selector.
@@ -195,6 +252,9 @@ class BehaviorVizContainer:
         trial_index = int(selected_video.stem.split('_v')[-1]) - 1
         self.plot.clear()
         self._make_ethogram_plot(trial_index=trial_index)
+        if self.deg_comparison:
+            self.deg_plot.clear()
+            self._make_deg_ethogram_plot(trial_index=trial_index)
 
     def _get_ethogram_shape(self, session_dir) -> Tuple[int, int]:
         """
@@ -246,11 +306,19 @@ class BehaviorVizContainer:
         """
         Shows the widget
         """
-        return VBox([
-            self.datagrid,
-            HBox([self.image_widget.show(),
-                  self.trial_selector]),
-            self.plot.show()])
+        if self.deg_comparison:
+            return VBox([
+                self.datagrid,
+                HBox([self.image_widget.show(),
+                      self.trial_selector]),
+                self.plot.show(),
+                self.deg_plot.show()])
+        else:
+            return VBox([
+                self.datagrid,
+                HBox([self.image_widget.show(),
+                      self.trial_selector]),
+                self.plot.show()])
 
 
 @pd.api.extensions.register_dataframe_accessor("behavior")
@@ -260,11 +328,13 @@ class BehaviorDataFrameVizExtension:
 
     def view(
             self,
-            start_index: int = 0
+            start_index: int = 0,
+            deg_comparison: bool = False
     ):
         container = BehaviorVizContainer(
             dataframe=self._dataframe,
-            start_index=start_index
+            start_index=start_index,
+            deg_comparison=deg_comparison
         )
 
         return container
