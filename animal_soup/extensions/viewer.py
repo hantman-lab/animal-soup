@@ -1,4 +1,5 @@
 from .._behavior import BehaviorVizContainer
+from .._ethogram_comparison import EthogramComparison
 from .common import BehaviorDataFrameExtension
 import pandas as pd
 
@@ -13,6 +14,15 @@ class BehaviorDataFrameVizExtension(BehaviorDataFrameExtension):
             start_index: int = 0,
     ):
         container = BehaviorVizContainer(
+            dataframe=self._df,
+            start_index=start_index,
+        )
+
+        return container
+
+    def comparison_view(self,
+                        start_index: int = 0):
+        container = EthogramComparison(
             dataframe=self._df,
             start_index=start_index,
         )

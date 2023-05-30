@@ -87,7 +87,7 @@ class BehaviorDataFrameExtension:
                 {
                     "animal_id": animal_id,
                     "session_id": session_id,
-                    "mat_file": mat_path,
+                    "mat_path": mat_path,
                     "session_vids": session_vids,
                     "notes": None
                 }
