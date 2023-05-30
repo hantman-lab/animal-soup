@@ -2,7 +2,7 @@ from ._behavior import BehaviorVizContainer, ETHOGRAM_COLORS
 import pandas as pd
 import numpy as np
 from fastplotlib import Plot
-from fastplotlib.graphics.selectors import LinearSelector
+from fastplotlib.graphics.selectors import LinearSelector, Synchronizer
 from mesmerize_core.arrays import LazyVideo
 from ipywidgets import HBox, VBox
 
@@ -60,6 +60,8 @@ class EthogramComparison(BehaviorVizContainer):
         )
 
         self.deg_plot.add_graphic(self.deg_ethogram_selector)
+
+        self.sync = Synchronizer(self.deg_ethogram_selector, self.ethogram_selector, key_bind=None)
 
         self.deg_ethogram_selector.selection.add_event_handler(self.deg_ethogram_event_handler)
         self.deg_plot.camera.maintain_aspect = False
