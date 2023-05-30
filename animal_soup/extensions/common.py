@@ -54,6 +54,11 @@ class BehaviorDataFrameExtension:
                 session_id = session_dir.stem
                 mat_path = session_dir.joinpath('jaaba.mat')
                 mat_path = self._df.paths.split(mat_path)[-1]
+                if os.path.exists(session_dir.joinpath('deg_labels.npy')):
+                    deg_path = session_dir.joinpath('deg_labels.npy')
+                    deg_path = self._df.paths.split(deg_path)[-1]
+                else:
+                    deg_path = None
                 session_vids = sorted(session_dir.glob('*.avi'))
                 session_vids = [self._df.paths.split(vid_path)[-1] for vid_path in session_vids]
 
@@ -62,6 +67,7 @@ class BehaviorDataFrameExtension:
                         "animal_id": animal_id,
                         "session_id": session_id,
                         "mat_path": mat_path,
+                        "deg_path": deg_path,
                         "session_vids": session_vids,
                         "notes": None
                     }
@@ -81,6 +87,11 @@ class BehaviorDataFrameExtension:
             session_dir = animal_dir.joinpath(session_id)
             mat_path = session_dir.joinpath('jaaba.mat')
             mat_path = self._df.paths.split(mat_path)[-1]
+            if os.path.exists(session_dir.joinpath('deg_labels.npy')):
+                deg_path = session_dir.joinpath('deg_labels.npy')
+                deg_path = self._df.paths.split(deg_path)[-1]
+            else:
+                deg_path = None
             session_vids = sorted(session_dir.glob('*.avi'))
             session_vids = [self._df.paths.split(vid_path)[-1] for vid_path in session_vids]
             s = pd.Series(
@@ -88,6 +99,7 @@ class BehaviorDataFrameExtension:
                     "animal_id": animal_id,
                     "session_id": session_id,
                     "mat_path": mat_path,
+                    "deg_path": deg_path,
                     "session_vids": session_vids,
                     "notes": None
                 }

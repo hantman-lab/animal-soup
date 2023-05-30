@@ -35,6 +35,7 @@ class BehaviorVizContainer:
         self.local_parent_path = get_parent_raw_data_path()
 
         hide_columns = ["mat_path",
+                        "deg_path",
                         "session_vids",
                         "notes"]
 
