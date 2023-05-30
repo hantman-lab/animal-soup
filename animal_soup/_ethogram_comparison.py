@@ -29,10 +29,14 @@ class EthogramComparison(BehaviorVizContainer):
             self.deg_plot = Plot(size=(500, 100))
 
         try:
-            self.deg_ethogram_array = np.load(session_dir.joinpath(self.trial_selector.value).with_suffix('.npy'))
+            self.deg_labels = np.load(
+                session_dir.joinpath(row['session_id']).with_name('deg_labels').with_suffix('.npy')
+            )
         except FileNotFoundError:
             self.deg_plot.clear()
             return
+
+        self.deg_ethogram_array = self.deg_labels[trial_index]
 
         y_bottom = 0
         for i, b in enumerate(self.behaviors):

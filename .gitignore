@@ -1,6 +1,7 @@
 .ipynb_checkpoints/
 .idea/
 __pycache__/
+animal_soup/__pycache__/
 
 # Distribution / packaging
 .Python
