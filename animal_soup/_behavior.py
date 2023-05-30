@@ -1,5 +1,3 @@
-import os.path
-
 import pandas as pd
 from ipydatagrid import DataGrid
 from ipywidgets import HBox, VBox, Select
@@ -12,8 +10,9 @@ from fastplotlib.graphics.selectors import LinearSelector
 from scipy.io import loadmat
 from typing import *
 import numpy as np
+from pathlib import Path
 
-from .batch_utils import get_parent_raw_data_path, PARENT_DATA_PATH, validate_path
+from .batch_utils import get_parent_raw_data_path
 
 
 ETHOGRAM_COLORS = {
@@ -31,13 +30,11 @@ class BehaviorVizContainer:
             self,
             dataframe: pd.DataFrame,
             start_index: int = 0,
-            deg_comparison: bool = False
     ):
         self._dataframe = dataframe
         self.local_parent_path = get_parent_raw_data_path()
-        self.deg_comparison = deg_comparison
 
-        hide_columns = ["mat_file",
+        hide_columns = ["mat_path",
                         "session_vids",
                         "notes"]
 
@@ -62,9 +59,6 @@ class BehaviorVizContainer:
         self.trial_selector = None
         self.image_widget = None
         self.plot = None
-        self.deg_plot = None
-
-        # initialize the ethogram plot and imagewidget
 
         self.datagrid.select(
             row1=start_index,
@@ -78,6 +72,7 @@ class BehaviorVizContainer:
         self.datagrid.observe(self._row_changed, names="selections")
 
     def _get_selection_row(self) -> Union[int, None]:
+        """Returns the index of the current selected row."""
         r1 = self.datagrid.selections[0]["r1"]
         r2 = self.datagrid.selections[0]["r2"]
 
@@ -90,6 +85,7 @@ class BehaviorVizContainer:
         return index
 
     def _row_changed(self, *args):
+        """Event handler for when a row in the datagrid is changed."""
         index = self._get_selection_row()
 
         if index is None or self.current_row == index:
@@ -117,15 +113,12 @@ class BehaviorVizContainer:
         if self.plot is None:
             self._make_ethogram_plot()
 
-        if self.deg_plot is None and self.deg_comparison:
-            self._make_deg_ethogram_plot()
-
     def _make_image_widget(self):
         """
-        Instantiates image widget.
+        Instantiates image widget to view behavior videos.
         """
         row = self._dataframe.iloc[self.current_row]
-        vid_path = row['session_vids'][int(self.selected_trial_ix)]
+        vid_path = self.local_parent_path.joinpath(row['session_vids'][int(self.selected_trial_ix)])
 
         if self.image_widget is None:
             self.image_widget = ImageWidget(data=LazyVideo(vid_path))
@@ -135,15 +128,12 @@ class BehaviorVizContainer:
         Instantiates the ethogram plot.
         """
         row = self._dataframe.iloc[self.current_row]
-        session_dir = self.local_parent_path.joinpath(row['animal_id']).joinpath(row['session_id'])
+        session_dir = self.local_parent_path.joinpath(row['animal_id'], (row['session_id']))
 
         if self.plot is None:
             self.plot = Plot(size=(500, 100))
 
-        # ethogram_shape = self._get_ethogram_shape(session_dir)
         self.ethogram_array, self.behaviors = self._get_ethogram(trial_index, list(session_dir.glob("*.mat"))[0])
-
-        #colors = list(map(ETHOGRAM_COLORS.get, self.behaviors))
 
         y_bottom = 0
         for i, b in enumerate(self.behaviors):
@@ -176,57 +166,6 @@ class BehaviorVizContainer:
         self.plot.camera.maintain_aspect = False
         self.plot.auto_scale()
 
-    def _make_deg_ethogram_plot(self, trial_index: int = 0):
-        row = self._dataframe.iloc[self.current_row]
-        session_dir = self.local_parent_path.joinpath(row['animal_id']).joinpath(row['session_id'])
-
-        if self.deg_plot is None:
-            self.deg_plot = Plot(size=(500, 100))
-
-        try:
-            self.deg_ethogram_array = np.load(session_dir.joinpath(self.trial_selector.value).with_suffix('.npy'))
-        except FileNotFoundError:
-            self.deg_plot.clear()
-            return
-
-        y_bottom = 0
-        for i, b in enumerate(self.behaviors):
-            xs = np.arange(self.deg_ethogram_array.shape[1], dtype=np.float32)
-            ys = np.zeros(xs.size, dtype=np.float32)
-
-            lg = self.deg_plot.add_line(
-                data=np.column_stack([xs, ys]),
-                thickness=10,
-                name=b
-            )
-
-            lg.colors = 0
-            lg.colors[self.deg_ethogram_array[i] == 1] = ETHOGRAM_COLORS[b]
-
-            y_pos = (i * -10) - 1
-            lg.position_y = y_pos
-
-        self.deg_ethogram_selector = LinearSelector(
-            selection=0,
-            limits=(0, self.deg_ethogram_array.shape[1]),
-            axis="x",
-            parent=lg,
-            end_points=(y_bottom, y_pos),
-        )
-
-        self.deg_plot.add_graphic(self.deg_ethogram_selector)
-
-        self.deg_ethogram_selector.selection.add_event_handler(self.deg_ethogram_event_handler)
-        self.deg_plot.camera.maintain_aspect = False
-        self.deg_plot.auto_scale()
-
-    def deg_ethogram_event_handler(self, ev):
-        """
-        Event handler called for linear selector.
-        """
-        ix = ev.pick_info["selected_index"]
-        self.image_widget.sliders["t"].value = ix
-
     def ethogram_event_handler(self, ev):
         """
         Event handler called for linear selector.
@@ -241,7 +180,7 @@ class BehaviorVizContainer:
         """
         row = self._dataframe.iloc[self.current_row]
 
-        session_path = self.local_parent_path.joinpath(row['animal_id']).joinpath(row['session_id'])
+        session_path = self.local_parent_path.joinpath(row['animal_id'], row['session_id'])
         selected_video = session_path.joinpath(self.trial_selector.value).with_suffix('.avi')
 
         self.image_widget._data = [LazyVideo(selected_video)]
@@ -252,20 +191,6 @@ class BehaviorVizContainer:
         trial_index = int(selected_video.stem.split('_v')[-1]) - 1
         self.plot.clear()
         self._make_ethogram_plot(trial_index=trial_index)
-        if self.deg_comparison:
-            self.deg_plot.clear()
-            self._make_deg_ethogram_plot(trial_index=trial_index)
-
-    def _get_ethogram_shape(self, session_dir) -> Tuple[int, int]:
-        """
-        Gets the shape of the largest ethogram in order to allocate data buffer.
-        """
-        d0, d1 = (0, 0)
-        for o in self.trial_selector.options:
-            ix = int(o[-3:]) - 1
-            eth = self._get_ethogram(ix, list(session_dir.glob("*.mat"))[0])[0].shape
-            d0, d1 = (max(eth[0], d0), max(eth[1], d1))
-        return d0, d1
 
     def _get_ethogram(self, trial_index: int, mat_path):
         """
@@ -304,101 +229,13 @@ class BehaviorVizContainer:
 
     def show(self):
         """
-        Shows the widget
+        Shows the widget.
         """
-        if self.deg_comparison:
-            return VBox([
-                self.datagrid,
-                HBox([self.image_widget.show(),
-                      self.trial_selector]),
-                self.plot.show(),
-                self.deg_plot.show()])
-        else:
-            return VBox([
-                self.datagrid,
-                HBox([self.image_widget.show(),
-                      self.trial_selector]),
-                self.plot.show()])
+        return VBox([
+            self.datagrid,
+            HBox([self.image_widget.show(),
+                  self.trial_selector]),
+            self.plot.show()])
 
-
-@pd.api.extensions.register_dataframe_accessor("behavior")
-class BehaviorDataFrameVizExtension:
-    def __init__(self, df):
-        self._dataframe = df
-
-    def view(
-            self,
-            start_index: int = 0,
-            deg_comparison: bool = False
-    ):
-        container = BehaviorVizContainer(
-            dataframe=self._dataframe,
-            start_index=start_index,
-            deg_comparison=deg_comparison
-        )
-
-        return container
-
-    def add_item(
-            self,
-            animal_id: str,
-            session_id: Union[str, None] = None):
-
-        if get_parent_raw_data_path() is None:
-            raise ValueError(
-                "parent raw data path is not set, you must set it using:\n"
-                "`set_parent_raw_data_path()`"
-            )
-
-        PARENT_DATA_PATH = get_parent_raw_data_path()
-
-        animal_dir = PARENT_DATA_PATH.joinpath(animal_id)
-
-        validate_path(animal_dir)
-
-        if not os.path.exists(animal_dir):
-            raise ValueError(
-                f"animal_id path is not valid at: {animal_dir}"
-            )
-
-        if session_id is None:
-            session_dirs = sorted(animal_dir.glob('*'))
-            if len(session_dirs) == 0:
-                raise ValueError("no sessions found in this animal dir")
-            for session_dir in session_dirs:
-                session_id = session_dir.stem
-                mat_file = session_dir.joinpath('jaaba.mat')
-                session_vids = sorted(session_dir.glob('*.avi'))
-
-                s = pd.Series(
-                    {
-                        "animal_id": animal_id,
-                        "session_id": session_id,
-                        "mat_file": mat_file,
-                        "session_vids": session_vids,
-                        "notes": None
-                    }
-                )
-
-                self._dataframe.loc[self._dataframe.index.size] = s
-
-                self._dataframe.to_hdf(self._dataframe.paths.get_df_path(), key='df')
-        else:
-            session_dir = animal_dir.joinpath(session_id)
-            mat_file = session_dir.joinpath('jaaba.mat')
-            session_vids = sorted(session_dir.glob('*.avi'))
-            s = pd.Series(
-                {
-                    "animal_id": animal_id,
-                    "session_id": session_id,
-                    "mat_file": mat_file,
-                    "session_vids": session_vids,
-                    "notes": None
-                }
-            )
-
-            self._dataframe.loc[self._dataframe.index.size] = s
-
-            self._dataframe.to_hdf(self._dataframe.paths.get_df_path(), key='df')
 
 

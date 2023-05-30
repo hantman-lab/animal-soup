@@ -5,7 +5,7 @@ from typing import Union
 import pandas as pd
 import re as regex
 
-CURRENT_DF_PATH: Path = None  # only one batch at a time
+CURRENT_DF_PATH: Path = None  # only one df at a time
 PARENT_DATA_PATH: Path = None
 
 DATAFRAME_COLUMNS = ["animal_id", "session_id", "mat_path", "session_vids", "notes"]
@@ -74,7 +74,7 @@ class _BasePathExtensions:
     def resolve(self, path: Union[str, Path]) -> Path:
         """
         Resolve the full path of the passed ``path`` if possible, first tries
-        "batch_dir" then "raw_data_dir".
+        "df_dir" then "raw_data_dir".
 
         Parameters
         ----------
@@ -88,8 +88,8 @@ class _BasePathExtensions:
 
         """
         path = Path(path)
-        if self.get_batch_path().parent.joinpath(path).exists():
-            return self.get_batch_path().parent.joinpath(path)
+        if self.get_df_path().parent.joinpath(path).exists():
+            return self.get_df_path().parent.joinpath(path)
 
         # else check if in parent raw data dir
         elif get_parent_raw_data_path() is not None:
@@ -115,9 +115,9 @@ class _BasePathExtensions:
            """
         path = Path(path)
         # check if input movie is within batch dir
-        if self.get_batch_path().parent in path.parents:
-            return self.get_batch_path().parent, path.relative_to(
-                self.get_batch_path().parent
+        if self.get_df_path().parent in path.parents:
+            return self.get_df_path().parent, path.relative_to(
+                self.get_df_path().parent
             )
 
         # else check if in parent raw data dir
@@ -129,7 +129,7 @@ class _BasePathExtensions:
 
         raise NotADirectoryError(
             f"Could not split `path`:\n{path}"
-            f"\nnot relative to either batch path:\n{self.get_batch_path()}"
+            f"\nnot relative to either batch path:\n{self.get_df_path()}"
             f"\nor parent raw data path:\n{get_parent_raw_data_path()}"
         )
 
@@ -146,7 +146,7 @@ class PathsSeriesExtension(_BasePathExtensions):
 
 def load_df(path: Union[str, Path]) -> pd.DataFrame:
     """
-    Load the batch dataframe hdf5 file
+    Load the behavior dataframe hdf5 file
 
     Parameters
     ----------
@@ -174,10 +174,10 @@ def create_df(path: Union[str, Path], remove_existing: bool = False) -> pd.DataF
     Parameters
     ----------
     path: str or Path
-        path to save the new batch DataFrame as a hdf5 file, should be located under PARENT_DATA_PATH
+        path to save the new behavior DataFrame as a hdf5 file, should be located under PARENT_DATA_PATH
 
     remove_existing: bool
-        If ``True``, remove an existing batch DataFrame file if it exists at the given `path`, default ``False``
+        If ``True``, remove an existing behavior DataFrame file if it exists at the given `path`, default ``False``
 
     Returns
     -------

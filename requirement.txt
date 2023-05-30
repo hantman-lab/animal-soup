@@ -1,3 +1,4 @@
 mesmerize-core
 fastplotlib
 ipydatagrid
+pandas

@@ -1,5 +1,5 @@
-from ._behavior import BehaviorVizContainer, BehaviorDataFrameVizExtension
-
+from ._behavior import BehaviorVizContainer
+from .extensions import *
 from .batch_utils import (
     create_df,
     load_df,
@@ -19,5 +19,6 @@ __all__ = [
     "create_df",
     "BehaviorVizContainer",
     "BehaviorDataFrameVizExtension",
+    "BehaviorDataFrameExtension"
 ]
 
