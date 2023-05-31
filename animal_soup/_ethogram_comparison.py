@@ -1,4 +1,4 @@
-from ._behavior import BehaviorVizContainer, ETHOGRAM_COLORS
+from ._ethogram import EthogramVizContainer, ETHOGRAM_COLORS
 import pandas as pd
 import numpy as np
 from fastplotlib import Plot
@@ -7,7 +7,7 @@ from mesmerize_core.arrays import LazyVideo
 from ipywidgets import HBox, VBox
 
 
-class EthogramComparison(BehaviorVizContainer):
+class EthogramComparison(EthogramVizContainer):
     def __init__(self,
                  dataframe: pd.DataFrame,
                  start_index: int = 0,
