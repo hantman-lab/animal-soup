@@ -4,7 +4,7 @@ import os
 import pandas as pd
 from pathlib import Path
 import shutil
-from datetime import time
+import time
 
 
 @pd.api.extensions.register_dataframe_accessor("behavior")
@@ -69,6 +69,7 @@ class BehaviorDataFrameExtension:
                         "mat_path": mat_path,
                         "deg_path": deg_path,
                         "session_vids": session_vids,
+                        "training_trials": list(),
                         "notes": None
                     }
                 )
@@ -101,6 +102,7 @@ class BehaviorDataFrameExtension:
                     "mat_path": mat_path,
                     "deg_path": deg_path,
                     "session_vids": session_vids,
+                    "training_trials": list(),
                     "notes": None
                 }
             )
@@ -113,7 +115,7 @@ class BehaviorDataFrameExtension:
         """
         Saves DataFrame to disk, copies to a backup before overwriting existing file.
         """
-        path: Path = self._df.paths.get_batch_path()
+        path: Path = self._df.paths.get_df_path()
 
         disk_df = load_df(path)
 
@@ -129,7 +131,7 @@ class BehaviorDataFrameExtension:
                 f"in row number."
             )
 
-        bak = path.with_suffix(path.suffix + f"bak.{time.time()}")
+        bak = path.with_suffix(".bak")
 
         shutil.copyfile(path, bak)
         try:

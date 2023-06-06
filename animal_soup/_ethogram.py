@@ -1,5 +1,5 @@
 import pandas as pd
-from ipywidgets import HBox, VBox, Select
+from ipywidgets import HBox, VBox, Select, Button, Layout
 
 from mesmerize_core.arrays import LazyVideo
 from fastplotlib import Plot
@@ -28,6 +28,11 @@ class EthogramVizContainer(BehaviorVizContainer):
         )
 
         self.plot = None
+
+        self.trial_button = Button(value=False, disabled=False, icon='hand-pointer',
+                                       layout=Layout(width='auto'), tooltip='select trial as train')
+
+        self.trial_button.on_click(self.add_selected_trial)
 
         self._make_ethogram_plot()
 
@@ -128,12 +133,24 @@ class EthogramVizContainer(BehaviorVizContainer):
         mat_trial_index = mat_trial_index.item()
 
         for b in sorted_behaviors:
-            behavior_index = m['data'].dtype.names.index(f'{b}_postprocessed')
-            ethograms.append(m['data'][mat_trial_index][0][behavior_index])
+            behavior_index = m['data'].dtype.names.index(f'{b}_labl_label')
+            row = m['data'][mat_trial_index][0][behavior_index]
+            row[row == -1] = 0
+            ethograms.append(row)
 
         sorted_behaviors = [b.lower() for b in sorted_behaviors]
 
         return np.hstack(ethograms).T, sorted_behaviors
+
+    def add_selected_trial(self, obj):
+        row = self._dataframe.iloc[self.current_row]
+
+        selected_trial = self.trial_selector.value
+
+        row["training_trials"].append(selected_trial)
+
+        self._dataframe.to_hdf(self._dataframe.paths.get_df_path(), key='df')
+
 
     def show(self):
         """
@@ -142,5 +159,6 @@ class EthogramVizContainer(BehaviorVizContainer):
         return VBox([
             self.datagrid,
             HBox([self.image_widget.show(),
-                  self.trial_selector]),
+                  VBox([self.trial_selector,
+                        self.trial_button])]),
             self.plot.show()])
