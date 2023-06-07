@@ -1,5 +1,5 @@
 import pandas as pd
-from ipywidgets import HBox, VBox, Select, Button, Layout
+from ipywidgets import HBox, VBox, Select, Button, Layout, RadioButtons
 
 from mesmerize_core.arrays import LazyVideo
 from fastplotlib import Plot
@@ -32,7 +32,14 @@ class EthogramVizContainer(BehaviorVizContainer):
         self.trial_button = Button(value=False, disabled=False, icon='hand-pointer',
                                        layout=Layout(width='auto'), tooltip='select trial as train')
 
+        self.ethogram_button = RadioButtons(options=['hand-labels', 'jabba-pred'],
+                                         value='hand-labels',
+                                                description='Ethogram Options:',
+                                                disabled=False
+)
+
         self.trial_button.on_click(self.add_selected_trial)
+        self.ethogram_button.observe(self.change_ethogram, 'value')
 
         self._make_ethogram_plot()
 
@@ -46,7 +53,7 @@ class EthogramVizContainer(BehaviorVizContainer):
         if self.plot is None:
             self.plot = Plot(size=(500, 100))
 
-        self.ethogram_array, self.behaviors = self._get_ethogram(trial_index, list(session_dir.glob("*.mat"))[0])
+        self.ethogram_array, self.behaviors = self._get_ethogram(trial_index, list(session_dir.glob("*.mat"))[0], ethogram_type=self.ethogram_button.value)
 
         y_bottom = 0
         for i, b in enumerate(self.behaviors):
@@ -105,7 +112,7 @@ class EthogramVizContainer(BehaviorVizContainer):
         self.plot.clear()
         self._make_ethogram_plot(trial_index=trial_index)
 
-    def _get_ethogram(self, trial_index: int, mat_path):
+    def _get_ethogram(self, trial_index: int, mat_path, ethogram_type: str):
         """
         Returns the ethogram for a given trial in a session.
         """
@@ -132,11 +139,18 @@ class EthogramVizContainer(BehaviorVizContainer):
 
         mat_trial_index = mat_trial_index.item()
 
-        for b in sorted_behaviors:
-            behavior_index = m['data'].dtype.names.index(f'{b}_labl_label')
-            row = m['data'][mat_trial_index][0][behavior_index]
-            row[row == -1] = 0
-            ethograms.append(row)
+        if ethogram_type == 'hand-labels':
+            for b in sorted_behaviors:
+                behavior_index = m['data'].dtype.names.index(f'{b}_labl_label')
+                row = m['data'][mat_trial_index][0][behavior_index]
+                row[row == -1] = 0
+                ethograms.append(row)
+        else:
+            for b in sorted_behaviors:
+                behavior_index = m['data'].dtype.names.index(f'{b}_postprocessed')
+                row = m['data'][mat_trial_index][0][behavior_index]
+                row[row == -1] = 0
+                ethograms.append(row)
 
         sorted_behaviors = [b.lower() for b in sorted_behaviors]
 
@@ -147,10 +161,21 @@ class EthogramVizContainer(BehaviorVizContainer):
 
         selected_trial = self.trial_selector.value
 
-        row["training_trials"].append(selected_trial)
+        if selected_trial not in row["training_trials"]:
+            row["training_trials"].append(selected_trial)
 
         self._dataframe.to_hdf(self._dataframe.paths.get_df_path(), key='df')
 
+    def change_ethogram(self, obj):
+        # change in ethogram option should regenerate current ethogram plot
+        row = self._dataframe.iloc[self.current_row]
+
+        session_path = self.local_parent_path.joinpath(row['animal_id'], row['session_id'])
+        selected_video = session_path.joinpath(self.trial_selector.value).with_suffix('.avi')
+
+        trial_index = int(selected_video.stem.split('_v')[-1]) - 1
+        self.plot.clear()
+        self._make_ethogram_plot(trial_index=trial_index)
 
     def show(self):
         """
@@ -159,6 +184,9 @@ class EthogramVizContainer(BehaviorVizContainer):
         return VBox([
             self.datagrid,
             HBox([self.image_widget.show(),
+
                   VBox([self.trial_selector,
-                        self.trial_button])]),
+                        self.trial_button,
+                       self.ethogram_button])
+        ]),
             self.plot.show()])
