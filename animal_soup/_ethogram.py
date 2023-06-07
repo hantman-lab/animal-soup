@@ -161,8 +161,12 @@ class EthogramVizContainer(BehaviorVizContainer):
 
         selected_trial = self.trial_selector.value
 
-        if selected_trial not in row["training_trials"]:
-            row["training_trials"].append(selected_trial)
+        if self.ethogram_button.value == 'hand-labels':
+            if selected_trial not in row["hand_training_trials"]:
+                row["training_trials"].append(selected_trial)
+        else:
+            if selected_trial not in row["jabba_training_trials"]:
+                row["training_trials"].append(selected_trial)
 
         self._dataframe.to_hdf(self._dataframe.paths.get_df_path(), key='df')
 

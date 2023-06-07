@@ -69,7 +69,8 @@ class BehaviorDataFrameExtension:
                         "mat_path": mat_path,
                         "deg_path": deg_path,
                         "session_vids": session_vids,
-                        "training_trials": list(),
+                        "hand_training_trials": list(),
+                        "jabba_training_trials": list(),
                         "notes": None
                     }
                 )
@@ -102,7 +103,8 @@ class BehaviorDataFrameExtension:
                     "mat_path": mat_path,
                     "deg_path": deg_path,
                     "session_vids": session_vids,
-                    "training_trials": list(),
+                    "hand_training_trials": list(),
+                    "jabba_training_trials": list(),
                     "notes": None
                 }
             )

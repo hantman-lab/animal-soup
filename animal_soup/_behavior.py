@@ -22,7 +22,8 @@ class BehaviorVizContainer:
         hide_columns = ["mat_path",
                         "deg_path",
                         "session_vids",
-                        "training_trials",
+                        "hand_training_trials",
+                        "jabba_training_trials",
                         "notes"]
 
         columns = dataframe.columns
