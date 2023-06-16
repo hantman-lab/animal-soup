@@ -19,11 +19,7 @@ class BehaviorVizContainer:
         self._dataframe = dataframe
         self.local_parent_path = get_parent_raw_data_path()
 
-        hide_columns = ["mat_path",
-                        "deg_path",
-                        "session_vids",
-                        "hand_training_trials",
-                        "jabba_training_trials",
+        hide_columns = ["ethograms",
                         "notes"]
 
         columns = dataframe.columns
@@ -84,7 +80,8 @@ class BehaviorVizContainer:
     def _set_trial_selector(self, index):
         """Creates trial selector widget for a given session."""
         row = self._dataframe.iloc[index]
-        options = [item.stem for item in row['session_vids']]
+        options = [k for k in row["ethograms"].keys()]
+        #options = [item.stem for item in row['session_vids']]
 
         if self.trial_selector is None:
             self.trial_selector = Select(options=options)
@@ -92,7 +89,7 @@ class BehaviorVizContainer:
         else:
             self.trial_selector.options = options
 
-        self.selected_trial_ix = int(self.trial_selector.value.split('_v')[-1])
+        self.selected_trial = self.trial_selector.value
 
         if self.image_widget is None:
             self._make_image_widget()
@@ -102,26 +99,25 @@ class BehaviorVizContainer:
         Instantiates image widget to view behavior videos.
         """
         row = self._dataframe.iloc[self.current_row]
-        vid_path = self.local_parent_path.joinpath(row['session_vids'][int(self.selected_trial_ix)])
+        vid_path = self.local_parent_path.joinpath(row['animal_id'],
+                                                   row['session_id'],
+                                                   self.selected_trial).with_suffix('.avi')
 
         if self.image_widget is None:
-            self.image_widget = ImageWidget(data=LazyVideo(vid_path))
+            self.image_widget = ImageWidget(data=[LazyVideo(vid_path)])
 
 
     def _trial_change(self, obj):
         """
         Event handler called when a trial is changed in self.trial_selector.
-        Updates the behavior imagewidget and ethogram plot with new data.
+        Updates the behavior imagewidget with new data.
         """
         row = self._dataframe.iloc[self.current_row]
 
         session_path = self.local_parent_path.joinpath(row['animal_id'], row['session_id'])
         selected_video = session_path.joinpath(self.trial_selector.value).with_suffix('.avi')
 
-        self.image_widget._data = [LazyVideo(selected_video)]
-        self.image_widget.current_index["t"] = 0
-        self.image_widget.sliders["t"].value = 0
-        self.image_widget.plot.graphics[0].data = self.image_widget._data[0][0]
+        self.image_widget.set_data([LazyVideo(selected_video)], reset_vmin_vmax=True)
 
     def show(self):
         """
