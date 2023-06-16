@@ -1,11 +1,12 @@
 from .._behavior import BehaviorVizContainer
-from .._ethogram_comparison import EthogramComparison
 from .._ethogram import EthogramVizContainer
-from .common import BehaviorDataFrameExtension
+from .._ethogram_cleaner import EthogramCleaner
 import pandas as pd
+from pathlib import Path
+from typing import Union
 
 @pd.api.extensions.register_dataframe_accessor("viewer")
-class BehaviorDataFrameVizExtension(BehaviorDataFrameExtension):
+class BehaviorDataFrameVizExtension:
     def __init__(self, df):
         self._df = df
 
@@ -29,11 +30,20 @@ class BehaviorDataFrameVizExtension(BehaviorDataFrameExtension):
 
         return container
 
-    def comparison_view(self,
-                        start_index: int = 0):
-        container = EthogramComparison(
+@pd.api.extensions.register_dataframe_accessor("cleaner")
+class EthogramCleanerExtension:
+    def __init__(self, df):
+        self._df = df
+
+    def clean(self,
+                start_index: int = 0,
+                clean_df: Union[str, Path] = None):
+        container = EthogramCleaner(
             dataframe=self._df,
             start_index=start_index,
+            clean_df=clean_df
         )
 
         return container
+
+

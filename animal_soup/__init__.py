@@ -1,10 +1,12 @@
 from ._behavior import BehaviorVizContainer
+from ._ethogram import EthogramVizContainer
+from ._ethogram_cleaner import EthogramCleaner
 from .extensions import *
 from .batch_utils import (
     create_df,
     load_df,
     set_parent_raw_data_path,
-    get_parent_raw_data_path
+    get_parent_raw_data_path,
 )
 
 from pathlib import Path
@@ -19,6 +21,8 @@ __all__ = [
     "create_df",
     "BehaviorVizContainer",
     "BehaviorDataFrameVizExtension",
-    "BehaviorDataFrameExtension"
+    "BehaviorDataFrameExtension",
+    "EthogramVizContainer",
+    "EthogramCleaner"
 ]
 

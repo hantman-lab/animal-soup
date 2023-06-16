@@ -121,7 +121,7 @@ class _BasePathExtensions:
            Returns
            -------
            Tuple[Path, Path]
-               (<batch_dir> or <raw_data_dir>, <relative_path>)
+               (<df_dir> or <raw_data_dir>, <relative_path>)
 
            """
         path = Path(path)
