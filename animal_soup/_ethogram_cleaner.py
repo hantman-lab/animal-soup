@@ -74,23 +74,18 @@ class EthogramCleaner(EthogramVizContainer):
         )
 
         self.plot.add_graphic(self.ethogram_selector)
-        self.ethogram_selector.edges[0].add_event_handler(self.ethogram_event_handler_left, "pointer_enter")
-        self.ethogram_selector.edges[1].add_event_handler(self.ethogram_event_handler_right, "pointer_enter")
+        self.ethogram_selector.bounds.add_event_handler(self.ethogram_event_handler)
         self.plot.auto_scale()
 
-    def ethogram_event_handler_left(self, ev):
+    def ethogram_event_handler(self, ev):
         """
         Event handler called for linear region selector left bound.
         """
-        ix = self.ethogram_selector.get_selected_indices()[0]
-        self.image_widget.sliders["t"].value = ix
-
-    def ethogram_event_handler_right(self, ev):
-        """
-        Event handler called for linear region selector right bound.
-        """
-        ix = self.ethogram_selector.get_selected_indices()[-1]
-        self.image_widget.sliders["t"].value = ix
+        source = ev.pick_info["move_info"].source
+        if source is self.ethogram_selector.edges[0]:
+            self.image_widget.sliders["t"].value = ev.pick_info["selected_indices"][0]
+        elif source is self.ethogram_selector.edges[1]:
+            self.image_widget.sliders["t"].value = ev.pick_info["selected_indices"][-1]
 
     def show(self):
         """
