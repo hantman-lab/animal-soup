@@ -4,8 +4,7 @@ from .._ethogram import EthogramVizContainer
 from .common import BehaviorDataFrameExtension
 import pandas as pd
 
-
-@pd.api.extensions.register_dataframe_accessor("behavior")
+@pd.api.extensions.register_dataframe_accessor("viewer")
 class BehaviorDataFrameVizExtension(BehaviorDataFrameExtension):
     def __init__(self, df):
         self._df = df

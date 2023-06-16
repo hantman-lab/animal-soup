@@ -81,7 +81,6 @@ class BehaviorVizContainer:
         """Creates trial selector widget for a given session."""
         row = self._dataframe.iloc[index]
         options = [k for k in row["ethograms"].keys()]
-        #options = [item.stem for item in row['session_vids']]
 
         if self.trial_selector is None:
             self.trial_selector = Select(options=options)
@@ -113,9 +112,10 @@ class BehaviorVizContainer:
         Updates the behavior imagewidget with new data.
         """
         row = self._dataframe.iloc[self.current_row]
+        self.selected_trial = self.trial_selector.value
 
         session_path = self.local_parent_path.joinpath(row['animal_id'], row['session_id'])
-        selected_video = session_path.joinpath(self.trial_selector.value).with_suffix('.avi')
+        selected_video = session_path.joinpath(self.selected_trial).with_suffix('.avi')
 
         self.image_widget.set_data([LazyVideo(selected_video)], reset_vmin_vmax=True)
 
