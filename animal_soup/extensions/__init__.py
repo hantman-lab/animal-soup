@@ -1,8 +1,6 @@
-from .viewer import BehaviorDataFrameVizExtension
-from .common import BehaviorDataFrameExtension
+from .behavior_extensions import BehaviorDataFrameExtension
 
 __all__ = [
-    "BehaviorDataFrameVizExtension",
     "BehaviorDataFrameExtension"
 ]
 

@@ -74,7 +74,7 @@ class EthogramCleaner(EthogramVizContainer):
         )
 
         self.plot.add_graphic(self.ethogram_selector)
-        self.ethogram_selector.bounds.add_event_handler(self.ethogram_event_handler)
+        self.ethogram_selector.selection.add_event_handler(self.ethogram_event_handler)
         self.plot.auto_scale()
 
     def ethogram_event_handler(self, ev):

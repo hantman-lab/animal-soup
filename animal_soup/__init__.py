@@ -20,7 +20,6 @@ __all__ = [
     "load_df",
     "create_df",
     "BehaviorVizContainer",
-    "BehaviorDataFrameVizExtension",
     "BehaviorDataFrameExtension",
     "EthogramVizContainer",
     "EthogramCleaner"
