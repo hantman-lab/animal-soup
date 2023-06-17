@@ -65,10 +65,10 @@ class EthogramVizContainer(BehaviorVizContainer):
         )
 
         self.plot.add_graphic(self.ethogram_selector)
-        self.ethogram_selector.selection.add_event_handler(self.ethogram_event_handler)
+        self.ethogram_selector.selection.add_event_handler(self.ethogram_selection_event_handler)
         self.plot.auto_scale()
 
-    def ethogram_event_handler(self, ev):
+    def ethogram_selection_event_handler(self, ev):
         """
         Event handler called for linear selector.
         """
