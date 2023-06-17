@@ -8,11 +8,18 @@ import re as regex
 CURRENT_DF_PATH: Path = None  # only one df at a time
 PARENT_DATA_PATH: Path = None
 
-DATAFRAME_COLUMNS = ["animal_id", "session_id", "mat_path", "deg_path", "session_vids",
-                     "hand_training_trials", "jabba_training_trials", "notes"]
+DATAFRAME_COLUMNS = ["animal_id", "session_id", "ethograms", "notes"]
 
 
 def validate_path(path: Union[str, Path]):
+    """
+    Validates a path.
+
+    Parameters
+    ----------
+    path: Path or str
+        Path to be validated.
+    """
     if not regex.match("^[A-Za-z0-9@\/\\\:._-]*$", str(path)):
         raise ValueError(
             "Paths must only contain alphanumeric characters, "
@@ -60,6 +67,9 @@ class _BasePathExtensions:
         self._data = data
 
     def set_df_path(self, path: Union[str, Path]):
+        """
+        Set the path for the dataframe currently being used.
+        """
         self._data.attrs["df_path"] = Path(path)
 
     def get_df_path(self) -> Path:
@@ -111,7 +121,7 @@ class _BasePathExtensions:
            Returns
            -------
            Tuple[Path, Path]
-               (<batch_dir> or <raw_data_dir>, <relative_path>)
+               (<df_dir> or <raw_data_dir>, <relative_path>)
 
            """
         path = Path(path)
@@ -130,7 +140,7 @@ class _BasePathExtensions:
 
         raise NotADirectoryError(
             f"Could not split `path`:\n{path}"
-            f"\nnot relative to either batch path:\n{self.get_df_path()}"
+            f"\nnot relative to either df path:\n{self.get_df_path()}"
             f"\nor parent raw data path:\n{get_parent_raw_data_path()}"
         )
 
