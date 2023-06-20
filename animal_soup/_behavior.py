@@ -39,7 +39,7 @@ class BehaviorVizContainer:
             index_name="index",
             column_widths=default_widths)
 
-        self.current_row: int = start_index
+        self.current_row_ix: int = start_index
         self.trial_selector = None
         self.image_widget = None
 
@@ -50,7 +50,7 @@ class BehaviorVizContainer:
             column2=len(df_show.columns),
             clear_mode="all"
         )
-        self._set_trial_selector(self.current_row)
+        self._set_trial_selector(self.current_row_ix)
 
         self.datagrid.observe(self._row_changed, names="selections")
 
@@ -71,10 +71,10 @@ class BehaviorVizContainer:
         """Event handler for when a row in the datagrid is changed."""
         index = self._get_selection_row()
 
-        if index is None or self.current_row == index:
+        if index is None or self.current_row_ix == index:
             return
 
-        self.current_row = index
+        self.current_row_ix = index
         self._set_trial_selector(index)
 
     def _set_trial_selector(self, index):
@@ -97,7 +97,7 @@ class BehaviorVizContainer:
         """
         Instantiates image widget to view behavior videos.
         """
-        row = self._dataframe.iloc[self.current_row]
+        row = self._dataframe.iloc[self.current_row_ix]
         vid_path = self.local_parent_path.joinpath(row['animal_id'],
                                                    row['session_id'],
                                                    self.selected_trial).with_suffix('.avi')
@@ -111,7 +111,7 @@ class BehaviorVizContainer:
         Event handler called when a trial is changed in self.trial_selector.
         Updates the behavior imagewidget with new data.
         """
-        row = self._dataframe.iloc[self.current_row]
+        row = self._dataframe.iloc[self.current_row_ix]
         self.selected_trial = self.trial_selector.value
 
         session_path = self.local_parent_path.joinpath(row['animal_id'], row['session_id'])
