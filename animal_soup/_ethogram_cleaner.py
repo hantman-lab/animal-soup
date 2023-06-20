@@ -116,13 +116,13 @@ class EthogramCleaner(EthogramVizContainer):
 
             lg_data = self.plot.add_line(
                 data=np.column_stack([xs, ys]),
-                thickness=10,
+                thickness=15,
                 name=b
             )
 
             lg_highlight = self.plot.add_line(
                 data=np.column_stack([xs, ys]),
-                thickness=11,
+                thickness=16,
                 name=f"{b}_highlight"
             )
 
@@ -133,7 +133,7 @@ class EthogramCleaner(EthogramVizContainer):
             lg_data.colors = 0
             lg_data.colors[self.ethogram_array[i] == 1] = ETHOGRAM_COLORS[b]
 
-            y_pos = (i * -10) - 1
+            y_pos = (i * -5) - 1
             lg_data.position_y = y_pos
             lg_highlight.position_y = y_pos
 
@@ -167,6 +167,8 @@ class EthogramCleaner(EthogramVizContainer):
             self.image_widget.sliders["t"].value = ev.pick_info["selected_indices"][0]
         elif source is self.ethogram_region_selector.edges[1]:
             self.image_widget.sliders["t"].value = ev.pick_info["selected_indices"][-1]
+        else:
+            self.image_widget.sliders["t"].value = ev.pick_info["selected_indices"][0]
 
     def ethogram_key_event_handler(self, obj):
         """Event handler for handling keyboard events to clean up ethograms."""
@@ -240,4 +242,3 @@ class EthogramCleaner(EthogramVizContainer):
                 self.plot[g].colors[self.ethogram_array[i] == 1] = ETHOGRAM_COLORS[g]
         # save ethogram to disk after reset
         self.save_ethogram()
-

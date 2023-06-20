@@ -46,14 +46,14 @@ class EthogramVizContainer(BehaviorVizContainer):
 
             lg = self.plot.add_line(
                 data=np.column_stack([xs, ys]),
-                thickness=10,
+                thickness=15,
                 name=b
             )
 
             lg.colors = 0
             lg.colors[self.ethogram_array[i] == 1] = ETHOGRAM_COLORS[b]
 
-            y_pos = (i * -10) - 1
+            y_pos = (i * -5) - 1
             lg.position_y = y_pos
 
         self.ethogram_selector = LinearSelector(
@@ -82,6 +82,7 @@ class EthogramVizContainer(BehaviorVizContainer):
         """
         super()._trial_change(obj)
 
+        self.plot.selectors[0].selection._event_handlers.clear()
         self.plot.clear()
         self._make_ethogram_plot()
 
