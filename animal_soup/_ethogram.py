@@ -46,7 +46,7 @@ class EthogramVizContainer(BehaviorVizContainer):
 
             lg = self.plot.add_line(
                 data=np.column_stack([xs, ys]),
-                thickness=15,
+                thickness=20,
                 name=b
             )
 

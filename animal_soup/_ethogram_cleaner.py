@@ -116,13 +116,13 @@ class EthogramCleaner(EthogramVizContainer):
 
             lg_data = self.plot.add_line(
                 data=np.column_stack([xs, ys]),
-                thickness=15,
+                thickness=20,
                 name=b
             )
 
             lg_highlight = self.plot.add_line(
                 data=np.column_stack([xs, ys]),
-                thickness=16,
+                thickness=21,
                 name=f"{b}_highlight"
             )
 
