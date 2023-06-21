@@ -20,6 +20,8 @@ class BehaviorVizContainer:
         self.local_parent_path = get_parent_raw_data_path()
 
         hide_columns = ["ethograms",
+                        "cleaned_ethograms",
+                        "final_ethograms",
                         "notes"]
 
         columns = dataframe.columns

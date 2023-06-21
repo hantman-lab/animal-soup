@@ -24,7 +24,6 @@ class EthogramCleaner(EthogramVizContainer):
             self,
             dataframe: pd.DataFrame,
             start_index: int = 0,
-            clean_df_path: Union[str, Path] = None
     ):
         """
         Creates container for editing ethograms and saving them to a new dataframe. 
@@ -46,32 +45,15 @@ class EthogramCleaner(EthogramVizContainer):
             dataframe=dataframe,
             start_index=start_index
         )
-        # create or load dataframe where clean ethograms are stored
-        if clean_df_path is None:
-            df_dir, relative_path = self._dataframe.paths.split(self._dataframe.paths.get_df_path())
-            self.clean_df_path = df_dir.joinpath(relative_path.stem).with_name(f'{relative_path.stem}_cleaned').with_suffix('.hdf')
-            # check if clean_df_path exists and user simply didn't pass as an argument
-            if os.path.exists(self.clean_df_path):
-                self._clean_df = pd.read_hdf(self.clean_df_path)
-            # clean_df does not exist, need to create
-            else:
-                # copy original df to clean, and then as ethograms are cleaned will overwrite
-                # allows ethograms that do not need to be cleaned to already be in new cleaned dataframe
-                self._clean_df = self._dataframe.copy(deep=True)
-                # save clean df to disk in same place as current dataframe but with `_cleaned` added to name
-                self._clean_df.to_hdf(self.clean_df_path, key='df')
-        else: # location of clean_df passed
-            self.clean_df_path = Path(clean_df_path)
-            validate_path(self.clean_df_path)
-            # if dataframe already exists, load
-            if os.path.exists(self.clean_df_path):
-                self._clean_df = pd.read_hdf(self.clean_df_path)
-            # if dataframe does not exist at path provided, issue warning and create
-            else:
-                warnings.warn(f"No cleaned dataframe exists at the path provided: {self.clean_df_path} \n"
-                              f"A new cleaned dataframe is being created at the path provided: {self.clean_df_path}")
-                self._clean_df = self._dataframe.copy(deep=True)
-                self._clean_df.to_hdf(self.clean_df_path, key='df')
+        # add column for cleaned ethograms to df if not exists
+        if "cleaned_ethograms" not in self._dataframe.columns:
+            self._dataframe.insert(
+                loc=3,
+                column="cleaned_ethograms",
+                value=[dict() for i in range(len(self._dataframe.index))]
+            )
+
+        self._dataframe.behavior.save_to_disk()
 
 
     @property
@@ -107,7 +89,12 @@ class EthogramCleaner(EthogramVizContainer):
             self.plot = Plot(size=(500, 100))
             self.plot.renderer.add_event_handler(self.ethogram_key_event_handler, "key_down")
 
-        self.ethogram_array = row["ethograms"][self.selected_trial]
+        clean_array_exists = self._check_for_cleaned_array(row=row)
+
+        if clean_array_exists:
+            self.ethogram_array = row["cleaned_ethograms"][self.selected_trial]
+        else:
+            self.ethogram_array = row["ethograms"][self.selected_trial]
 
         y_bottom = 0
         for i, b in enumerate(ETHOGRAM_COLORS.keys()):
@@ -156,6 +143,12 @@ class EthogramCleaner(EthogramVizContainer):
         self.plot.add_graphic(self.ethogram_region_selector)
         self.ethogram_region_selector.selection.add_event_handler(self.ethogram_selection_event_handler)
         self.plot.auto_scale()
+
+    def _check_for_cleaned_array(self, row):
+        if self.selected_trial in row["cleaned_ethograms"].keys():
+            return True
+
+        return False
 
     def ethogram_selection_event_handler(self, ev):
         """
@@ -223,12 +216,9 @@ class EthogramCleaner(EthogramVizContainer):
             non_zero_ixs = np.where(self.plot[g].colors[:] != np.array([0, 0, 0, 1]))[0]
             new_ethogram[i][non_zero_ixs] = 1
         # check if key already in clean_df
-        clean_df_row = self._clean_df[(self._clean_df["animal_id"] == row["animal_id"]) &
-                                      (self._clean_df["session_id"] == row["session_id"])]
-        # add or update dictionary with ethogram
-        self._clean_df.loc[:, 'ethograms'].loc[clean_df_row.index[0]][self.selected_trial] = new_ethogram
+        row["cleaned_ethograms"][self.selected_trial] = new_ethogram
         # save clean_df to disk
-        self._clean_df.to_hdf(self.clean_df_path, key='df')
+        self._dataframe.behavior.save_to_disk()
 
     def reset_ethogram(self, current_behavior: bool = False):
         """Will reset the current behavior selected or the entire cleaned ethogram back to the original ethogram."""
