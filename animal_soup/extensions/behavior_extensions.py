@@ -36,11 +36,11 @@ class BehaviorDataFrameExtension:
 
     def clean_ethograms(self,
                 start_index: int = 0,
-                clean_df: Union[str, Path] = None):
+                clean_df_path: Union[str, Path] = None):
         container = EthogramCleaner(
             dataframe=self._df,
             start_index=start_index,
-            clean_df=clean_df
+            clean_df_path=clean_df_path
         )
 
         return container
