@@ -89,9 +89,7 @@ class EthogramCleaner(EthogramVizContainer):
             self.plot = Plot(size=(500, 100))
             self.plot.renderer.add_event_handler(self.ethogram_key_event_handler, "key_down")
 
-        clean_array_exists = self._check_for_cleaned_array(row=row)
-
-        if clean_array_exists:
+        if self._check_for_cleaned_array(row=row):
             self.ethogram_array = row["cleaned_ethograms"][self.selected_trial]
         else:
             self.ethogram_array = row["ethograms"][self.selected_trial]
@@ -143,12 +141,6 @@ class EthogramCleaner(EthogramVizContainer):
         self.plot.add_graphic(self.ethogram_region_selector)
         self.ethogram_region_selector.selection.add_event_handler(self.ethogram_selection_event_handler)
         self.plot.auto_scale()
-
-    def _check_for_cleaned_array(self, row):
-        if self.selected_trial in row["cleaned_ethograms"].keys():
-            return True
-
-        return False
 
     def ethogram_selection_event_handler(self, ev):
         """
