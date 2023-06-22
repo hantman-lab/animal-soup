@@ -12,12 +12,14 @@ from .batch_utils import validate_path
 import warnings
 from fastplotlib.graphics import LineGraphic
 
-HIGHLIGHT_GRAPHICS = ["lift_highlight",
-                      "handopen_highlight",
-                      "grab_highlight",
-                      "sup_highlight",
-                      "atmouth_highlight",
-                      "chew_highlight"]
+BEHAVIORS = [
+            "lift",
+            "handopen",
+            "grab",
+            "sup",
+            "atmouth",
+            "chew"
+            ]
 
 class EthogramCleaner(EthogramVizContainer):
     def __init__(
@@ -62,10 +64,10 @@ class EthogramCleaner(EthogramVizContainer):
         return self._current_behavior
 
     @current_behavior.setter
-    def current_behavior(self, graphic: LineGraphic):
+    def current_behavior(self, behavior: str):
         """Set the currently selected behavior."""
-        self._current_behavior = graphic
-        self._current_highlight = self.plot[f"{self.current_behavior.name}_highlight"]
+        self._current_behavior = self.plot[behavior]
+        self.current_highlight = f'{behavior}_highlight'
 
     @ property
     def current_highlight(self):
@@ -73,11 +75,12 @@ class EthogramCleaner(EthogramVizContainer):
         return self._current_highlight
 
     @current_highlight.setter
-    def current_highlight(self, graphic: LineGraphic):
+    def current_highlight(self, behavior_highlight: str):
         """Set the currently selected highlight."""
-        self._current_highlight = graphic
+        self._current_highlight = self.plot[behavior_highlight]
         self.current_highlight.colors = "white"
-        self.current_behavior = self.plot[self.current_highlight.name.split('_')[0]]
+        if self.current_behavior.name != behavior_highlight.split('_')[0]:
+            self.current_behavior = behavior_highlight.split('_')[0]
 
     def _make_ethogram_plot(self):
         """
@@ -89,6 +92,7 @@ class EthogramCleaner(EthogramVizContainer):
             self.plot = Plot(size=(500, 100))
             self.plot.renderer.add_event_handler(self.ethogram_key_event_handler, "key_down")
 
+        # if an ethogram has been cleaned, want to make sure to show it
         if self._check_for_cleaned_array(row=row):
             self.ethogram_array = row["cleaned_ethograms"][self.selected_trial]
         else:
@@ -123,9 +127,7 @@ class EthogramCleaner(EthogramVizContainer):
             lg_highlight.position_y = y_pos
 
         # default initial selected behavior will always be lift
-        self.current_behavior = self.plot["lift"]
-        self.current_highlight = self.plot["lift_highlight"]
-        self.current_highlight.colors = "white"
+        self.current_behavior = "lift"
 
         self.ethogram_region_selector = LinearRegionSelector(
             bounds=(0, 50),
@@ -158,28 +160,28 @@ class EthogramCleaner(EthogramVizContainer):
     def ethogram_key_event_handler(self, obj):
         """Event handler for handling keyboard events to clean up ethograms."""
         # index of current highlight graphic
-        current_ix = HIGHLIGHT_GRAPHICS.index(self.current_highlight.name)
+        current_ix = BEHAVIORS.index(self.current_behavior.name)
         # selected indices of linear region selector
         selected_ixs = self.plot.selectors[0].get_selected_indices(self.current_behavior)
 
         # move `down` a behavior in the current ethogram
         if obj.key == 's':
-            for g in HIGHLIGHT_GRAPHICS:
-                self.plot[g].colors = "black"
-            # if current graphic is last behavior, should circle around
-            if current_ix + 1 == len(HIGHLIGHT_GRAPHICS):
-                self.current_highlight = self.plot[HIGHLIGHT_GRAPHICS[0]]
+            # set current highlight behavior to black
+            self.current_highlight.colors = "black"
+            # if current graphic is last behavior, should circle around to first behavior
+            if current_ix + 1 == len(BEHAVIORS):
+                self.current_behavior = BEHAVIORS[0]
             else:
-                self.current_highlight = self.plot[HIGHLIGHT_GRAPHICS[current_ix + 1]]
+                self.current_behavior = BEHAVIORS[current_ix + 1]
 
         # move `up` a behavior in the current ethogram
         elif obj.key == 'q':
-            for g in HIGHLIGHT_GRAPHICS:
-                self.plot[g].colors = "black"
+            self.current_highlight.colors = "black"
+            # if already at first behavior, should loop to last behavior
             if current_ix - 1 < 0:
-                self.current_highlight = self.plot[HIGHLIGHT_GRAPHICS[-1]]
+                self.current_behavior = BEHAVIORS[-1]
             else:
-                self.current_highlight = self.plot[HIGHLIGHT_GRAPHICS[current_ix - 1]]
+                self.current_behavior = BEHAVIORS[current_ix - 1]
 
         # set selected indices of current behavior to '1'
         elif obj.key == '1':
@@ -211,7 +213,7 @@ class EthogramCleaner(EthogramVizContainer):
         for i, g in enumerate(ETHOGRAM_COLORS.keys()):
             non_zero_ixs = np.where(self.plot[g].colors[:] != np.array([0, 0, 0, 1]))[0]
             new_ethogram[i][non_zero_ixs] = 1
-        # check if key already in clean_df
+        # save new ethogram to cleaned_ethograms column
         row["cleaned_ethograms"][self.selected_trial] = new_ethogram
         # save clean_df to disk
         self._dataframe.behavior.save_to_disk()
@@ -219,7 +221,7 @@ class EthogramCleaner(EthogramVizContainer):
     def reset_ethogram(self, current_behavior: bool = False):
         """Will reset the current behavior selected or the entire cleaned ethogram back to the original ethogram."""
         if current_behavior: # reset only current behavior to original
-            current_ix = HIGHLIGHT_GRAPHICS.index(self.current_highlight.name)
+            current_ix = BEHAVIORS.index(self.current_behavior.name)
             self.current_behavior.colors[:] = "black"
             self.current_behavior.colors[self.ethogram_array[current_ix] == 1] = ETHOGRAM_COLORS[self.current_behavior.name]
         else: # reset all behaviors to original

@@ -71,7 +71,7 @@ class EthogramVizContainer(BehaviorVizContainer):
         self.ethogram_selector.selection.add_event_handler(self.ethogram_selection_event_handler)
         self.plot.auto_scale()
 
-    def _check_for_cleaned_array(self, row):
+    def _check_for_cleaned_array(self, row: pd.Series):
         if "cleaned_ethograms" not in self._dataframe.columns:
             return False
         if self.selected_trial in row["cleaned_ethograms"].keys():
