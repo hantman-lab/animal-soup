@@ -198,6 +198,10 @@ class EthogramCleaner(EthogramVizContainer):
         elif obj.key == 't':
             self.reset_ethogram(current_behavior=True)
 
+        # save ethogram
+        elif obj.key == 'y':
+            self.save_ethogram()
+
     def save_ethogram(self):
         """Saves an ethogram to the clean dataframe."""
         # create new ethogram based off of indices that are not black

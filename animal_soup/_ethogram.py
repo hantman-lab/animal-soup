@@ -92,6 +92,8 @@ class EthogramVizContainer(BehaviorVizContainer):
         """
         super()._trial_change(obj)
 
+        # force clearing of event handlers for selectors
+        # seems to be an issue with fpl delete graphic method for selectors
         self.plot.selectors[0].selection._event_handlers.clear()
         self.plot.clear()
         self._make_ethogram_plot()
