@@ -49,7 +49,7 @@ class BehaviorDataFrameExtension:
             animal_id: str,
             session_id: Union[str, None] = None):
         """
-        Add item to dataframe. If `animal_id` already exists, will try to add any new videos to
+        Add item to dataframe. If `animal_id`/'session_id' already exists, will try to add any new videos to
         `ethograms` dictionary for given session(s).
 
         Parameters
@@ -120,6 +120,7 @@ class BehaviorDataFrameExtension:
                                 "session_id": session_id,
                                 "ethograms": ethograms,
                                 "cleaned_ethograms": ethograms,
+                                "type": None,
                                 "notes": None
                             }
                         )
@@ -129,6 +130,7 @@ class BehaviorDataFrameExtension:
                                 "animal_id": animal_id,
                                 "session_id": session_id,
                                 "ethograms": ethograms,
+                                "type": None,
                                 "notes": None
                             }
                         )
@@ -168,6 +170,7 @@ class BehaviorDataFrameExtension:
                         "animal_id": animal_id,
                         "session_id": session_id,
                         "ethograms": ethograms,
+                        "type": None,
                         "notes": None
                     }
                 )
