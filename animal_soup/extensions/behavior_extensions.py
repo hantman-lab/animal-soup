@@ -36,11 +36,10 @@ class BehaviorDataFrameExtension:
 
     def clean_ethograms(self,
                 start_index: int = 0,
-                clean_df_path: Union[str, Path] = None):
+                        ):
         container = EthogramCleaner(
             dataframe=self._df,
             start_index=start_index,
-            clean_df_path=clean_df_path
         )
 
         return container
@@ -50,7 +49,7 @@ class BehaviorDataFrameExtension:
             animal_id: str,
             session_id: Union[str, None] = None):
         """
-        Add item to dataframe. If `animal_id` already exists, will try to add any new videos to
+        Add item to dataframe. If `animal_id`/'session_id' already exists, will try to add any new videos to
         `ethograms` dictionary for given session(s).
 
         Parameters
@@ -114,14 +113,27 @@ class BehaviorDataFrameExtension:
                     for sv in session_vids:
                         ethograms[sv] = None
 
-                    s = pd.Series(
-                        {
-                            "animal_id": animal_id,
-                            "session_id": session_id,
-                            "ethograms": ethograms,
-                            "notes": None
-                        }
-                    )
+                    if "cleaned_ethograms" in self._df.columns:
+                        s = pd.Series(
+                            {
+                                "animal_id": animal_id,
+                                "session_id": session_id,
+                                "ethograms": ethograms,
+                                "cleaned_ethograms": ethograms,
+                                "type": None,
+                                "notes": None
+                            }
+                        )
+                    else:
+                        s = pd.Series(
+                            {
+                                "animal_id": animal_id,
+                                "session_id": session_id,
+                                "ethograms": ethograms,
+                                "type": None,
+                                "notes": None
+                            }
+                        )
 
                     self._df.loc[self._df.index.size] = s
 
@@ -158,6 +170,7 @@ class BehaviorDataFrameExtension:
                         "animal_id": animal_id,
                         "session_id": session_id,
                         "ethograms": ethograms,
+                        "type": None,
                         "notes": None
                     }
                 )

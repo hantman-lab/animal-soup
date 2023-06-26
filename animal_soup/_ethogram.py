@@ -37,7 +37,10 @@ class EthogramVizContainer(BehaviorVizContainer):
         if self.plot is None:
             self.plot = Plot(size=(500, 100))
 
-        self.ethogram_array = row["ethograms"][self.selected_trial]
+        if self._check_for_cleaned_array(row=row):
+            self.ethogram_array = row["cleaned_ethograms"][self.selected_trial]
+        else:
+            self.ethogram_array = row["ethograms"][self.selected_trial]
 
         y_bottom = 0
         for i, b in enumerate(ETHOGRAM_COLORS.keys()):
@@ -68,6 +71,13 @@ class EthogramVizContainer(BehaviorVizContainer):
         self.ethogram_selector.selection.add_event_handler(self.ethogram_selection_event_handler)
         self.plot.auto_scale()
 
+    def _check_for_cleaned_array(self, row: pd.Series):
+        if "cleaned_ethograms" not in self._dataframe.columns:
+            return False
+        if self.selected_trial in row["cleaned_ethograms"].keys():
+            return True
+        return False
+
     def ethogram_selection_event_handler(self, ev):
         """
         Event handler called for linear selector.
@@ -82,6 +92,8 @@ class EthogramVizContainer(BehaviorVizContainer):
         """
         super()._trial_change(obj)
 
+        # force clearing of event handlers for selectors
+        # seems to be an issue with fpl delete graphic method for selectors
         self.plot.selectors[0].selection._event_handlers.clear()
         self.plot.clear()
         self._make_ethogram_plot()

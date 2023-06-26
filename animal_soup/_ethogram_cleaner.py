@@ -12,19 +12,20 @@ from .batch_utils import validate_path
 import warnings
 from fastplotlib.graphics import LineGraphic
 
-HIGHLIGHT_GRAPHICS = ["lift_highlight",
-                      "handopen_highlight",
-                      "grab_highlight",
-                      "sup_highlight",
-                      "atmouth_highlight",
-                      "chew_highlight"]
+BEHAVIORS = [
+            "lift",
+            "handopen",
+            "grab",
+            "sup",
+            "atmouth",
+            "chew"
+            ]
 
 class EthogramCleaner(EthogramVizContainer):
     def __init__(
             self,
             dataframe: pd.DataFrame,
             start_index: int = 0,
-            clean_df_path: Union[str, Path] = None
     ):
         """
         Creates container for editing ethograms and saving them to a new dataframe. 
@@ -46,32 +47,15 @@ class EthogramCleaner(EthogramVizContainer):
             dataframe=dataframe,
             start_index=start_index
         )
-        # create or load dataframe where clean ethograms are stored
-        if clean_df_path is None:
-            df_dir, relative_path = self._dataframe.paths.split(self._dataframe.paths.get_df_path())
-            self.clean_df_path = df_dir.joinpath(relative_path.stem).with_name(f'{relative_path.stem}_cleaned').with_suffix('.hdf')
-            # check if clean_df_path exists and user simply didn't pass as an argument
-            if os.path.exists(self.clean_df_path):
-                self._clean_df = pd.read_hdf(self.clean_df_path)
-            # clean_df does not exist, need to create
-            else:
-                # copy original df to clean, and then as ethograms are cleaned will overwrite
-                # allows ethograms that do not need to be cleaned to already be in new cleaned dataframe
-                self._clean_df = self._dataframe.copy(deep=True)
-                # save clean df to disk in same place as current dataframe but with `_cleaned` added to name
-                self._clean_df.to_hdf(self.clean_df_path, key='df')
-        else: # location of clean_df passed
-            self.clean_df_path = Path(clean_df_path)
-            validate_path(self.clean_df_path)
-            # if dataframe already exists, load
-            if os.path.exists(self.clean_df_path):
-                self._clean_df = pd.read_hdf(self.clean_df_path)
-            # if dataframe does not exist at path provided, issue warning and create
-            else:
-                warnings.warn(f"No cleaned dataframe exists at the path provided: {self.clean_df_path} \n"
-                              f"A new cleaned dataframe is being created at the path provided: {self.clean_df_path}")
-                self._clean_df = self._dataframe.copy(deep=True)
-                self._clean_df.to_hdf(self.clean_df_path, key='df')
+        # add column for cleaned ethograms to df if not exists
+        if "cleaned_ethograms" not in self._dataframe.columns:
+            self._dataframe.insert(
+                loc=3,
+                column="cleaned_ethograms",
+                value=[dict() for i in range(len(self._dataframe.index))]
+            )
+
+        self._dataframe.behavior.save_to_disk()
 
 
     @property
@@ -80,10 +64,10 @@ class EthogramCleaner(EthogramVizContainer):
         return self._current_behavior
 
     @current_behavior.setter
-    def current_behavior(self, graphic: LineGraphic):
+    def current_behavior(self, behavior: str):
         """Set the currently selected behavior."""
-        self._current_behavior = graphic
-        self._current_highlight = self.plot[f"{self.current_behavior.name}_highlight"]
+        self._current_behavior = self.plot[behavior]
+        self.current_highlight = f'{behavior}_highlight'
 
     @ property
     def current_highlight(self):
@@ -91,11 +75,12 @@ class EthogramCleaner(EthogramVizContainer):
         return self._current_highlight
 
     @current_highlight.setter
-    def current_highlight(self, graphic: LineGraphic):
+    def current_highlight(self, behavior_highlight: str):
         """Set the currently selected highlight."""
-        self._current_highlight = graphic
+        self._current_highlight = self.plot[behavior_highlight]
         self.current_highlight.colors = "white"
-        self.current_behavior = self.plot[self.current_highlight.name.split('_')[0]]
+        if self.current_behavior.name != behavior_highlight.split('_')[0]:
+            self.current_behavior = behavior_highlight.split('_')[0]
 
     def _make_ethogram_plot(self):
         """
@@ -107,7 +92,11 @@ class EthogramCleaner(EthogramVizContainer):
             self.plot = Plot(size=(500, 100))
             self.plot.renderer.add_event_handler(self.ethogram_key_event_handler, "key_down")
 
-        self.ethogram_array = row["ethograms"][self.selected_trial]
+        # if an ethogram has been cleaned, want to make sure to show it
+        if self._check_for_cleaned_array(row=row):
+            self.ethogram_array = row["cleaned_ethograms"][self.selected_trial]
+        else:
+            self.ethogram_array = row["ethograms"][self.selected_trial]
 
         y_bottom = 0
         for i, b in enumerate(ETHOGRAM_COLORS.keys()):
@@ -138,9 +127,7 @@ class EthogramCleaner(EthogramVizContainer):
             lg_highlight.position_y = y_pos
 
         # default initial selected behavior will always be lift
-        self.current_behavior = self.plot["lift"]
-        self.current_highlight = self.plot["lift_highlight"]
-        self.current_highlight.colors = "white"
+        self.current_behavior = "lift"
 
         self.ethogram_region_selector = LinearRegionSelector(
             bounds=(0, 50),
@@ -173,28 +160,28 @@ class EthogramCleaner(EthogramVizContainer):
     def ethogram_key_event_handler(self, obj):
         """Event handler for handling keyboard events to clean up ethograms."""
         # index of current highlight graphic
-        current_ix = HIGHLIGHT_GRAPHICS.index(self.current_highlight.name)
+        current_ix = BEHAVIORS.index(self.current_behavior.name)
         # selected indices of linear region selector
         selected_ixs = self.plot.selectors[0].get_selected_indices(self.current_behavior)
 
         # move `down` a behavior in the current ethogram
         if obj.key == 's':
-            for g in HIGHLIGHT_GRAPHICS:
-                self.plot[g].colors = "black"
-            # if current graphic is last behavior, should circle around
-            if current_ix + 1 == len(HIGHLIGHT_GRAPHICS):
-                self.current_highlight = self.plot[HIGHLIGHT_GRAPHICS[0]]
+            # set current highlight behavior to black
+            self.current_highlight.colors = "black"
+            # if current graphic is last behavior, should circle around to first behavior
+            if current_ix + 1 == len(BEHAVIORS):
+                self.current_behavior = BEHAVIORS[0]
             else:
-                self.current_highlight = self.plot[HIGHLIGHT_GRAPHICS[current_ix + 1]]
+                self.current_behavior = BEHAVIORS[current_ix + 1]
 
         # move `up` a behavior in the current ethogram
         elif obj.key == 'q':
-            for g in HIGHLIGHT_GRAPHICS:
-                self.plot[g].colors = "black"
+            self.current_highlight.colors = "black"
+            # if already at first behavior, should loop to last behavior
             if current_ix - 1 < 0:
-                self.current_highlight = self.plot[HIGHLIGHT_GRAPHICS[-1]]
+                self.current_behavior = BEHAVIORS[-1]
             else:
-                self.current_highlight = self.plot[HIGHLIGHT_GRAPHICS[current_ix - 1]]
+                self.current_behavior = BEHAVIORS[current_ix - 1]
 
         # set selected indices of current behavior to '1'
         elif obj.key == '1':
@@ -213,6 +200,10 @@ class EthogramCleaner(EthogramVizContainer):
         elif obj.key == 't':
             self.reset_ethogram(current_behavior=True)
 
+        # save ethogram
+        elif obj.key == 'y':
+            self.save_ethogram()
+
     def save_ethogram(self):
         """Saves an ethogram to the clean dataframe."""
         # create new ethogram based off of indices that are not black
@@ -222,18 +213,15 @@ class EthogramCleaner(EthogramVizContainer):
         for i, g in enumerate(ETHOGRAM_COLORS.keys()):
             non_zero_ixs = np.where(self.plot[g].colors[:] != np.array([0, 0, 0, 1]))[0]
             new_ethogram[i][non_zero_ixs] = 1
-        # check if key already in clean_df
-        clean_df_row = self._clean_df[(self._clean_df["animal_id"] == row["animal_id"]) &
-                                      (self._clean_df["session_id"] == row["session_id"])]
-        # add or update dictionary with ethogram
-        self._clean_df.loc[:, 'ethograms'].loc[clean_df_row.index[0]][self.selected_trial] = new_ethogram
+        # save new ethogram to cleaned_ethograms column
+        row["cleaned_ethograms"][self.selected_trial] = new_ethogram
         # save clean_df to disk
-        self._clean_df.to_hdf(self.clean_df_path, key='df')
+        self._dataframe.behavior.save_to_disk()
 
     def reset_ethogram(self, current_behavior: bool = False):
         """Will reset the current behavior selected or the entire cleaned ethogram back to the original ethogram."""
         if current_behavior: # reset only current behavior to original
-            current_ix = HIGHLIGHT_GRAPHICS.index(self.current_highlight.name)
+            current_ix = BEHAVIORS.index(self.current_behavior.name)
             self.current_behavior.colors[:] = "black"
             self.current_behavior.colors[self.ethogram_array[current_ix] == 1] = ETHOGRAM_COLORS[self.current_behavior.name]
         else: # reset all behaviors to original
