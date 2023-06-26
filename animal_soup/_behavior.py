@@ -22,7 +22,8 @@ class BehaviorVizContainer:
         hide_columns = ["ethograms",
                         "cleaned_ethograms",
                         "final_ethograms",
-                        "notes"]
+                        "notes",
+                        "deg_preds"]
 
         columns = dataframe.columns
 

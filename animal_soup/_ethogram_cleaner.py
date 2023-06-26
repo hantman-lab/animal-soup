@@ -37,11 +37,7 @@ class EthogramCleaner(EthogramVizContainer):
             `session_id`. Ethograms that need to be cleaned for a given `animal_id`/`session_id` pairing should be
             stored in the `ethograms` column as a ``dict`` of `{trial: ethogram}`. 
         start_index: ``int``, default 0
-            Row of the dataframe that will initially be selected to view videos and corresponding ethograms. 
-        clean_df_path: ``str`` or ``pathlib.Path``, default ``None``
-            Path to dataframe where clean ethograms will be stored. Should have same structure as `dataframe` arg. If
-            ``None``, an existing clean dataframe will be loaded if it exists or a new clean dataframe will be
-            created to store cleaned ethograms. 
+            Row of the dataframe that will initially be selected to view videos and corresponding ethograms.
         """
         super(EthogramCleaner, self).__init__(
             dataframe=dataframe,
