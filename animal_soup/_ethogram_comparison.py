@@ -1,3 +1,5 @@
+from functools import partial
+
 from ._ethogram import EthogramVizContainer, ETHOGRAM_COLORS
 import pandas as pd
 from fastplotlib import Plot
@@ -6,6 +8,10 @@ from fastplotlib.graphics.selectors import LinearSelector, Synchronizer
 from ipywidgets import HBox, VBox, Select, Button, Layout, RadioButtons
 from fastplotlib import ImageWidget
 from mesmerize_core.arrays import LazyVideo
+from decord import gpu as gpu_context
+
+
+GPU_CONTEXT = gpu_context(0)
 
 
 class EthogramComparison(EthogramVizContainer):
@@ -37,6 +43,14 @@ class EthogramComparison(EthogramVizContainer):
 
         self.synchronizer = Synchronizer(self.plot.selectors[0], self.comparison_plot.selectors[0], key_bind=None)
 
+        self.plot.renderer.add_event_handler(partial(self._resize_plots, self.plot), "resize")
+
+    def _resize_plots(self, plot_instance, *args):
+        w, h = plot_instance.renderer.logical_size
+
+        self.plot.canvas.set_logical_size(w, h)
+        self.comparison_plot.canvas.set_logical_size(w, h)
+
     def _make_image_widget(self):
         """
         Instantiates image widget to view behavior videos.
@@ -45,7 +59,7 @@ class EthogramComparison(EthogramVizContainer):
         vid_path = self.local_parent_path.joinpath(self.selected_trial).with_suffix('.avi')
 
         if self.image_widget is None:
-            self.image_widget = ImageWidget(data=[LazyVideo(vid_path)])
+            self.image_widget = ImageWidget(data=[LazyVideo(vid_path, ctx=GPU_CONTEXT)])
 
     def _make_ethogram_comparison_plot(self):
         """
@@ -54,7 +68,7 @@ class EthogramComparison(EthogramVizContainer):
         row = self._dataframe.iloc[self.current_row_ix]
 
         if self.comparison_plot is None:
-            self.comparison_plot = Plot(size=(500, 100))
+            self.comparison_plot = Plot(size=(500, 100), controller=self.plot.controller)
 
         self.ethogram_array = row["deg_preds"][self.selected_trial]
 
@@ -81,6 +95,7 @@ class EthogramComparison(EthogramVizContainer):
             axis="x",
             parent=lg,
             end_points=(y_bottom, y_pos),
+            arrow_keys_modifier=None
         )
 
         self.comparison_plot.add_graphic(self.ethogram_selector)
@@ -96,7 +111,7 @@ class EthogramComparison(EthogramVizContainer):
 
         selected_video = self.local_parent_path.joinpath(self.selected_trial).with_suffix('.avi')
 
-        self.image_widget.set_data([LazyVideo(selected_video)], reset_vmin_vmax=True)
+        self.image_widget.set_data([LazyVideo(selected_video, ctx=GPU_CONTEXT)], reset_vmin_vmax=True)
 
         # force clearing of event handlers for selectors
         # seems to be an issue with fpl delete graphic method for selectors
@@ -107,6 +122,7 @@ class EthogramComparison(EthogramVizContainer):
         self.comparison_plot.clear()
         self._make_ethogram_comparison_plot()
 
+        del self.synchronizer
         self.synchronizer = Synchronizer(self.plot.selectors[0], self.comparison_plot.selectors[0], key_bind=None)
 
     def show(self):
