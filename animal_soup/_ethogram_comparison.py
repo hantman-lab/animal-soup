@@ -8,10 +8,9 @@ from fastplotlib.graphics.selectors import LinearSelector, Synchronizer
 from ipywidgets import HBox, VBox, Select, Button, Layout, RadioButtons
 from fastplotlib import ImageWidget
 from mesmerize_core.arrays import LazyVideo
+from ._behavior import DECORD_CONTEXT
 from decord import gpu as gpu_context
-
-
-GPU_CONTEXT = gpu_context(0)
+from decord import cpu as cpu_context
 
 
 class EthogramComparison(EthogramVizContainer):
@@ -59,7 +58,10 @@ class EthogramComparison(EthogramVizContainer):
         vid_path = self.local_parent_path.joinpath(self.selected_trial).with_suffix('.avi')
 
         if self.image_widget is None:
-            self.image_widget = ImageWidget(data=[LazyVideo(vid_path, ctx=GPU_CONTEXT)])
+            if DECORD_CONTEXT == "cpu":
+                self.image_widget = ImageWidget(data=LazyVideo(vid_path, ctx=cpu_context(0)))
+            else:
+                self.image_widget = ImageWidget(data=LazyVideo(vid_path, ctx=gpu_context(0)))
 
     def _make_ethogram_comparison_plot(self):
         """
@@ -111,7 +113,10 @@ class EthogramComparison(EthogramVizContainer):
 
         selected_video = self.local_parent_path.joinpath(self.selected_trial).with_suffix('.avi')
 
-        self.image_widget.set_data([LazyVideo(selected_video, ctx=GPU_CONTEXT)], reset_vmin_vmax=True)
+        if DECORD_CONTEXT == "cpu":
+            self.image_widget.set_data([LazyVideo(selected_video, ctx=cpu_context(0))], reset_vmin_vmax=True)
+        else:
+            self.image_widget.set_data([LazyVideo(selected_video, ctx=gpu_context(0))], reset_vmin_vmax=True)
 
         # force clearing of event handlers for selectors
         # seems to be an issue with fpl delete graphic method for selectors

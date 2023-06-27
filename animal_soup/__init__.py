@@ -1,6 +1,7 @@
-from ._behavior import BehaviorVizContainer
+from ._behavior import BehaviorVizContainer, DECORD_CONTEXT
 from ._ethogram import EthogramVizContainer
 from ._ethogram_cleaner import EthogramCleaner
+from ._ethogram_comparison import EthogramComparison
 from .extensions import *
 from .batch_utils import (
     create_df,
@@ -22,6 +23,8 @@ __all__ = [
     "BehaviorVizContainer",
     "BehaviorDataFrameExtension",
     "EthogramVizContainer",
-    "EthogramCleaner"
+    "EthogramCleaner",
+    "DECORD_CONTEXT",
+    "EthogramComparison"
 ]
 
