@@ -3,6 +3,7 @@ from ..batch_utils import get_parent_raw_data_path, validate_path, load_df
 from .._behavior import BehaviorVizContainer
 from .._ethogram import EthogramVizContainer
 from .._ethogram_cleaner import EthogramCleaner
+from .._ethogram_comparison import EthogramComparison
 import os
 import pandas as pd
 from pathlib import Path
@@ -40,6 +41,16 @@ class BehaviorDataFrameExtension:
         container = EthogramCleaner(
             dataframe=self._df,
             start_index=start_index,
+        )
+
+        return container
+
+    def compare_ethograms(self,
+                          start_index: int = 0
+                          ):
+        container = EthogramComparison(
+            dataframe=self._df,
+            start_index=start_index
         )
 
         return container
