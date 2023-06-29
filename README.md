@@ -5,7 +5,7 @@ The goal of this project is to create a mega-classifier for the Hantman lab to u
 
 ### Data Organization 
 Using `pandas.DataFrame` to organize Hantman Lab behavioral data.
-![image](https://github.com/hantman-lab/animal-soup/assets/69729525/177c2af0-4b6a-4202-ab3f-1f18fc8df649)
+![image](https://github.com/hantman-lab/animal-soup/assets/69729525/e99c6a04-02a4-4584-b712-9d052115a877)
 
 ### Interactive Behavior Viewer
 Using `pydatagrid` and `fastplotlib` for visualization of behavior with corresponding ethograms.
@@ -13,9 +13,9 @@ Using `pydatagrid` and `fastplotlib` for visualization of behavior with correspo
 
 ### Fixing Ethograms
 Using `fastplotlib` in order to clean ground truth ethograms for model training later.
-![image](https://github.com/hantman-lab/animal-soup/assets/69729525/a6d1d37c-5952-48b1-8fc9-9997d3346564)
+![image](https://github.com/hantman-lab/animal-soup/assets/69729525/38154dd3-ee5f-4591-8564-a6f450ddfd53)
+
 
 ### Future Developments
-- Improvements to the UI (keyboard events to clean ethograms as opposed to buttons)
 - CNN for behavior annotation prediction
   
