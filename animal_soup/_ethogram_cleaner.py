@@ -204,7 +204,7 @@ class EthogramCleaner(EthogramVizContainer):
         """Saves an ethogram to the clean dataframe."""
         # create new ethogram based off of indices that are not black
         row = self._dataframe.iloc[self.current_row_ix]
-        trial_length = row["ethograms"][self.selected_trial][0].shape[0]
+        trial_length = row["ethograms"][0].shape[0]
         new_ethogram = np.zeros(shape=(6, trial_length))
         for i, g in enumerate(ETHOGRAM_COLORS.keys()):
             non_zero_ixs = np.where(self.plot[g].colors[:] != np.array([0, 0, 0, 1]))[0]
