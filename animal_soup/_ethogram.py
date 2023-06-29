@@ -1,5 +1,5 @@
 import pandas as pd
-from ipywidgets import HBox, VBox, Select, Button, Layout, RadioButtons
+from ipywidgets import HBox, VBox, Textarea, Layout
 from fastplotlib import Plot
 from fastplotlib.graphics.selectors import LinearSelector
 import numpy as np
@@ -14,6 +14,16 @@ ETHOGRAM_COLORS = {
     "chew": "yellow"
 }
 
+ETHOGRAM_BEHAVIOR_MAPPING = {
+    "lift": 0,
+    "handopen": 1,
+    "grab": 2,
+    "sup": 3,
+    "atmouth": 4,
+    "chew": 5,
+}
+
+
 class EthogramVizContainer(BehaviorVizContainer):
     def __init__(self,
                  dataframe: pd.DataFrame,
@@ -25,8 +35,10 @@ class EthogramVizContainer(BehaviorVizContainer):
         )
 
         self.plot = None
+        self.behavior_count = None
 
         self._make_ethogram_plot()
+        self._set_behavior_frame_count()
 
     def _make_ethogram_plot(self):
         """
@@ -97,6 +109,35 @@ class EthogramVizContainer(BehaviorVizContainer):
         self.plot.selectors[0].selection._event_handlers.clear()
         self.plot.clear()
         self._make_ethogram_plot()
+        self._set_behavior_frame_count()
+
+    def _set_behavior_frame_count(self):
+        durations = self._get_behavior_frame_count()
+        if self.behavior_count is None:
+            self.behavior_count = Textarea(
+                                        value=f'lift: {durations["lift"]}\n'
+                                              f'handopen: {durations["handopen"]}\n'
+                                              f'grab: {durations["grab"]}\n'
+                                              f'sup: {durations["sup"]}\n'
+                                              f'atmouth: {durations["atmouth"]}\n'
+                                              f'chew: {durations["chew"]}',
+                                        description="Frame #:",
+                                        disabled=True,
+                                        layout=Layout(height="65%", width="auto"))
+        else:
+            self.behavior_count.value = (f'lift: {durations["lift"]}\n'
+            f'handopen: {durations["handopen"]}\n'
+            f'grab: {durations["grab"]}\n'
+            f'sup: {durations["sup"]}\n'
+            f'atmouth: {durations["atmouth"]}\n'
+            f'chew: {durations["chew"]}')
+
+    def _get_behavior_frame_count(self):
+        """Get the duration of each behavior in the currently selected ethogram."""
+        durations = dict()
+        for behavior in ETHOGRAM_BEHAVIOR_MAPPING.keys():
+            durations[behavior] = int(self.ethogram_array[ETHOGRAM_BEHAVIOR_MAPPING[behavior]].sum())
+        return durations
 
     def show(self):
         """
@@ -105,6 +146,7 @@ class EthogramVizContainer(BehaviorVizContainer):
         return VBox([
             self.datagrid,
             HBox([self.image_widget.show(),
-                self.trial_selector
-        ]),
+                  VBox([self.trial_selector,
+                        self.behavior_count])
+                  ]),
             self.plot.show()])
