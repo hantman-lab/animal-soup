@@ -10,7 +10,6 @@ from typing import *
 from .batch_utils import get_parent_raw_data_path
 
 from decord import gpu as gpu_context
-from decord import cpu as cpu_context
 
 DECORD_CONTEXT = "cpu"
 
@@ -25,8 +24,8 @@ class BehaviorVizContainer:
 
         hide_columns = ["ethograms",
                         "cleaned_ethograms",
-                        "final_ethograms",
                         "notes",
+                        "exp_type",
                         "deg_preds"]
 
         columns = dataframe.columns
@@ -110,10 +109,18 @@ class BehaviorVizContainer:
                                                    self.selected_trial).with_suffix('.avi')
 
         if self.image_widget is None:
-            if DECORD_CONTEXT == "cpu":
-                self.image_widget = ImageWidget(data=LazyVideo(vid_path, ctx=cpu_context(0)))
+            if DECORD_CONTEXT == "gpu":
+                self.image_widget = ImageWidget(
+                                        data=LazyVideo(vid_path, ctx=gpu_context(0)),
+                                        grid_plot_kwargs={"size": (700, 300)}
+                                        )
             else:
-                self.image_widget = ImageWidget(data=LazyVideo(vid_path, ctx=gpu_context(0)))
+                self.image_widget = ImageWidget(
+                                        data=LazyVideo(vid_path),
+                                        grid_plot_kwargs={"size": (700, 300)}
+                                        )
+        # most the time video is rendered upside down, default flip camera
+        self.image_widget.gridplot[0, 0].camera.world.scale_y *= -1
 
     def _trial_change(self, obj):
         """
@@ -126,10 +133,10 @@ class BehaviorVizContainer:
         session_path = self.local_parent_path.joinpath(row['animal_id'], row['session_id'])
         selected_video = session_path.joinpath(self.selected_trial).with_suffix('.avi')
 
-        if DECORD_CONTEXT == "cpu":
-            self.image_widget.set_data([LazyVideo(selected_video, ctx=cpu_context(0))], reset_vmin_vmax=True)
-        else:
+        if DECORD_CONTEXT == "gpu":
             self.image_widget.set_data([LazyVideo(selected_video, ctx=gpu_context(0))], reset_vmin_vmax=True)
+        else:
+            self.image_widget.set_data([LazyVideo(selected_video)], reset_vmin_vmax=True)
 
     def show(self):
         """

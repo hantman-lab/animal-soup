@@ -10,7 +10,6 @@ from fastplotlib import ImageWidget
 from mesmerize_core.arrays import LazyVideo
 from ._behavior import DECORD_CONTEXT
 from decord import gpu as gpu_context
-from decord import cpu as cpu_context
 
 
 class EthogramComparison(EthogramVizContainer):
@@ -49,19 +48,6 @@ class EthogramComparison(EthogramVizContainer):
 
         self.plot.canvas.set_logical_size(w, h)
         self.comparison_plot.canvas.set_logical_size(w, h)
-
-    def _make_image_widget(self):
-        """
-        Instantiates image widget to view behavior videos.
-        """
-        row = self._dataframe.iloc[self.current_row_ix]
-        vid_path = self.local_parent_path.joinpath(self.selected_trial).with_suffix('.avi')
-
-        if self.image_widget is None:
-            if DECORD_CONTEXT == "cpu":
-                self.image_widget = ImageWidget(data=LazyVideo(vid_path, ctx=cpu_context(0)))
-            else:
-                self.image_widget = ImageWidget(data=LazyVideo(vid_path, ctx=gpu_context(0)))
 
     def _make_ethogram_comparison_plot(self):
         """
@@ -111,12 +97,16 @@ class EthogramComparison(EthogramVizContainer):
         """
         self.selected_trial = self.trial_selector.value
 
-        selected_video = self.local_parent_path.joinpath(self.selected_trial).with_suffix('.avi')
+        row = self._dataframe.iloc[self.current_row_ix]
+        vid_path = self.local_parent_path.joinpath(row['animal_id'],
+                                                   row['session_id'],
+                                                   self.selected_trial).with_suffix('.avi')
 
-        if DECORD_CONTEXT == "cpu":
-            self.image_widget.set_data([LazyVideo(selected_video, ctx=cpu_context(0))], reset_vmin_vmax=True)
-        else:
-            self.image_widget.set_data([LazyVideo(selected_video, ctx=gpu_context(0))], reset_vmin_vmax=True)
+        if self.image_widget is None:
+            if DECORD_CONTEXT == "gpu":
+                self.image_widget = ImageWidget(data=LazyVideo(vid_path, ctx=gpu_context(0)))
+            else:
+                self.image_widget = ImageWidget(data=LazyVideo(vid_path))
 
         # force clearing of event handlers for selectors
         # seems to be an issue with fpl delete graphic method for selectors

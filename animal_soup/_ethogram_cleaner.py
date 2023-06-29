@@ -85,7 +85,7 @@ class EthogramCleaner(EthogramVizContainer):
         row = self._dataframe.iloc[self.current_row_ix]
 
         if self.plot is None:
-            self.plot = Plot(size=(500, 100))
+            self.plot = Plot(size=(700, 300))
             self.plot.renderer.add_event_handler(self.ethogram_key_event_handler, "key_down")
 
         # if an ethogram has been cleaned, want to make sure to show it

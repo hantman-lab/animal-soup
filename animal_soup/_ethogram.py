@@ -35,7 +35,7 @@ class EthogramVizContainer(BehaviorVizContainer):
         row = self._dataframe.iloc[self.current_row_ix]
 
         if self.plot is None:
-            self.plot = Plot(size=(500, 100))
+            self.plot = Plot(size=(700, 300))
 
         if self._check_for_cleaned_array(row=row):
             self.ethogram_array = row["cleaned_ethograms"][self.selected_trial]
