@@ -32,7 +32,8 @@ class BehaviorVizContainer:
 
         default_widths = {
             'animal_id': 200,
-            'session_id': 200
+            'session_id': 100,
+            'trial_id': 200
         }
 
         df_show = self._dataframe[[c for c in columns if c not in hide_columns]]
@@ -86,7 +87,7 @@ class BehaviorVizContainer:
     def _set_trial_selector(self, index):
         """Creates trial selector widget for a given session."""
         row = self._dataframe.iloc[index]
-        options = [k for k in row["ethograms"].keys()]
+        options = [row["trial_id"]]
 
         if self.trial_selector is None:
             self.trial_selector = Select(options=options)

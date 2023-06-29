@@ -46,9 +46,9 @@ class EthogramCleaner(EthogramVizContainer):
         # add column for cleaned ethograms to df if not exists
         if "cleaned_ethograms" not in self._dataframe.columns:
             self._dataframe.insert(
-                loc=3,
+                loc=4,
                 column="cleaned_ethograms",
-                value=[dict() for i in range(len(self._dataframe.index))]
+                value=None
             )
 
         self._dataframe.behavior.save_to_disk()
@@ -90,9 +90,9 @@ class EthogramCleaner(EthogramVizContainer):
 
         # if an ethogram has been cleaned, want to make sure to show it
         if self._check_for_cleaned_array(row=row):
-            self.ethogram_array = row["cleaned_ethograms"][self.selected_trial]
+            self.ethogram_array = row["cleaned_ethograms"]
         else:
-            self.ethogram_array = row["ethograms"][self.selected_trial]
+            self.ethogram_array = row["ethograms"]
 
         y_bottom = 0
         for i, b in enumerate(ETHOGRAM_COLORS.keys()):
@@ -210,7 +210,7 @@ class EthogramCleaner(EthogramVizContainer):
             non_zero_ixs = np.where(self.plot[g].colors[:] != np.array([0, 0, 0, 1]))[0]
             new_ethogram[i][non_zero_ixs] = 1
         # save new ethogram to cleaned_ethograms column
-        row["cleaned_ethograms"][self.selected_trial] = new_ethogram
+        row["cleaned_ethograms"] = new_ethogram
         # save clean_df to disk
         self._dataframe.behavior.save_to_disk()
 

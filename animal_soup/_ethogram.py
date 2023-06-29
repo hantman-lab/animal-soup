@@ -50,9 +50,9 @@ class EthogramVizContainer(BehaviorVizContainer):
             self.plot = Plot(size=(700, 300))
 
         if self._check_for_cleaned_array(row=row):
-            self.ethogram_array = row["cleaned_ethograms"][self.selected_trial]
+            self.ethogram_array = row["cleaned_ethograms"]
         else:
-            self.ethogram_array = row["ethograms"][self.selected_trial]
+            self.ethogram_array = row["ethograms"]
 
         y_bottom = 0
         for i, b in enumerate(ETHOGRAM_COLORS.keys()):
@@ -86,7 +86,7 @@ class EthogramVizContainer(BehaviorVizContainer):
     def _check_for_cleaned_array(self, row: pd.Series):
         if "cleaned_ethograms" not in self._dataframe.columns:
             return False
-        if self.selected_trial in row["cleaned_ethograms"].keys():
+        if row["cleaned_ethograms"] is not None:
             return True
         return False
 
