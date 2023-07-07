@@ -212,7 +212,7 @@ class EthogramCleaner(EthogramVizContainer):
         # save new ethogram to cleaned_ethograms column
         row["cleaned_ethograms"] = new_ethogram
         # save clean_df to disk
-        self._dataframe.behavior.save_to_disk()
+        self._dataframe.behavior._unsafe_save()
 
     def reset_ethogram(self, current_behavior: bool = False):
         """Will reset the current behavior selected or the entire cleaned ethogram back to the original ethogram."""

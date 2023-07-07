@@ -230,6 +230,11 @@ class BehaviorDataFrameExtension:
             shutil.copyfile(bak, path)
             raise IOError(f"Could not save dataframe to disk.")
 
+    def _unsafe_save(self):
+        path = self._df.paths.get_df_path()
+
+        self._df.to_hdf(path, key='df')
+
     def remove_item(self, animal_id: str,  session_id: Union[str, None] = None):
         """
         Remove item(s) from dataframe.
