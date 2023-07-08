@@ -58,7 +58,7 @@ class EthogramComparison(EthogramVizContainer):
         if self.comparison_plot is None:
             self.comparison_plot = Plot(size=(500, 100), controller=self.plot.controller)
 
-        self.ethogram_array = row["deg_preds"][self.selected_trial]
+        self.ethogram_array = row["deg_preds"]
 
         y_bottom = 0
         for i, b in enumerate(ETHOGRAM_COLORS.keys()):
@@ -95,24 +95,9 @@ class EthogramComparison(EthogramVizContainer):
         Event handler called when a trial is changed in self.trial_selector.
         Updates the behavior imagewidget and ethogram plot with new data.
         """
-        self.selected_trial = self.trial_selector.value
 
-        row = self._dataframe.iloc[self.current_row_ix]
-        vid_path = self.local_parent_path.joinpath(row['animal_id'],
-                                                   row['session_id'],
-                                                   self.selected_trial).with_suffix('.avi')
+        super()._trial_change(obj)
 
-        if self.image_widget is None:
-            if DECORD_CONTEXT == "gpu":
-                self.image_widget = ImageWidget(data=LazyVideo(vid_path, ctx=gpu_context(0)))
-            else:
-                self.image_widget = ImageWidget(data=LazyVideo(vid_path))
-
-        # force clearing of event handlers for selectors
-        # seems to be an issue with fpl delete graphic method for selectors
-        self.plot.selectors[0].selection._event_handlers.clear()
-        self.plot.clear()
-        self._make_ethogram_plot()
         self.comparison_plot.selectors[0].selection._event_handlers.clear()
         self.comparison_plot.clear()
         self._make_ethogram_comparison_plot()
