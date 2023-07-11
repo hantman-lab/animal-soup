@@ -27,3 +27,4 @@ MANIFEST
 animal_soup/.pytest_cache/
 tests/tmp
 tests/sample_data
+tests/sample_data.zip
