@@ -8,7 +8,12 @@ import re as regex
 CURRENT_DF_PATH: Path = None  # only one df at a time
 PARENT_DATA_PATH: Path = None
 
-DATAFRAME_COLUMNS = ["animal_id", "session_id", "ethograms", "type", "notes"]
+DATAFRAME_COLUMNS = ["animal_id",
+                     "session_id",
+                     "trial_id",
+                     "ethograms",
+                     "exp_type",
+                     "notes"]
 
 
 def validate_path(path: Union[str, Path]):
