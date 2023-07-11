@@ -12,12 +12,17 @@ import requests
 
 tmp_dir = Path(os.path.dirname(os.path.abspath(__file__)), "tmp")
 sample_data_dir = Path(os.path.dirname(os.path.abspath(__file__)), "sample_data")
+ground_truth_dir = Path(os.path.dirname(os.path.abspath(__file__)), "ground_truth")
 sample_data_file = Path(
     os.path.dirname(os.path.abspath(__file__)), "sample_data.zip"
 )
 
 os.makedirs(tmp_dir, exist_ok=True)
 os.makedirs(sample_data_dir, exist_ok=True)
+os.makedirs(ground_truth_dir, exist_ok=True)
+
+def _download_ground_truth():
+    pass
 
 def _download_sample_data():
     print(f"Downloading sample data")
@@ -43,6 +48,13 @@ if len(list(sample_data_dir.iterdir())) == 0:
 elif "DOWNLOAD_SAMPLE_DATA" in os.environ.keys():
     if os.environ["DOWNLOAD_SAMPLE_DATA"] == "1":
         _download_sample_data()
+
+if len(list(ground_truth_dir.iterdir())) == 0:
+    _download_ground_truth()
+
+elif "DOWNLOAD_GROUND_TRUTH" in os.environ.keys():
+    if os.environ["DOWNLOAD_GROUND_TRUTH"] == "1":
+        _download_ground_truth()
 
 
 def get_tmp_filename():
@@ -85,38 +97,39 @@ def test_create_df() -> Tuple[pd.DataFrame, str]:
     with pytest.raises(FileExistsError):
         create_df(fname)
 
-# def test_add_item():
-#     # set parent raw data path to sample data dir
-#     set_parent_raw_data_path(sample_data_dir)
-#
-#     # assert path is as expected
-#     assert(get_parent_raw_data_path(), sample_data_dir)
-#
-#     # create empty dataframe, remove existing if True
-#     fname = get_tmp_filename()
-#     df = create_df(fname, remove_existing=True)
-#
-#     # get animal_ids in sample data
-#     animal_ids = sorted(get_parent_raw_data_path().glob('*M'))
-#
-#
-#
-#
-#     fname = get_tmp_filename()
-#
-#     if not os.path.exists(fname):
-#         test_create_df()
-#
-#     df = load_df(fname)
-#
-#     # test adding item when animal_id/session_id given
-#     df.behavior.add_item(animal_id=animal_id, session_id=session_id)
-#
-#     assert(len(df.index) == 1)
-#
-#     # test adding item when only animal_id given
-#     df.behavior.add_item(animal_id=animal_id)
-#
-#     assert(len(df.index) == 2)
+def test_add_item():
+    # set parent raw data path to sample data dir
+    set_parent_raw_data_path(sample_data_dir)
+
+    # assert path is as expected
+    assert(get_parent_raw_data_path(), sample_data_dir)
+
+    # create empty dataframe, remove existing if True
+    fname = get_tmp_filename()
+    df = create_df(fname, remove_existing=True)
+
+    # get animal_ids in sample data
+    animal_dirs = sorted(get_parent_raw_data_path().glob('M*'))
+
+    # add all sessions for an animal
+    animal_id1 = animal_dirs[0].stem
+    df.behavior.add_item(animal_id=animal_id1)
+
+    assert(len(df.index) == 6)
+
+    # add all trials for a given session
+    animal_id2 = animal_dirs[1].stem
+    session_dirs = sorted(animal_dirs[1].glob('*'))
+
+    df.behavior.add_item(animal_id=animal_id2, session_id=session_dirs[0].stem)
+    assert(len(df.index) == 9)
+
+    # add a single trial for a given animal/session
+    trials = sorted(session_dirs[1].glob('*'))
+    for trial in trials:
+        df.behavior.add_item(animal_id=animal_id2, session_id=session_dirs[1].stem, trial_id=trial.stem)
+
+    assert(len(df.index) == 12)
+
 
 
