@@ -5,8 +5,9 @@ from pathlib import Path
 install_requires = [
     "mesmerize-core",
     "fastplotlib",
-    "ipydatagrid"
-
+    "ipydatagrid",
+    "pandas"
+\
 ]
 
 with open(Path(__file__).parent.joinpath("README.md")) as f:
@@ -21,6 +22,7 @@ setup(
     long_description_content_type='text/markdown',
     version=ver,
     install_requires=install_requires,
+    python_requires='>=3.8',
     packages=find_packages(),
     include_package_data=True,
     author="Caitlin Lewis",

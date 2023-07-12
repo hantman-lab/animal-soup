@@ -131,5 +131,6 @@ def test_add_item():
 
     assert(len(df.index) == 12)
 
-
+def test_remove_item():
+    pass
 

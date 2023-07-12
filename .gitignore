@@ -22,7 +22,6 @@ share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
 
 animal_soup/.pytest_cache/
 tests/tmp
