@@ -8,7 +8,12 @@ import re as regex
 CURRENT_DF_PATH: Path = None  # only one df at a time
 PARENT_DATA_PATH: Path = None
 
-DATAFRAME_COLUMNS = ["animal_id", "session_id", "ethograms", "type", "notes"]
+DATAFRAME_COLUMNS = ["animal_id",
+                     "session_id",
+                     "trial_id",
+                     "ethograms",
+                     "exp_type",
+                     "notes"]
 
 
 def validate_path(path: Union[str, Path]):
@@ -212,6 +217,6 @@ def create_df(path: Union[str, Path], remove_existing: bool = False) -> pd.DataF
     df = pd.DataFrame(columns=DATAFRAME_COLUMNS)
     df.paths.set_df_path(path)
 
-    df.to_hdf(path, key='df')
+    df.to_hdf(Path(path).with_suffix('.hdf'), key='df')
 
     return df
