@@ -217,6 +217,6 @@ def create_df(path: Union[str, Path], remove_existing: bool = False) -> pd.DataF
     df = pd.DataFrame(columns=DATAFRAME_COLUMNS)
     df.paths.set_df_path(path)
 
-    df.to_hdf(path, key='df')
+    df.to_hdf(Path(path).with_suffix('.hdf'), key='df')
 
     return df
