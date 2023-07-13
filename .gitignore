@@ -23,6 +23,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 
+# Tests
 animal_soup/.pytest_cache/
 tests/tmp
 tests/sample_data/
