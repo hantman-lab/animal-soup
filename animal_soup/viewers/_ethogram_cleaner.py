@@ -1,16 +1,8 @@
-import os.path
-
 import pandas as pd
-from ipywidgets import HBox, VBox, Select, Button, Layout, RadioButtons
 from fastplotlib import Plot
-from fastplotlib.graphics.selectors import LinearSelector, LinearRegionSelector
+from fastplotlib.graphics.selectors import LinearRegionSelector
 import numpy as np
 from ._ethogram import EthogramVizContainer, ETHOGRAM_COLORS
-from pathlib import Path
-from typing import Union
-from .batch_utils import validate_path
-import warnings
-from fastplotlib.graphics import LineGraphic
 
 BEHAVIORS = [
             "lift",
