@@ -12,7 +12,10 @@ install_requires = [
     "glfw",
     "tqdm",
     "requests",
-    "tables"
+    "tables",
+    "jupyter-rfb",
+    "jupyterlab",
+    "nbmake"
 ]
 
 with open(Path(__file__).parent.joinpath("README.md")) as f:

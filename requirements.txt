@@ -9,3 +9,7 @@ glfw
 tqdm
 requests
 tables
+jupyterlab
+nbmake
+jupyter-rfb
+
