@@ -1,6 +1,6 @@
 fastplotlib
 ipydatagrid
-pandas
+pandas>=1.5.0
 decord
 ipywidgets
 numpy
