@@ -1,1 +1,1 @@
-import TinyMotionNet3D
+from .TinyMotionNet3D import TinyMotionNet3D
