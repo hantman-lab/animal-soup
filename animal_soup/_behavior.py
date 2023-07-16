@@ -4,7 +4,7 @@ from ipywidgets import HBox, VBox, Select
 
 from fastplotlib import ImageWidget
 from warnings import warn
-from mesmerize_core.arrays import LazyVideo
+from .arrays import LazyVideo
 from typing import *
 
 from .batch_utils import get_parent_raw_data_path

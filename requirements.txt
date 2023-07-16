@@ -1,4 +1,11 @@
-mesmerize-core
 fastplotlib
 ipydatagrid
 pandas
+decord
+ipywidgets
+numpy
+pytest
+glfw
+tqdm
+requests
+tables
