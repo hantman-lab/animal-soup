@@ -131,17 +131,30 @@ class FlowGeneratorDataframeExtension:
         if mode == "slow":
             conv_mode = "3d"
 
-        # create dataloader for training, only doing train split
-        # could use another dataframe for testing
-        info, dataloader = self._generate_flow_dataloader(
-                                    videos=training_vids,
-                                    conv_mode=conv_mode,
-                                    augs=DEFAULT_AUGS,
-                                    batch_size=batch_size,
-                                    flow_window=flow_window)
+        # generate torchvision.transforms object from augs
+        transforms = get_cpu_transforms(DEFAULT_AUGS)
 
+        # create VideoDataset from available videos with augs
+        dataset = VideoDataset(
+                            vid_paths=training_vids,
+                            transform=transforms,
+                            conv_mode=conv_mode,
+                            mean_by_channels=DEFAULT_AUGS["normalization"]["mean"],
+                            frames_per_clip=flow_window
+                            )
+
+        dataset_metadata = dataset.metadata
+
+        dataloader = torch.utils.data.Dataloader(
+                                            dataset=dataset,
+                                            batch_size=batch_size,
+                                            shuffle=True,
+                                            pin_memory=True
+                                            )
 
         # metrics
+
+        # stopper
 
         # lightening module
 
@@ -167,7 +180,7 @@ class FlowGeneratorDataframeExtension:
 
         return model
 
-    def _load_pretrained_model(self,
+    def _load_pretrained_flow_model(self,
                                weight_path: Union[str, Path],
                                mode: str,
                                flow_window: int) -> Union[TinyMotionNet3D]:
@@ -224,40 +237,6 @@ class FlowGeneratorDataframeExtension:
         model.load_state_dict(model_dict, strict=True)
 
         return model
-
-    def _generate_flow_dataloader(self,
-                                 videos: List[Path],
-                                 augs: Dict[str, Any],
-                                 batch_size: int,
-                                 conv_mode: str = ["2d", "3d"]) -> Tuple[Dict[str, Any], torch.utils.data.DataLoader]:
-        """
-        Creates a dataset for training based on the available trials in the current dataframe.
-
-        Parameters
-        ----------
-        videos: List[Path]
-            List of video paths available for training.
-        conv_mode: str
-            One of '2d', '3d'.
-            If 2D, batch will be of shape [N, C*T, H, W].
-            If 3D, batch will be of shape [N, C, T, H, W]
-        augs: Dict[str, Any]
-            Dictionary containing the image augmentations applied to the dataset.
-        batch_size: int
-            Batch size, number of training samples to go through before updating model params.
-
-        Returns
-        -------
-        Info about the dataloader as well as a dataloader for training.
-
-        """
-        data_info = None
-
-        dataset = VideoDataset(videos)
-
-        dataloader = torch.utils.data.Dataloader()
-
-        return (data_info, dataloader)
 
 
 

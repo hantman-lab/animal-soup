@@ -4,7 +4,8 @@ from typing import *
 import numpy as np
 from pathlib import Path
 import os
-import decord
+from ..arrays import LazyVideo
+import random
 
 class SingleVideoDataset(data.Dataset):
     """
@@ -15,9 +16,10 @@ class SingleVideoDataset(data.Dataset):
                  mean_by_channels: Union[list, np.ndarray] = [0, 0, 0],
                  transform: torchvision.transforms.v2.Transform = None,
                  conv_mode: str = '2d',
+                 frames_per_clip: int = 1
                 ):
         """
-        Initializes a VideoDataset object. Reads in a video, applies the same augmentation to every frame in the clip,
+        Initializes a VideoDataset object. Reads in a video, applies the CPU augmentations to every frame in the clip,
         and stacks all channels together for input to a CNN.
 
         Parameters
@@ -42,21 +44,22 @@ class SingleVideoDataset(data.Dataset):
         if not os.path.exists(vid_path):
             raise ValueError(f"No video found at this path: {vid_path}")
 
-        self._reader = decord.VideoReader(uri=vid_path)
+        self._reader = LazyVideo(self.vid_path)
 
         self.metadata = dict()
 
+        self._reader.shape
 
         self.metadata['vid_path'] = vid_path
-        self.metadata['width'] = self._reader[0].shape[1]
-        self.metadata['height'] = self._reader[0].shape[0]
-        self.metadata['framecount'] = len(self._reader)
-        self.metadata['fps'] = self._reader.get_avg_fps()
+        self.metadata['width'] = self._reader.shape[1]
+        self.metadata['height'] = self._reader.shape[0]
+        self.metadata['framecount'] = self._reader.n_frames
+        self.metadata['fps'] = None
 
-        self.N = self.metadata['framecount']
         self._zeros_image = None
 
-    def get_zeros_image(self, c, h, w, channel_first: bool = True):
+    def get_zeros_image(self, c, h, w):
+        """Zero image frames to be added to front or back of image stack."""
         if self._zeros_image is None:
             # ALWAYS ASSUME OUTPUT IS TRANSPOSED
             self._zeros_image = np.zeros((c, h, w), dtype=np.uint8)
@@ -65,6 +68,7 @@ class SingleVideoDataset(data.Dataset):
         return self._zeros_image
 
     def parse_mean_by_channels(self, mean_by_channels):
+        """Editing of mean_by_channels arg."""
         if isinstance(mean_by_channels[0], (float, np.floating)):
             return np.clip(np.array(mean_by_channels) * 255, 0, 255).astype(np.uint8)
         elif isinstance(mean_by_channels[0], (int, np.integer)):
@@ -74,16 +78,38 @@ class SingleVideoDataset(data.Dataset):
             raise ValueError('unexpected type for input channel mean: {}'.format(mean_by_channels))
 
     def __len__(self):
-        return self.N
+        return self.metadata['framecount']
 
-    def prepend_with_zeros(self, stack, blank_start_frames):
+    def _prepend_with_zeros(self, stack: List[np.ndarray], blank_start_frames: int):
+        """
+        For frames at beginning of video, for flow generator must create dummy frames to 
+        get optic flow features.
+        
+        Parameters
+        ----------
+        stack: List[np.ndarray]
+            List of frames.
+        blank_start_frames: int
+            Number of frames that need to be prepended to stack. 
+        """
         if blank_start_frames == 0:
             return stack
         for i in range(blank_start_frames):
             stack.insert(0, self.get_zeros_image(*stack[0].shape))
         return stack
 
-    def append_with_zeros(self, stack, blank_end_frames):
+    def _append_with_zeros(self, stack: List[np.ndarray], blank_end_frames: int):
+        """
+        For frames at end of video, for flow generator must create dummy frames to 
+        get optic flow features.
+
+        Parameters
+        ----------
+        stack: List[np.ndarray]
+            List of frames.
+        blank_end_frames: int
+            Number of frames that need to be prepended to stack. 
+        """
         if blank_end_frames == 0:
             return stack
         for i in range(blank_end_frames):
@@ -101,59 +127,80 @@ class SingleVideoDataset(data.Dataset):
                 Could also be torch.Tensor of shape (C,H,W), depending on the augmentation applied
         """
 
-        images = []
+        images = list()
         # if frames per clip is 11, dataset[0] would have 5 blank frames preceding, with the 6th-11th being real frames
         blank_start_frames = max(self.frames_per_clip // 2 - index, 0)
 
         framecount = self.metadata['framecount']
-        # cap = cv2.VideoCapture(self.movies[style][movie_index])
+
         start_frame = index - self.frames_per_clip // 2 + blank_start_frames
         blank_end_frames = max(index - framecount + self.frames_per_clip // 2 + 1, 0)
         real_frames = self.frames_per_clip - blank_start_frames - blank_end_frames
 
         seed = np.random.randint(2147483647)
-        with VideoReader(self.videofile, assume_writer_style=True) as reader:
+
+        with LazyVideo(self.vid_path) as reader:
             for i in range(real_frames):
                 try:
                     image = reader[i + start_frame]
                 except Exception as e:
                     image = self._zeros_image.copy().transpose(1, 2, 0)
-                    log.warning('Error {} on frame {} of video {}. Is the video corrupted?'.format(
-                        e, index, self.videofile))
                 if self.transform:
                     random.seed(seed)
                     image = self.transform(image)
                     images.append(image)
 
-        images = self.prepend_with_zeros(images, blank_start_frames)
-        images = self.append_with_zeros(images, blank_end_frames)
+        images = self._prepend_with_zeros(images, blank_start_frames)
+        images = self._append_with_zeros(images, blank_end_frames)
 
-        if log.isEnabledFor(logging.DEBUG):
-            log.debug('idx: {} st: {} blank_start: {} blank_end: {} real: {} total: {}'.format(
-                index, start_frame, blank_start_frames, blank_end_frames, real_frames, framecount))
+        print(f'idx: {index} '
+              f'st: {start_frame} '
+              f'blank_start: {blank_start_frames} '
+              f'blank_end: {blank_end_frames} '
+              f'real: {real_frames}'
+              f' total: {framecount}')
 
         # images are now numpy arrays of shape 3, H, W
         # stacking in the first dimension changes to 3, T, H, W, compatible with Conv3D
         images = np.stack(images, axis=1)
+        
+        print(f'images shape: {images.shape}')
 
-        if log.isEnabledFor(logging.DEBUG):
-            log.debug('images shape: {}'.format(images.shape))
-        # print(images.shape)
         outputs = {'images': images}
-        if self.supervised:
-            label = self.labels[index]
-            if self.reduce:
-                label = np.where(label)[0][0].astype(np.int64)
-            outputs['labels'] = label
         return outputs
-
 
 class VideoDataset(data.Dataset):
     """ Simple wrapper around SingleVideoDataset for smoothly loading multiple videos """
-    def __init__(self, vid_paths: list, *args, **kwargs):
+    def __init__(self,
+                 vid_paths: List[Path],
+                 transform: torchvision.transforms = None,
+                 conv_mode: str = '2d',
+                 mean_by_channels: Union[list, np.ndarray] = [0, 0, 0],
+                 frames_per_clip: int = 11
+                 ):
+        """
+        Parameters
+        ----------
+        vid_paths: List[Path]
+            List of video paths from current dataframe.
+        transform: TorchVision transform object
+            CPU transforms to be applied to the frames of videos as they are loaded in.
+        conv_mode: str, default '2d'
+            Convolution mode. Depends on the model being used, determines the number of convolution channels.
+        mean_by_channels: Union[list, np.ndarray], default [0,0,0]
+            Mean of normalization aug.
+        frames_per_clip: int, default 11
+            Number of rgb frames in each training sample. Based on flow window.
+        """
         datasets = list()
         for i in range(len(vid_paths)):
-            dataset = SingleVideoDataset(vid_paths[i], *args, **kwargs)
+            dataset = SingleVideoDataset(
+                                vid_paths[i],
+                                transform=transform,
+                                conv_mode=conv_mode,
+                                mean_by_channels=mean_by_channels,
+                                frames_per_clip=frames_per_clip
+                                         )
             datasets.append(dataset)
 
         self.dataset = data.ConcatDataset(datasets)
