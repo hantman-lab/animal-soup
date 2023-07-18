@@ -7,7 +7,7 @@ from warnings import warn
 from mesmerize_core.arrays import LazyVideo
 from typing import *
 
-from animal_soup.df_utils import get_parent_raw_data_path
+from animal_soup.utils.df_utils import get_parent_raw_data_path
 
 from decord import gpu as gpu_context
 
