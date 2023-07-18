@@ -2,10 +2,20 @@ from setuptools import setup, find_packages
 from pathlib import Path
 
 install_requires = [
-    "mesmerize_core",
+    "numpy",
     "fastplotlib",
     "ipydatagrid",
-    "pandas"
+    "pandas>=1.5.0",
+    "decord",
+    "ipywidgets",
+    "pytest",
+    "glfw",
+    "tqdm",
+    "requests",
+    "tables",
+    "jupyter-rfb",
+    "jupyterlab",
+    "nbmake"
 ]
 
 with open(Path(__file__).parent.joinpath("README.md")) as f:
@@ -17,7 +27,7 @@ with open(Path(__file__).parent.joinpath("animal_soup", "VERSION"), "r") as f:
 
 setup(
     name='animal-soup',
-    version='0.0.1a1',
+    version=ver,
     long_description=readme,
     long_description_content_type='text/markdown',
     packages=find_packages(),

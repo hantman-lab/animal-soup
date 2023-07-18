@@ -1,7 +1,18 @@
+# Jupyter Checkpoints
 .ipynb_checkpoints/
+
+# PyCharm
 .idea/
+
+# Byte-compiled
 __pycache__/
-animal_soup/__pycache__/
+
+# Tests
+.pytest_cache/
+tests/tmp
+tests/sample_data/
+tests/*.zip
+tests/ground_truth/
 
 # Distribution / packaging
 .Python
@@ -22,10 +33,3 @@ share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-
-animal_soup/.pytest_cache/
-tests/tmp
-tests/sample_data/
-tests/sample_data.zip
-tests/ground_truth.zip
-tests/ground_truth/

@@ -1,18 +1,13 @@
 from functools import partial
-
 from ._ethogram import EthogramVizContainer, ETHOGRAM_COLORS
 import pandas as pd
 from fastplotlib import Plot
 import numpy as np
 from fastplotlib.graphics.selectors import LinearSelector, Synchronizer
-from ipywidgets import HBox, VBox, Select, Button, Layout, RadioButtons
-from fastplotlib import ImageWidget
-from mesmerize_core.arrays import LazyVideo
-from ._behavior import DECORD_CONTEXT
-from decord import gpu as gpu_context
+from ipywidgets import HBox, VBox
 
 
-class EthogramComparison(EthogramVizContainer):
+class EthogramComparisonVizContainer(EthogramVizContainer):
     def __init__(
             self,
             dataframe: pd.DataFrame,
@@ -30,7 +25,7 @@ class EthogramComparison(EthogramVizContainer):
         start_index: ``int``, default 0
             Row of the dataframe that will initially be selected to view videos and corresponding ethograms.
         """
-        super(EthogramComparison, self).__init__(
+        super(EthogramComparisonVizContainer, self).__init__(
             dataframe=dataframe,
             start_index=start_index
         )

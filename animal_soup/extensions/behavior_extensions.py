@@ -33,7 +33,7 @@ class BehaviorDataFrameExtension:
     def clean_ethograms(self,
                 start_index: int = 0,
                         ):
-        container = EthogramCleaner(
+        container = EthogramCleanerVizContainer(
             dataframe=self._df,
             start_index=start_index,
         )
@@ -43,7 +43,7 @@ class BehaviorDataFrameExtension:
     def compare_ethograms(self,
                           start_index: int = 0
                           ):
-        container = EthogramComparison(
+        container = EthogramComparisonVizContainer(
             dataframe=self._df,
             start_index=start_index
         )

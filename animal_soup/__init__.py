@@ -7,4 +7,5 @@ from animal_soup.utils.df_utils import (
                     get_parent_raw_data_path
                     )
 from .flow_generator import *
+from .arrays import *
 

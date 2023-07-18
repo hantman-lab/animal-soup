@@ -5,15 +5,16 @@ import numpy as np
 from ._ethogram import EthogramVizContainer, ETHOGRAM_COLORS
 
 BEHAVIORS = [
-            "lift",
-            "handopen",
-            "grab",
-            "sup",
-            "atmouth",
-            "chew"
-            ]
+    "lift",
+    "handopen",
+    "grab",
+    "sup",
+    "atmouth",
+    "chew"
+]
 
-class EthogramCleaner(EthogramVizContainer):
+
+class EthogramCleanerVizContainer(EthogramVizContainer):
     def __init__(
             self,
             dataframe: pd.DataFrame,
@@ -21,17 +22,17 @@ class EthogramCleaner(EthogramVizContainer):
     ):
         """
         Creates container for editing ethograms and saving them to a new dataframe. 
-        
+
         Parameters
         ----------
         dataframe: ``pandas.Dataframe``
             Dataframe for ethograms that need to be cleaned. Should be organized in terms of `animal_id` and
             `session_id`. Ethograms that need to be cleaned for a given `animal_id`/`session_id` pairing should be
-            stored in the `ethograms` column as a ``dict`` of `{trial: ethogram}`. 
+            stored in the `ethograms` column as a ``dict`` of `{trial: ethogram}`.
         start_index: ``int``, default 0
             Row of the dataframe that will initially be selected to view videos and corresponding ethograms.
         """
-        super(EthogramCleaner, self).__init__(
+        super(EthogramCleanerVizContainer, self).__init__(
             dataframe=dataframe,
             start_index=start_index
         )
@@ -45,7 +46,6 @@ class EthogramCleaner(EthogramVizContainer):
 
         self._dataframe.behavior.save_to_disk()
 
-
     @property
     def current_behavior(self):
         """Current behavior selected in ethogram."""
@@ -57,7 +57,7 @@ class EthogramCleaner(EthogramVizContainer):
         self._current_behavior = self.plot[behavior]
         self.current_highlight = f'{behavior}_highlight'
 
-    @ property
+    @property
     def current_highlight(self):
         """Current graphic that is highlighted."""
         return self._current_highlight
@@ -105,7 +105,6 @@ class EthogramCleaner(EthogramVizContainer):
 
             lg_highlight.colors = 0
             lg_highlight.position_z = 1
-
 
             lg_data.colors = 0
             lg_data.colors[self.ethogram_array[i] == 1] = ETHOGRAM_COLORS[b]
@@ -208,11 +207,12 @@ class EthogramCleaner(EthogramVizContainer):
 
     def reset_ethogram(self, current_behavior: bool = False):
         """Will reset the current behavior selected or the entire cleaned ethogram back to the original ethogram."""
-        if current_behavior: # reset only current behavior to original
+        if current_behavior:  # reset only current behavior to original
             current_ix = BEHAVIORS.index(self.current_behavior.name)
             self.current_behavior.colors[:] = "black"
-            self.current_behavior.colors[self.ethogram_array[current_ix] == 1] = ETHOGRAM_COLORS[self.current_behavior.name]
-        else: # reset all behaviors to original
+            self.current_behavior.colors[self.ethogram_array[current_ix] == 1] = ETHOGRAM_COLORS[
+                self.current_behavior.name]
+        else:  # reset all behaviors to original
             for i, g in enumerate(ETHOGRAM_COLORS.keys()):
                 self.plot[g].colors[:] = "black"
                 self.plot[g].colors[self.ethogram_array[i] == 1] = ETHOGRAM_COLORS[g]
