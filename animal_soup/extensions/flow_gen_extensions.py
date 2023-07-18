@@ -1,5 +1,6 @@
 from animal_soup.utils import *
 from ..flow_generator import *
+from ..data import SingleVideoDataset, VideoDataset
 
 # map the mode of training to the appropriate model
 TRAINING_OPTIONS = {"slow": "TinyMotionNet3D",
@@ -113,6 +114,8 @@ class FlowGeneratorDataframeExtension:
         training_vids = list()
         parent_data_path = get_parent_raw_data_path()
         for ix, row in self._df.iterrows():
+            # should there be a vid_path column in dataframe, would simplify a lot of code in a lot of places
+            # would alleviate codec issue
             # for now assuming codec is AVI, but in future will need to detect or update
             training_vids.append(parent_data_path.joinpath(row["animal_id"],
                                                            row["session_id"],
@@ -130,7 +133,7 @@ class FlowGeneratorDataframeExtension:
 
         # create dataloader for training, only doing train split
         # could use another dataframe for testing
-        info, dataloader = generate_flow_dataloader(
+        info, dataloader = self._generate_flow_dataloader(
                                     videos=training_vids,
                                     conv_mode=conv_mode,
                                     augs=DEFAULT_AUGS,
@@ -159,7 +162,8 @@ class FlowGeneratorDataframeExtension:
         print("Starting training")
         print(f"Training Mode: {mode} \n"
               f"Model: {TRAINING_OPTIONS[mode]} \n"
-              f"Params: ")
+              f"Params: "
+              f"Data Info: ")
 
         return model
 
@@ -220,6 +224,41 @@ class FlowGeneratorDataframeExtension:
         model.load_state_dict(model_dict, strict=True)
 
         return model
+
+    def _generate_flow_dataloader(self,
+                                 videos: List[Path],
+                                 augs: Dict[str, Any],
+                                 batch_size: int,
+                                 conv_mode: str = ["2d", "3d"]) -> Tuple[Dict[str, Any], torch.utils.data.DataLoader]:
+        """
+        Creates a dataset for training based on the available trials in the current dataframe.
+
+        Parameters
+        ----------
+        videos: List[Path]
+            List of video paths available for training.
+        conv_mode: str
+            One of '2d', '3d'.
+            If 2D, batch will be of shape [N, C*T, H, W].
+            If 3D, batch will be of shape [N, C, T, H, W]
+        augs: Dict[str, Any]
+            Dictionary containing the image augmentations applied to the dataset.
+        batch_size: int
+            Batch size, number of training samples to go through before updating model params.
+
+        Returns
+        -------
+        Info about the dataloader as well as a dataloader for training.
+
+        """
+        data_info = None
+
+        dataset = VideoDataset(videos)
+
+        dataloader = torch.utils.data.Dataloader()
+
+        return (data_info, dataloader)
+
 
 
 
