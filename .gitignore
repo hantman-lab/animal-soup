@@ -31,8 +31,7 @@ __pycache__/
 
 # Tests
 .pytest_cache/
-animal_soup/tests/tmp
-animal_soup/tests/sample_data/
-animal_soup/tests/sample_data.zip
-animal_soup/tests/ground_truth.zip
-animal_soup/tests/ground_truth/
+tests/tmp
+tests/sample_data/
+tests/*.zip
+tests/ground_truth/
