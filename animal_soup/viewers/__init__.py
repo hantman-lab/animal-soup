@@ -8,6 +8,7 @@ __all__ = [
     "BehaviorVizContainer",
     "EthogramComparisonVizContainer",
     "EthogramCleanerVizContainer",
-    "EthogramVizContainer"
+    "EthogramVizContainer",
+    "DECORD_CONTEXT"
 ]
 

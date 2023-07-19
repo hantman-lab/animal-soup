@@ -39,15 +39,14 @@ class EthogramComparisonVizContainer(EthogramVizContainer):
         self.plot.renderer.add_event_handler(partial(self._resize_plots, self.plot), "resize")
 
     def _resize_plots(self, plot_instance, *args):
+        """Event handler for making the ethogram plots resize together."""
         w, h = plot_instance.renderer.logical_size
 
         self.plot.canvas.set_logical_size(w, h)
         self.comparison_plot.canvas.set_logical_size(w, h)
 
     def _make_ethogram_comparison_plot(self):
-        """
-        Instantiates the ethogram plot.
-        """
+        """Instantiates the ethogram plot."""
         row = self._dataframe.iloc[self.current_row_ix]
 
         if self.comparison_plot is None:
@@ -101,9 +100,7 @@ class EthogramComparisonVizContainer(EthogramVizContainer):
         self.synchronizer = Synchronizer(self.plot.selectors[0], self.comparison_plot.selectors[0], key_bind=None)
 
     def show(self):
-        """
-        Shows the widget.
-        """
+        """Shows the widget."""
         return VBox([
             self.datagrid,
             HBox([self.image_widget.show(),

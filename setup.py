@@ -7,7 +7,7 @@ install_requires = [
     "ipydatagrid",
     "pandas>=1.5.0",
     "decord",
-    "ipywidgets",
+    "ipywidgets==8.0",
     "pytest",
     "glfw",
     "tqdm",
@@ -15,9 +15,10 @@ install_requires = [
     "tables",
     "jupyter-rfb",
     "jupyterlab",
-    "nbmake",
     "kornia",
     "omegaconf"
+    "jupyterlab-widgets==3.0.7",
+    "nbmake"
 ]
 
 with open(Path(__file__).parent.joinpath("README.md")) as f:
@@ -25,7 +26,6 @@ with open(Path(__file__).parent.joinpath("README.md")) as f:
 
 with open(Path(__file__).parent.joinpath("animal_soup", "VERSION"), "r") as f:
     ver = f.read().split("\n")[0]
-
 
 setup(
     name='animal-soup',

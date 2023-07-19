@@ -5,14 +5,13 @@ import numpy as np
 from ._ethogram import EthogramVizContainer, ETHOGRAM_COLORS
 
 BEHAVIORS = [
-    "lift",
-    "handopen",
-    "grab",
-    "sup",
-    "atmouth",
-    "chew"
-]
-
+            "lift",
+            "handopen",
+            "grab",
+            "sup",
+            "atmouth",
+            "chew"
+            ]
 
 class EthogramCleanerVizContainer(EthogramVizContainer):
     def __init__(
@@ -22,13 +21,11 @@ class EthogramCleanerVizContainer(EthogramVizContainer):
     ):
         """
         Creates container for editing ethograms and saving them to a new dataframe. 
-
+        
         Parameters
         ----------
         dataframe: ``pandas.Dataframe``
-            Dataframe for ethograms that need to be cleaned. Should be organized in terms of `animal_id` and
-            `session_id`. Ethograms that need to be cleaned for a given `animal_id`/`session_id` pairing should be
-            stored in the `ethograms` column as a ``dict`` of `{trial: ethogram}`.
+            Dataframe to create ipydatagrid viewer from.
         start_index: ``int``, default 0
             Row of the dataframe that will initially be selected to view videos and corresponding ethograms.
         """
@@ -207,12 +204,11 @@ class EthogramCleanerVizContainer(EthogramVizContainer):
 
     def reset_ethogram(self, current_behavior: bool = False):
         """Will reset the current behavior selected or the entire cleaned ethogram back to the original ethogram."""
-        if current_behavior:  # reset only current behavior to original
+        if current_behavior: # reset only current behavior to original
             current_ix = BEHAVIORS.index(self.current_behavior.name)
             self.current_behavior.colors[:] = "black"
-            self.current_behavior.colors[self.ethogram_array[current_ix] == 1] = ETHOGRAM_COLORS[
-                self.current_behavior.name]
-        else:  # reset all behaviors to original
+            self.current_behavior.colors[self.ethogram_array[current_ix] == 1] = ETHOGRAM_COLORS[self.current_behavior.name]
+        else: # reset all behaviors to original
             for i, g in enumerate(ETHOGRAM_COLORS.keys()):
                 self.plot[g].colors[:] = "black"
                 self.plot[g].colors[self.ethogram_array[i] == 1] = ETHOGRAM_COLORS[g]
