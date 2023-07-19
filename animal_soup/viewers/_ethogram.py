@@ -29,6 +29,17 @@ class EthogramVizContainer(BehaviorVizContainer):
                  dataframe: pd.DataFrame,
                  start_index: int = 0,
                  ):
+        """
+        Wraps BehaviorVizContainer, in addition to showing behavior videos, will also show corresponding ethograms.
+
+        Parameters
+        ----------
+        dataframe: pd.DataFrame
+            Dataframe used to create the ipydatagrid. Datagrid will show a subset of columns from the original
+            dataframe.
+        start_index: int, default 0
+            Row index in datagrid that will start out as being selected initially. Default is first row.
+        """
         super(EthogramVizContainer, self).__init__(
             dataframe=dataframe,
             start_index=start_index
@@ -84,6 +95,7 @@ class EthogramVizContainer(BehaviorVizContainer):
         self.plot.auto_scale()
 
     def _check_for_cleaned_array(self, row: pd.Series):
+        """Checks whether there is a cleaned array to be shown instead."""
         if "cleaned_ethograms" not in self._dataframe.columns:
             return False
         if row["cleaned_ethograms"] is not None:
@@ -91,18 +103,13 @@ class EthogramVizContainer(BehaviorVizContainer):
         return False
 
     def ethogram_selection_event_handler(self, ev):
-        """
-        Event handler called for linear selector.
-        """
+        """Event handler called for linear selector."""
         ix = ev.pick_info["selected_index"]
         self.image_widget.sliders["t"].value = ix
 
-    def _trial_change(self, obj):
-        """
-        Event handler called when a trial is changed in self.trial_selector.
-        Updates the behavior imagewidget and ethogram plot with new data.
-        """
-        super()._trial_change(obj)
+    def _row_changed(self, *args):
+        """Event handler for when a row in the datagrid is changed."""
+        super()._row_changed()
 
         # force clearing of event handlers for selectors
         # seems to be an issue with fpl delete graphic method for selectors
@@ -112,6 +119,7 @@ class EthogramVizContainer(BehaviorVizContainer):
         self._set_behavior_frame_count()
 
     def _set_behavior_frame_count(self):
+        """Sets the behavior duration for each behavior."""
         durations = self._get_behavior_frame_count()
         if self.behavior_count is None:
             self.behavior_count = Textarea(
@@ -121,7 +129,7 @@ class EthogramVizContainer(BehaviorVizContainer):
                                               f'sup: {durations["sup"]}\n'
                                               f'atmouth: {durations["atmouth"]}\n'
                                               f'chew: {durations["chew"]}',
-                                        description="Frame #:",
+                                        description="Duration:",
                                         disabled=True,
                                         layout=Layout(height="65%", width="auto"))
         else:
@@ -140,9 +148,7 @@ class EthogramVizContainer(BehaviorVizContainer):
         return durations
 
     def show(self):
-        """
-        Shows the widget.
-        """
+        """Shows the widget."""
         return VBox([
             self.datagrid,
             HBox([self.image_widget.show(),

@@ -1,14 +1,15 @@
-from ._behavior import BehaviorVizContainer, DECORD_CONTEXT
-from ._ethogram import EthogramVizContainer
-from ._ethogram_cleaner import EthogramCleaner
-from ._ethogram_comparison import EthogramComparison
-from .extensions import *
-from .batch_utils import (
+
+
+from animal_soup.utils.df_utils import (
     create_df,
     load_df,
     set_parent_raw_data_path,
     get_parent_raw_data_path,
 )
+
+from .arrays import *
+from .extensions import *
+from .viewers import *
 
 from pathlib import Path
 
@@ -23,8 +24,7 @@ __all__ = [
     "BehaviorVizContainer",
     "BehaviorDataFrameExtension",
     "EthogramVizContainer",
-    "EthogramCleaner",
-    "DECORD_CONTEXT",
-    "EthogramComparison"
+    "EthogramCleanerVizContainer",
+    "EthogramComparisonVizContainer"
 ]
 

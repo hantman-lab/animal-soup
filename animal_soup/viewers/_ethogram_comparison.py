@@ -7,7 +7,7 @@ from fastplotlib.graphics.selectors import LinearSelector, Synchronizer
 from ipywidgets import HBox, VBox
 
 
-class EthogramComparison(EthogramVizContainer):
+class EthogramComparisonVizContainer(EthogramVizContainer):
     def __init__(
             self,
             dataframe: pd.DataFrame,
@@ -25,7 +25,7 @@ class EthogramComparison(EthogramVizContainer):
         start_index: ``int``, default 0
             Row of the dataframe that will initially be selected to view videos and corresponding ethograms.
         """
-        super(EthogramComparison, self).__init__(
+        super(EthogramComparisonVizContainer, self).__init__(
             dataframe=dataframe,
             start_index=start_index
         )
@@ -39,15 +39,14 @@ class EthogramComparison(EthogramVizContainer):
         self.plot.renderer.add_event_handler(partial(self._resize_plots, self.plot), "resize")
 
     def _resize_plots(self, plot_instance, *args):
+        """Event handler for making the ethogram plots resize together."""
         w, h = plot_instance.renderer.logical_size
 
         self.plot.canvas.set_logical_size(w, h)
         self.comparison_plot.canvas.set_logical_size(w, h)
 
     def _make_ethogram_comparison_plot(self):
-        """
-        Instantiates the ethogram plot.
-        """
+        """Instantiates the ethogram plot."""
         row = self._dataframe.iloc[self.current_row_ix]
 
         if self.comparison_plot is None:
@@ -101,9 +100,7 @@ class EthogramComparison(EthogramVizContainer):
         self.synchronizer = Synchronizer(self.plot.selectors[0], self.comparison_plot.selectors[0], key_bind=None)
 
     def show(self):
-        """
-        Shows the widget.
-        """
+        """Shows the widget."""
         return VBox([
             self.datagrid,
             HBox([self.image_widget.show(),

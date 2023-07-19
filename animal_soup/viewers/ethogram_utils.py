@@ -1,10 +1,10 @@
+#### DEPRECATED, NO LONGER BEING USED
+### STILL STORING HERE FOR NOW
+
 # from scipy.io import loadmat
 # import numpy as np
 
 # for now, a place to stor the method for getting a jaaba ethogram (hand_label or jaaba pred)
-
-# TODO: should really just make this function return the merged ethogram if possible,
-#  merged of hand and jaaba pred will always be better than jaaba by itself
 
 
 # def _get_ethogram(trial_index: int, mat_path, ethogram_type: str):
@@ -49,4 +49,4 @@
 #
 #         sorted_behaviors = [b.lower() for b in sorted_behaviors]
 #
-        # return np.hstack(ethograms).T, sorted_behaviors
+#         return np.hstack(ethograms).T, sorted_behaviors

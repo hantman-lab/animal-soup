@@ -1,29 +1,25 @@
-# This software license is the 3-clause BSD license plus a fourth clause that
-# prohibits redistribution for commercial purposes without further permission.
-#
-# BSD 3-Clause License
-#
-# Copyright (c) 2022, Kushal Kolar.
+"""
+This software license is the 3-clause BSD license plus a fourth clause that
+prohibits redistribution for commercial purposes without further permission.
+
+BSD 3-Clause License
+
+Copyright (c) 2022, Kushal Kolar.
+"""
 
 from typing import *
 from pathlib import Path
 from warnings import warn
 
 import numpy as np
+from decord import VideoReader
 
-try:
-    from decord import VideoReader
-except ImportError:
-    HAS_DECORD = False
-else:
-    HAS_DECORD = True
+slice_or_int_or_range = Union[int, slice, range]
 
-from ._base import LazyArray
-
-
-class LazyVideo(LazyArray):
+class LazyVideo:
     def __init__(
-        self, path: Union[Path, str],
+            self,
+            path: Union[Path, str],
             min_max: Tuple[int, int] = None,
             as_grayscale: bool = False,
             rgb_weights: Tuple[float, float, float] = (0.299, 0.587, 0.114),
@@ -53,40 +49,7 @@ class LazyVideo(LazyArray):
         kwargs
             passed to ``decord.VideoReader``
 
-        Examples
-        --------
-
-        Lazy loading with CPU
-
-        .. code-block:: python
-
-            from mesmerize_core.arrays import LazyVideo
-
-            vid = LazyVideo("path/to/video.mp4")
-
-            # use fpl to visualize
-
-            import fastplotlib as fpl
-
-            iw = fpl.ImageWidget(vid)
-            iw.show()
-
-
-        Lazy loading with GPU, decord must be compiled with CUDA options to use this
-
-        .. code-block:: python
-
-            from decord import gpu
-            from mesmerize_core.arrays import LazyVideo
-
-            gpu_context = gpu(0)
-
-            vid = LazyVideo("path/to/video.mp4", ctx=gpu_context)
-
         """
-        if not HAS_DECORD:
-            raise ImportError("You must install `decord` to use LazyVideo")
-
         self._video_reader = VideoReader(str(path), **kwargs)
 
         try:
@@ -137,6 +100,30 @@ class LazyVideo(LazyArray):
         warn("max not implemented for LazyTiff, returning min of 0th index")
         return self._max
 
+    @property
+    def ndim(self) -> int:
+        """
+        int
+            Number of dimensions
+        """
+        return len(self.shape)
+
+    @property
+    def nbytes(self) -> int:
+        """
+        int
+            number of bytes for the array if it were fully computed
+        """
+        return np.prod(self.shape + (np.dtype(self.dtype).itemsize,))
+
+    @property
+    def nbytes_gb(self) -> float:
+        """
+        float
+            number of gigabytes for the array if it were fully computed
+        """
+        return self.nbytes / 1e9
+
     def _compute_at_indices(self, indices: Union[int, slice]) -> np.ndarray:
         if not self.as_grayscale:
             return self._video_reader[indices].asnumpy()
@@ -153,3 +140,100 @@ class LazyVideo(LazyArray):
 
         warn("Video is already grayscale, just returning")
         return self._video_reader[indices].asnumpy()
+
+    def as_numpy(self):
+        """
+        NOT RECOMMENDED, THIS COULD BE EXTREMELY LARGE. Converts to a standard numpy array in RAM.
+
+        Returns
+        -------
+        np.ndarray
+        """
+        warn(
+            f"\nYou are trying to create a numpy.ndarray from a LazyArray, "
+            f"this is not recommended and could take a while.\n\n"
+            f"Estimated size of final numpy array: "
+            f"{self.nbytes_gb:.2f} GB"
+        )
+        a = np.zeros(shape=self.shape, dtype=self.dtype)
+
+        for i in range(self.n_frames):
+            a[i] = self[i]
+
+        return a
+
+    def __getitem__(
+            self,
+            item: Union[int, Tuple[slice_or_int_or_range]]
+    ):
+        if isinstance(item, int):
+            indexer = item
+
+        # numpy int scaler
+        elif isinstance(item, np.integer):
+            indexer = item.item()
+
+        # treat slice and range the same
+        elif isinstance(item, (slice, range)):
+            indexer = item
+
+        elif isinstance(item, tuple):
+            if len(item) > len(self.shape):
+                raise IndexError(
+                    f"Cannot index more dimensions than exist in the array. "
+                    f"You have tried to index with <{len(item)}> dimensions, "
+                    f"only <{len(self.shape)}> dimensions exist in the array"
+                )
+
+            indexer = item[0]
+
+        else:
+            raise IndexError(
+                f"You can index LazyArrays only using slice, int, or tuple of slice and int, "
+                f"you have passed a: <{type(item)}>"
+            )
+
+        # treat slice and range the same
+        if isinstance(indexer, (slice, range)):
+            start = indexer.start
+            stop = indexer.stop
+            step = indexer.step
+
+            if start is not None:
+                if start > self.n_frames:
+                    raise IndexError(f"Cannot index beyond `n_frames`.\n"
+                                     f"Desired frame start index of <{start}> "
+                                     f"lies beyond `n_frames` <{self.n_frames}>")
+            if stop is not None:
+                if stop > self.n_frames:
+                    raise IndexError(f"Cannot index beyond `n_frames`.\n"
+                                     f"Desired frame stop index of <{stop}> "
+                                     f"lies beyond `n_frames` <{self.n_frames}>")
+
+            if step is None:
+                step = 1
+
+            # convert indexer to slice if it was a range, allows things like decord.VideoReader slicing
+            indexer = slice(start, stop, step)  # in case it was a range object
+
+            # dimension_0 is always time
+            frames = self._compute_at_indices(indexer)
+
+            # index the remaining dims after lazy computing the frame(s)
+            if isinstance(item, tuple):
+                if len(item) == 2:
+                    return frames[:, item[1]]
+                elif len(item) == 3:
+                    return frames[:, item[1], item[2]]
+
+            else:
+                return frames
+
+        elif isinstance(indexer, int):
+            return self._compute_at_indices(indexer)
+
+    def __repr__(self):
+        return f"{self.__class__.__name__} @{hex(id(self))}\n" \
+               f"{self.__class__.__doc__}\n" \
+               f"Frames are computed only upon indexing\n" \
+               f"shape [frames, x, y]: {self.shape}\n"
