@@ -23,23 +23,44 @@ limitations under the License.
 Changes:  changed filter sizes, number of input images, number of layers, added cropping or interpolation for
 non-power-of-two shaped images, and multiplication... only kept their naming convention and overall structure
 """
-import logging
-# import warnings
 
-from .components import *
-
-log = logging.getLogger(__name__)
+from ._components import *
+import torch
 
 # modified from https://github.com/NVIDIA/flownet2-pytorch/blob/master/networks/FlowNetSD.py
 # https://github.com/NVIDIA/flownet2-pytorch/blob/master/networks/submodules.py
-class TinyMotionNet(nn.Module):
-    def __init__(self, num_images=11, input_channels=None, batchNorm=True, output_channels=None, flow_div=1):
+
+
+class TinyMotionNet(torch.nn.Module):
+    def __init__(self,
+                 num_images: int = 11,
+                 input_channels: int = None,
+                 batchNorm: bool = True,
+                 output_channels: int = None,
+                 ):
+        """
+        Model used for "medium" training of flow generator.
+
+        Parameters
+        ----------
+        num_images: int, default 11
+            Flow window size.
+        input_channels: int, default None
+            Number of input channels.
+        batchNorm: bool, default None
+            Normalize batch between layers.
+        output_channels: int, default None
+            Number of output channels.
+        """
         super().__init__()
+
         self.num_images = num_images
+
         if input_channels is None:
             self.input_channels = self.num_images * 3
         else:
             self.input_channels = int(input_channels)
+
         if output_channels is None:
             self.output_channels = int((num_images - 1) * 2)
         else:
@@ -47,7 +68,7 @@ class TinyMotionNet(nn.Module):
 
         # self.out_channels = int((num_images-1)*2)
         self.batchNorm = batchNorm
-        log.debug('ignoring flow div value of {}: setting to 1 instead'.format(flow_div))
+
         self.flow_div = 1
 
         self.conv1 = conv(self.batchNorm, self.input_channels, 64, kernel_size=7)
@@ -93,15 +114,4 @@ class TinyMotionNet(nn.Module):
         out_interconv2 = self.xconv2(concat2)
         flow2 = self.predict_flow2(out_interconv2) * self.flow_div
 
-        # flow1 = F.interpolate(flow2, (H, W), mode='bilinear', align_corners=False) * 2
-        # flow2*=self.flow_div
-        # flow3*=self.flow_div
-        # flow4*=self.flow_div
-        # import pdb
-        # pdb.set_trace()
-
-        # if self.training:
-        #     return flow1, flow2, flow3, flow4
-        # else:
-        #     return flow1,
         return flow2, flow3, flow4

@@ -21,10 +21,11 @@ from ._components import *
 
 
 class TinyMotionNet3D(nn.Module):
-    def __init__(self, num_images=11,
-                 input_channels=3,
-                 batchnorm=True,
-                 channel_base=16):
+    def __init__(self,
+                 num_images: int = 11,
+                 input_channels: int = 3,
+                 batchnorm: bool = True,
+                 channel_base: int = 16):
         """
         Model used for "slow" training of flow generator.
 
@@ -37,6 +38,7 @@ class TinyMotionNet3D(nn.Module):
         batchnorm: bool, default True
             Using batch normalization between layers.
         channel_base: int, default 16
+            Base channel size of convolution layer.
         """
         super().__init__()
         self.num_images = num_images

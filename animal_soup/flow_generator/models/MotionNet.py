@@ -13,23 +13,31 @@ Changes:  changed filter sizes, number of input images, number of layers, added 
 non-power-of-two shaped images, and multiplication... only kept their naming convention and overall structure
 """
 
-import logging
+from ._components import *
 
-from torch.nn import init
-
-from .components import *
-
-log = logging.getLogger(__name__)
 
 class MotionNet(nn.Module):
-    def __init__(self, num_images=11, batchNorm=True, flow_div=1):
+    def __init__(
+            self,
+            num_images: int = 11,
+            batchNorm: bool = True
+    ):
+        """
+        Model used for "fast" training of flow generator.
+
+        Parameters
+        ----------
+        num_images: int, default 11
+            Flow window size.
+        batchNorm: bool, default True
+            Normalize between layers.
+        """
         super(MotionNet, self).__init__()
 
         self.num_images = num_images
         self.out_channels = int((num_images - 1) * 2)
         self.batchNorm = batchNorm
 
-        log.debug('ignoring flow div value of {}: setting to 1 instead'.format(flow_div))
         self.flow_div = 1
 
         self.conv1 = conv(self.batchNorm, self.num_images * 3, 64)
@@ -75,17 +83,15 @@ class MotionNet(nn.Module):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 if m.bias is not None:
-                    init.uniform_(m.bias)
-                init.xavier_uniform_(m.weight)
+                    torch.nn.Module.init.uniform_(m.bias)
+                torch.nn.Module.init.xavier_uniform_(m.weight)
 
             if isinstance(m, nn.ConvTranspose2d):
                 if m.bias is not None:
-                    init.uniform_(m.bias)
-                init.xavier_uniform_(m.weight)
+                    torch.nn.Module.init.uniform_(m.bias)
+                torch.nn.Module.init.xavier_uniform_(m.weight)
                 # init_deconv_bilinear(m.weight)
         self.upsample1 = nn.Upsample(scale_factor=4, mode='bilinear')
-
-        # print('Flow div: {}'.format(self.flow_div))
 
     def forward(self, x):
         N, C, H, W = x.shape
@@ -164,22 +170,4 @@ class MotionNet(nn.Module):
         out_interconv2 = self.xconv2(concat2)
         flow2 = self.predict_flow2(out_interconv2) * self.flow_div
 
-        # flow1 = F.interpolate(flow2, (H, W), mode='bilinear', align_corners=False)*2
-        # flow2*=self.flow_div
-        # flow3*=self.flow_div
-        # flow4*=self.flow_div
-        # flow5*=self.flow_div
-        # flow6*=self.flow_div
-        # print('Original shape: {}'.format((N,C,H,W)))
-        # print('flow1: {}'.format(flow1.shape))
-        # print('flow2: {}'.format(flow2.shape))
-        # print('flow3: {}'.format(flow3.shape))
-        # print('flow4: {}'.format(flow4.shape))
-        # print('flow5: {}'.format(flow5.shape))
-
-        # if self.training:
-        #     return flow1, flow2, flow3, flow4
-        # else:
-        #     return flow1,
-        # return flow2, flow3, flow4, flow5, flow6
         return flow2, flow3, flow4
