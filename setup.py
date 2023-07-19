@@ -16,7 +16,7 @@ install_requires = [
     "jupyter-rfb",
     "jupyterlab",
     "kornia",
-    "omegaconf"
+    "omegaconf",
     "jupyterlab-widgets==3.0.7",
     "nbmake"
 ]
