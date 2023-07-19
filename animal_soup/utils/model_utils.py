@@ -8,6 +8,7 @@ from kornia.augmentation.container import VideoSequential
 
 class Transpose:
     """Module to transpose image stacks."""
+
     def __call__(self, images: Union[np.ndarray, torch.Tensor]) -> np.ndarray:
         if isinstance(images, torch.Tensor):
             images = images.numpy()
@@ -22,9 +23,10 @@ class Transpose:
     def __repr__(self):
         return self.__class__.__name__ + '()'
 
+
 class DenormalizeVideo(torch.nn.Module):
-    """Un-z-scores input video sequences
-    """
+    """Un-z-scores input video sequence"""
+
     def __init__(self, mean, std):
         super().__init__()
 
@@ -44,14 +46,14 @@ class DenormalizeVideo(torch.nn.Module):
         if self.std.device != tensor.device:
             self.std = self.std.to(tensor.device)
 
-        return torch.clamp( tensor*self.std + self.mean , 0, 1)
+        return torch.clamp(tensor * self.std + self.mean, 0, 1)
 
     def forward(self, tensor):
         return self.normalize(tensor)
 
+
 class NormalizeVideo(torch.nn.Module):
-    """Z-scores input video sequences
-    """
+    """Z-scores input video sequences"""
 
     def __init__(self, mean, std):
         super().__init__()
@@ -78,9 +80,10 @@ class NormalizeVideo(torch.nn.Module):
     def forward(self, tensor):
         return self.normalize(tensor)
 
+
 class ToFloat(torch.nn.Module):
-    """Module for converting input uint8 tensors to floats, dividing by 255
-    """
+    """Module for converting input uint8 tensors to floats, dividing by 255"""
+
     def __init__(self):
         super().__init__()
 
@@ -90,9 +93,10 @@ class ToFloat(torch.nn.Module):
     def __repr__(self):
         return self.__class__.__name__ + '()'
 
+
 class UnstackClip(torch.nn.Module):
-    """Module to convert image from N,C*T,H,W -> N,C,T,H,W
-    """
+    """Module to convert image from N,C*T,H,W -> N,C,T,H,W"""
+
     def __init__(self):
         super().__init__()
 
@@ -102,9 +106,10 @@ class UnstackClip(torch.nn.Module):
 
         return torch.stack(torch.chunk(tensor, T, dim=1), dim=2)
 
+
 class StackClipInChannels(torch.nn.Module):
-    """Module to convert image from N,C,T,H,W -> N,C*T,H,W
-    """
+    """Module to convert image from N,C,T,H,W -> N,C*T,H,W"""
+
     def __init__(self):
         super().__init__()
 
@@ -113,6 +118,7 @@ class StackClipInChannels(torch.nn.Module):
         tensor = tensor.transpose(1, 2)
         stacked = torch.cat([tensor[:, i, ...] for i in range(T)], dim=1)
         return stacked
+
 
 def get_gpu_options() -> Dict[int, str]:
     """Returns a dictionary of {gpu_id: gpu name}"""
@@ -124,6 +130,7 @@ def get_gpu_options() -> Dict[int, str]:
         gpu_options[gpu_id] = torch.cuda.get_device_properties(gpu_id).name
 
     return gpu_options
+
 
 def get_cpu_transforms(augs: Dict[str, Any]) -> torchvision.transforms:
     """
@@ -213,8 +220,3 @@ def get_gpu_transforms(augs: Dict[str, Any], conv_mode: str = '2d') -> torch.nn.
                           denormalize=denormalize)
 
     return gpu_transforms
-
-
-
-
-

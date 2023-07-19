@@ -59,8 +59,7 @@ class FlowLightningModule(pl.LightningModule):
             self.gpu_transforms = get_gpu_transforms(augs=augs)
 
         self.optimizer = None
-
-        # reconstructor
+        self.reconstructor = None
 
     def get_dataloader(self):
         """Returns a dataloader."""
@@ -74,7 +73,7 @@ class FlowLightningModule(pl.LightningModule):
 
         return dataloader
 
-    def validate_batch_size(self, batch: dict):
+    def _validate_batch_size(self, batch: dict):
         """Validate a batch size to make sure it has the right shape."""
         if "images" in batch.keys():
             if batch["images"].ndim != 5:
@@ -143,7 +142,7 @@ class FlowLightningModule(pl.LightningModule):
         outputs: list
             List of optic flows at multiple scales
         """
-        batch = self.validate_batch_size(batch)
+        batch = self._validate_batch_size(batch)
 
         images = batch["images"]
 
@@ -170,7 +169,7 @@ class FlowLightningModule(pl.LightningModule):
         """
         pass
         # # forward pass. images are returned because the forward pass runs augmentations on the gpu as well
-        # images, outputs = self(batch, split)
+        images, outputs = self.forward(batch)
         # # actually reconstruct t0 using t1 and estimated optic flow
         # downsampled_t0, estimated_t0, flows_reshaped = self.reconstructor(images, outputs)
         # loss, loss_components = self.criterion(batch, downsampled_t0, estimated_t0, flows_reshaped, self.model)
