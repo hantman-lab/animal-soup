@@ -9,6 +9,7 @@ from .batch_utils import (
     set_parent_raw_data_path,
     get_parent_raw_data_path,
 )
+from .arrays import *
 
 from pathlib import Path
 
