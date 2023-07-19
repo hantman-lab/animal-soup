@@ -134,6 +134,8 @@ def get_cpu_transforms(augs: Dict[str, Any]) -> torchvision.transforms:
 
     transforms = list()
 
+    transforms.append(torchvision.transforms.ToTensor())
+
     if "crop_size" in augs.keys() and augs["crop_size"] is not None:
         transforms.append(torchvision.transforms.RandomCrop(augs["cro_size"]))
     if "resize" in augs.keys() and augs["resize"] is not None:
@@ -167,12 +169,9 @@ def get_gpu_transforms(augs: Dict[str, Any], conv_mode: str = '2d') -> torch.nn.
     kornia_transforms = []
 
     if "LR" in augs.keys() and augs["LR"] > 0:
-        kornia_transforms.append(K.RandomHorizontalFlip(p=augs["LR"],
-                                                        same_on_batch=False,
-                                                        return_transform=False))
+        kornia_transforms.append(K.RandomHorizontalFlip(p=augs["LR"]))
     if "UD" in augs.keys() and augs["UD"] > 0:
-        kornia_transforms.append(K.RandomVerticalFlip(p=augs["UD"],
-                                                      same_on_batch=False, return_transform=False))
+        kornia_transforms.append(K.RandomVerticalFlip(p=augs["UD"]))
     if "degrees" in augs.keys() and augs["degrees"] > 0:
         kornia_transforms.append(K.RandomRotation(augs["degrees"]))
 
@@ -185,8 +184,7 @@ def get_gpu_transforms(augs: Dict[str, Any], conv_mode: str = '2d') -> torch.nn.
                                                saturation=augs["saturation"],
                                                hue=augs["hue"],
                                                p=augs["color_p"],
-                                               same_on_batch=False,
-                                               return_transform=False))
+                                               same_on_batch=False))
     if "grayscale" in augs.keys() and augs["grayscale"] > 0:
         kornia_transforms.append(K.RandomGrayscale(p=augs["grayscale"]))
 
@@ -213,8 +211,6 @@ def get_gpu_transforms(augs: Dict[str, Any], conv_mode: str = '2d') -> torch.nn.
 
     gpu_transforms = dict(train=train_transforms,
                           denormalize=denormalize)
-
-    print(f'GPU transforms: {gpu_transforms}')
 
     return gpu_transforms
 

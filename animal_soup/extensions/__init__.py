@@ -1,8 +1,9 @@
 from .behavior_extensions import BehaviorDataFrameExtension
-from .flow_gen_extensions import FlowGeneratorDataframeExtension
+from .flow_gen_extensions import FlowGeneratorDataframeExtension, DEFAULT_AUGS
 
 __all__ = [
     "BehaviorDataFrameExtension",
-    "FlowGeneratorDataframeExtension"
+    "FlowGeneratorDataframeExtension",
+    "DEFAULT_AUGS"
 ]
 

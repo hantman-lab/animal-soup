@@ -19,7 +19,8 @@ install_requires = [
     "omegaconf",
     "jupyterlab-widgets==3.0.7",
     "nbmake",
-    "vidio"
+    "vidio",
+    "lightning"
 ]
 
 with open(Path(__file__).parent.joinpath("README.md")) as f:

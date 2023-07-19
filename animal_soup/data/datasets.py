@@ -147,7 +147,7 @@ class SingleVideoDataset(data.Dataset):
                     image = self._zeros_image.copy().transpose(1, 2, 0)
                 if self.transform:
                     random.seed(seed)
-                    image = self.transform(torch.from_numpy(image))
+                    image = self.transform(image)
                     images.append(image)
 
         images = self._prepend_with_zeros(images, blank_start_frames)

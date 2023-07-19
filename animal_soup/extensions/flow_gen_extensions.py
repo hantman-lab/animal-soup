@@ -2,7 +2,7 @@ import os.path
 
 from animal_soup.utils import *
 from ..flow_generator import *
-from ..data import SingleVideoDataset, VideoDataset
+from ..data import VideoDataset
 
 # map the mode of training to the appropriate model
 TRAINING_OPTIONS = {"slow": "TinyMotionNet3D",
@@ -17,6 +17,8 @@ STOP_METHODS = {"early": 5,
 
 # max number of epochs before training will stop if stop method default value is never reached
 MAX_EPOCHS = 1000
+MIN_BATCH_SIZE = 8
+MAX_BATCH_SIZE = 512
 
 # default image augmentations
 DEFAULT_AUGS = {
@@ -28,6 +30,9 @@ DEFAULT_AUGS = {
     "crop_size": None,
     "grayscale": 0.5,
     "hue": 0.1,
+    # currently using the normalization in a previous config
+    # but some kind of calculation is being done to calculate these based on videos?
+    # need to look into how this is calculated
     "normalization": {
         "N": 149760000,
         "mean": [0.175888385730895,
@@ -49,6 +54,7 @@ class FlowGeneratorDataframeExtension:
     """
     Pandas dataframe extensions for training the flow generator.
     """
+
     def __init__(self, df):
         self._df = df
 
@@ -141,14 +147,19 @@ class FlowGeneratorDataframeExtension:
             raise ValueError(f"gpu_id: {gpu_id} not in {gpu_options}. "
                              f"Please select a valid gpu.")
 
+        # check batch_size
+        if batch_size < MIN_BATCH_SIZE or batch_size > MAX_BATCH_SIZE:
+            raise ValueError(f'batch_size must be between {MIN_BATCH_SIZE} and {MAX_BATCH_SIZE}')
+
         # validate stop method
         if stop_method not in STOP_METHODS.keys():
             raise ValueError(f"stop_method argument must be one of {STOP_METHODS.keys()}")
 
         # reload weights from file, want to use pretrained weights
-        model = self._load_pretrained_flow_model(weight_path=model_in,
-                                            mode="slow",
-                                            flow_window=flow_window)
+        model = self._load_pretrained_flow_model(
+            weight_path=model_in,
+            mode="slow",
+            flow_window=flow_window)
 
         # create available dataset from items in df
         training_vids = list()
@@ -175,39 +186,39 @@ class FlowGeneratorDataframeExtension:
         transforms = get_cpu_transforms(DEFAULT_AUGS)
 
         # create VideoDataset from available videos with augs
-        dataset = VideoDataset(
-                            vid_paths=training_vids,
-                            transform=transforms,
-                            conv_mode=conv_mode,
-                            mean_by_channels=DEFAULT_AUGS["normalization"]["mean"],
-                            frames_per_clip=flow_window
-                            )
+        datasets = VideoDataset(
+            vid_paths=training_vids,
+            transform=transforms,
+            conv_mode=conv_mode,
+            mean_by_channels=DEFAULT_AUGS["normalization"]["mean"],
+            frames_per_clip=flow_window
+        )
 
-        dataset_metadata = dataset.dataset_info
-
-        dataloader = torch.utils.data.DataLoader(
-                                            dataset=dataset,
-                                            batch_size=batch_size,
-                                            shuffle=True,
-                                            pin_memory=True
-                                            )
+        dataset_metadata = datasets.dataset_info
 
         # metrics
-
+        key_metric = "SSIM"
+        #metrics = OpticalFlow(rundir, key_metric, num_parameters)
         # stopper
 
         # lightening module
+        lightning_module = FlowLightningModule(
+            model=model,
+            datasets=datasets,
+            initial_lr=initial_lr,
+            batch_size=batch_size,
+            augs=DEFAULT_AUGS
+        )
 
         # trainer
 
         # train
-
+        # trainer.fit(lightning_module)
 
         # in notes column, add flow_gen_train params for model
         # or should store all in output file
         # flow_gen output should also get stored in hdf5 file in same place as df path
         # at end of training should also store new model checkpoint?
-
 
         print("Starting training")
         print(f"Training Mode: {mode} \n"
@@ -215,19 +226,19 @@ class FlowGeneratorDataframeExtension:
               f"Params: "
               f"Data Info: ")
 
-        return model, dataloader, dataset
+        return model
 
     def _load_pretrained_flow_model(self,
-                               weight_path: Union[str, Path],
-                               mode: str,
-                               flow_window: int) -> Union[TinyMotionNet3D]:
+                                    weight_path: Union[str, Path],
+                                    mode: str,
+                                    flow_window: int) -> Union[TinyMotionNet3D]:
         """Returns a model with the pretrained weights."""
 
         if mode == "slow":
             model = TinyMotionNet3D(num_images=flow_window)
         elif mode == "medium":
             model = TinyMotionNet(num_images=flow_window)
-        else: # mode is fast
+        else:  # mode is fast
             model = MotionNet(num_images=flow_window)
 
         # using default weight path
@@ -271,10 +282,3 @@ class FlowGeneratorDataframeExtension:
         print("Successfully loaded model from checkpoint!")
 
         return model
-
-
-
-
-
-
-
