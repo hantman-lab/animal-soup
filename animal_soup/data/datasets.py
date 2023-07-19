@@ -14,7 +14,7 @@ class SingleVideoDataset(data.Dataset):
     def __init__(self,
                  vid_path: Path,
                  mean_by_channels: Union[list, np.ndarray] = [0, 0, 0],
-                 transform: torchvision.transforms.v2.Transform = None,
+                 transform: torchvision.transforms = None,
                  conv_mode: str = '2d',
                  frames_per_clip: int = 1
                 ):
@@ -193,6 +193,7 @@ class VideoDataset(data.Dataset):
             Number of rgb frames in each training sample. Based on flow window.
         """
         datasets = list()
+        dataset_info = list()
         for i in range(len(vid_paths)):
             dataset = SingleVideoDataset(
                                 vid_paths[i],
@@ -202,8 +203,10 @@ class VideoDataset(data.Dataset):
                                 frames_per_clip=frames_per_clip
                                          )
             datasets.append(dataset)
+            dataset_info.append(dataset.metadata)
 
         self.dataset = data.ConcatDataset(datasets)
+        self.dataset_info = dataset_info
 
     def __len__(self):
         return len(self.dataset)

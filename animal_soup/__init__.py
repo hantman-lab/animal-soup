@@ -1,4 +1,3 @@
-from .viewers import *
 from .extensions import *
 from animal_soup.utils.df_utils import (
                     load_df,
@@ -8,4 +7,5 @@ from animal_soup.utils.df_utils import (
                     )
 from .flow_generator import *
 from .arrays import *
+from .viewers import *
 

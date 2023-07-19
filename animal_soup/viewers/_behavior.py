@@ -83,6 +83,7 @@ class BehaviorVizContainer:
 
         self.current_row_ix = index
         self._set_trial_selector(index)
+        self._trial_change()
 
     def _set_trial_selector(self, index):
         """Creates trial selector widget for a given session."""
@@ -91,7 +92,6 @@ class BehaviorVizContainer:
 
         if self.trial_selector is None:
             self.trial_selector = Select(options=options)
-            self.trial_selector.observe(self._trial_change, "value")
         else:
             self.trial_selector.options = options
 
@@ -107,7 +107,7 @@ class BehaviorVizContainer:
         row = self._dataframe.iloc[self.current_row_ix]
         vid_path = self.local_parent_path.joinpath(row['animal_id'],
                                                    row['session_id'],
-                                                   self.selected_trial).with_suffix('.avi')
+                                                   row['trial_id']).with_suffix('.avi')
 
         if self.image_widget is None:
             if DECORD_CONTEXT == "gpu":
@@ -123,21 +123,22 @@ class BehaviorVizContainer:
         # most the time video is rendered upside down, default flip camera
         self.image_widget.gridplot[0, 0].camera.world.scale_y *= -1
 
-    def _trial_change(self, obj):
+    def _trial_change(self):
         """
-        Event handler called when a trial is changed in self.trial_selector.
+        Event handler called when a trial is changed.
         Updates the behavior imagewidget with new data.
         """
         row = self._dataframe.iloc[self.current_row_ix]
-        self.selected_trial = self.trial_selector.value
 
-        session_path = self.local_parent_path.joinpath(row['animal_id'], row['session_id'])
-        selected_video = session_path.joinpath(self.selected_trial).with_suffix('.avi')
+
+        vid_path = self.local_parent_path.joinpath(row['animal_id'],
+                                                       row['session_id'],
+                                                       row['trial_id']).with_suffix('avi')
 
         if DECORD_CONTEXT == "gpu":
-            self.image_widget.set_data([LazyVideo(selected_video, ctx=gpu_context(0))], reset_vmin_vmax=True)
+            self.image_widget.set_data([LazyVideo(vid_path, ctx=gpu_context(0))], reset_vmin_vmax=True)
         else:
-            self.image_widget.set_data([LazyVideo(selected_video)], reset_vmin_vmax=True)
+            self.image_widget.set_data([LazyVideo(vid_path)], reset_vmin_vmax=True)
 
     def show(self):
         """

@@ -10,14 +10,7 @@ from pathlib import Path
 from warnings import warn
 
 import numpy as np
-
-try:
-    from decord import VideoReader
-except ImportError:
-    HAS_DECORD = False
-else:
-    HAS_DECORD = True
-
+from decord import VideoReader
 from ._base import LazyArray
 
 
@@ -84,9 +77,6 @@ class LazyVideo(LazyArray):
             vid = LazyVideo("path/to/video.mp4", ctx=gpu_context)
 
         """
-        if not HAS_DECORD:
-            raise ImportError("You must install `decord` to use LazyVideo")
-
         self._video_reader = VideoReader(str(path), **kwargs)
 
         try:

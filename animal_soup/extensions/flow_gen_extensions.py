@@ -106,7 +106,7 @@ class FlowGeneratorDataframeExtension:
             raise ValueError(f"stop_method argument must be one of {STOP_METHODS.keys()}")
 
         # reload weights from file, want to use pretrained weights
-        model = self._load_pretrained_model(weight_path=Path('/home/clewis7/repos/animal-soup/pretrained_checkpoints/flow_gen.ckpt'),
+        model = self._load_pretrained_flow_model(weight_path=Path('/home/clewis7/repos/animal-soup/pretrained_checkpoints/flow_gen.ckpt'),
                                             mode="slow",
                                             flow_window=flow_window)
 
@@ -143,9 +143,9 @@ class FlowGeneratorDataframeExtension:
                             frames_per_clip=flow_window
                             )
 
-        dataset_metadata = dataset.metadata
+        dataset_metadata = dataset.dataset_info
 
-        dataloader = torch.utils.data.Dataloader(
+        dataloader = torch.utils.data.DataLoader(
                                             dataset=dataset,
                                             batch_size=batch_size,
                                             shuffle=True,
@@ -178,7 +178,7 @@ class FlowGeneratorDataframeExtension:
               f"Params: "
               f"Data Info: ")
 
-        return model
+        return model, dataloader, dataset
 
     def _load_pretrained_flow_model(self,
                                weight_path: Union[str, Path],
