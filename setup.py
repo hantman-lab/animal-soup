@@ -15,7 +15,9 @@ install_requires = [
     "tables",
     "jupyter-rfb",
     "jupyterlab",
-    "nbmake"
+    "nbmake",
+    "kornia",
+    "omegaconf"
 ]
 
 with open(Path(__file__).parent.joinpath("README.md")) as f:
