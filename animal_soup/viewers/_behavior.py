@@ -1,14 +1,11 @@
 import pandas as pd
 from ipydatagrid import DataGrid
 from ipywidgets import HBox, VBox, Select
-
 from fastplotlib import ImageWidget
 from warnings import warn
-from .arrays import LazyVideo
+from ..arrays import LazyVideo
 from typing import *
-
-from .batch_utils import get_parent_raw_data_path
-
+from ..utils import get_parent_raw_data_path
 from decord import gpu as gpu_context
 
 DECORD_CONTEXT = "cpu"
@@ -19,6 +16,17 @@ class BehaviorVizContainer:
             dataframe: pd.DataFrame,
             start_index: int = 0,
     ):
+        """
+        Creates an ipydatagrid and `fastplotlib` ``ImageWidget`` viewer based on a dataframe.
+
+        Parameters
+        ----------
+        dataframe: pd.DataFrame
+            Dataframe used to create the ipydatagrid. Datagrid will show a subset of columns from the original
+            dataframe.
+        start_index: int, default 0
+            Row index in datagrid that will start out as being selected initially. Default is first row.
+        """
         self._dataframe = dataframe
         self.local_parent_path = get_parent_raw_data_path()
 
@@ -54,10 +62,10 @@ class BehaviorVizContainer:
             row1=start_index,
             column1=0,
             row2=start_index,
-            column2=len(df_show.columns),
+            column2=0,
             clear_mode="all"
         )
-        self._set_trial_selector(self.current_row_ix)
+        self._set_trial_selector()
 
         self.datagrid.observe(self._row_changed, names="selections")
 
@@ -82,16 +90,15 @@ class BehaviorVizContainer:
             return
 
         self.current_row_ix = index
-        self._set_trial_selector(index)
+        self._set_trial_selector()
 
-    def _set_trial_selector(self, index):
+    def _set_trial_selector(self):
         """Creates trial selector widget for a given session."""
-        row = self._dataframe.iloc[index]
+        row = self._dataframe.iloc[self.current_row_ix]
         options = [row["trial_id"]]
 
         if self.trial_selector is None:
             self.trial_selector = Select(options=options)
-            self.trial_selector.observe(self._trial_change, "value")
         else:
             self.trial_selector.options = options
 
@@ -99,15 +106,16 @@ class BehaviorVizContainer:
 
         if self.image_widget is None:
             self._make_image_widget()
+        else:
+            self._update_image_widget()
+
 
     def _make_image_widget(self):
-        """
-        Instantiates image widget to view behavior videos.
-        """
+        """Instantiates image widget to view behavior videos."""
         row = self._dataframe.iloc[self.current_row_ix]
         vid_path = self.local_parent_path.joinpath(row['animal_id'],
                                                    row['session_id'],
-                                                   self.selected_trial).with_suffix('.avi')
+                                                   row['trial_id']).with_suffix('.avi')
 
         if self.image_widget is None:
             if DECORD_CONTEXT == "gpu":
@@ -123,26 +131,20 @@ class BehaviorVizContainer:
         # most the time video is rendered upside down, default flip camera
         self.image_widget.gridplot[0, 0].camera.world.scale_y *= -1
 
-    def _trial_change(self, obj):
-        """
-        Event handler called when a trial is changed in self.trial_selector.
-        Updates the behavior imagewidget with new data.
-        """
+    def _update_image_widget(self):
+        """If row changes, update the data in the ImageWidget with the new row selected."""
         row = self._dataframe.iloc[self.current_row_ix]
-        self.selected_trial = self.trial_selector.value
-
-        session_path = self.local_parent_path.joinpath(row['animal_id'], row['session_id'])
-        selected_video = session_path.joinpath(self.selected_trial).with_suffix('.avi')
+        vid_path = self.local_parent_path.joinpath(row['animal_id'],
+                                                   row['session_id'],
+                                                   row['trial_id']).with_suffix('.avi')
 
         if DECORD_CONTEXT == "gpu":
-            self.image_widget.set_data([LazyVideo(selected_video, ctx=gpu_context(0))], reset_vmin_vmax=True)
+            self.image_widget.set_data([LazyVideo(vid_path, ctx=gpu_context(0))], reset_vmin_vmax=True)
         else:
-            self.image_widget.set_data([LazyVideo(selected_video)], reset_vmin_vmax=True)
+            self.image_widget.set_data([LazyVideo(vid_path)], reset_vmin_vmax=True)
 
     def show(self):
-        """
-        Shows the widget.
-        """
+        """Shows the widget."""
         return VBox([
             self.datagrid,
             HBox([self.image_widget.show(),

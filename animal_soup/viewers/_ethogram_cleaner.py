@@ -14,7 +14,7 @@ BEHAVIORS = [
             "chew"
             ]
 
-class EthogramCleaner(EthogramVizContainer):
+class EthogramCleanerVizContainer(EthogramVizContainer):
     def __init__(
             self,
             dataframe: pd.DataFrame,
@@ -26,13 +26,11 @@ class EthogramCleaner(EthogramVizContainer):
         Parameters
         ----------
         dataframe: ``pandas.Dataframe``
-            Dataframe for ethograms that need to be cleaned. Should be organized in terms of `animal_id` and
-            `session_id`. Ethograms that need to be cleaned for a given `animal_id`/`session_id` pairing should be
-            stored in the `ethograms` column as a ``dict`` of `{trial: ethogram}`. 
+            Dataframe to create ipydatagrid viewer from.
         start_index: ``int``, default 0
             Row of the dataframe that will initially be selected to view videos and corresponding ethograms.
         """
-        super(EthogramCleaner, self).__init__(
+        super(EthogramCleanerVizContainer, self).__init__(
             dataframe=dataframe,
             start_index=start_index
         )
@@ -58,7 +56,7 @@ class EthogramCleaner(EthogramVizContainer):
         self._current_behavior = self.plot[behavior]
         self.current_highlight = f'{behavior}_highlight'
 
-    @ property
+    @property
     def current_highlight(self):
         """Current graphic that is highlighted."""
         return self._current_highlight
