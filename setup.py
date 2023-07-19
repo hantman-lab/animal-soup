@@ -18,7 +18,8 @@ install_requires = [
     "kornia",
     "omegaconf",
     "jupyterlab-widgets==3.0.7",
-    "nbmake"
+    "nbmake",
+    "vidio"
 ]
 
 with open(Path(__file__).parent.joinpath("README.md")) as f:

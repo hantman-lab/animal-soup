@@ -5,10 +5,12 @@ import numpy as np
 from kornia import augmentation as K
 from kornia.augmentation.container import VideoSequential
 
+
 class Transpose:
-    """Module to transpose image stacks.
-    """
-    def __call__(self, images: np.ndarray) -> np.ndarray:
+    """Module to transpose image stacks."""
+    def __call__(self, images: Union[np.ndarray, torch.Tensor]) -> np.ndarray:
+        if isinstance(images, torch.Tensor):
+            images = images.numpy()
         shape = images.shape
         if len(shape) == 4:
             # F x H x W x C -> C x F x H x W

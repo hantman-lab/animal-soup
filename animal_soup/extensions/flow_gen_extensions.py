@@ -1,3 +1,5 @@
+import os.path
+
 from animal_soup.utils import *
 from ..flow_generator import *
 from ..data import SingleVideoDataset, VideoDataset
@@ -50,12 +52,15 @@ class FlowGeneratorDataframeExtension:
     def __init__(self, df):
         self._df = df
 
-    def train(self, mode: str = "slow",
+    def train(self,
+              mode: str = "slow",
               flow_window: int = 11,
               batch_size: int = 32,
               gpu_id: int = 0,
               initial_lr: float = 0.0001,
-              stop_method: str = "learning_rate"
+              stop_method: str = "learning_rate",
+              model_in: Union[str, Path] = None,
+              model_out: Union[str, Path] = None
               ):
         """
         Train flow generator model.
@@ -63,7 +68,8 @@ class FlowGeneratorDataframeExtension:
         Parameters
         ----------
         mode: str, default 'slow'
-            Argument must be one of ["slow", "medium", "fast"]. Determines the model used for training the flow generator.
+            Argument must be one of ["slow", "medium", "fast"]. Determines the model used for training the flow
+            generator.
 
             | mode   | model           |
             |--------|-----------------|
@@ -90,7 +96,41 @@ class FlowGeneratorDataframeExtension:
             |               | has stopped improving                                                      |
             | num_epochs    | Stop training after a given number of epochs                               |
 
+        model_in: str or Path, default None
+            If you want to retrain the model using different model weights than the default. User can
+            provide a location to a different model checkpoint. For example, if you had retrained the flow generator
+            previously and wanted to use those weights instead.
+        model_out: str or Path, default None
+            User provided location of where to store model output such as model checkpoint with updated weights,
+            hdf5 file with model results, etc. By default, the model output will get stored in the same directory
+            as the dataframe.
         """
+        # check valid model_in if not None
+        if model_in is not None:
+            # validate path
+            validate_path(model_in)
+            # check if path exists
+            if not os.path.exists(model_in):
+                raise ValueError(f'No checkpoint file exists at: {model_in}')
+            # if path is str, convert
+            if isinstance(model_in, str):
+                model_in = Path(model_in)
+            # check if model_in suffix in ["pt", "ckpt"]
+            if model_in.suffix not in [".pt", ".ckpt"]:
+                raise ValueError("PyTorch model checkpoints should end in '.pt' or '.ckpt'. "
+                                 "Please make sure the file you are trying to use is a model checkpoint.")
+
+        # check if model_out is valid
+        if model_out is not None:
+            # validate path
+            validate_path(model_out)
+            # make sure path exists
+            if not os.path.exists(model_out):
+                raise ValueError(f"path does not exist at: {model_out}")
+            # if model_out is str, convert to path
+            if isinstance(model_out, str):
+                model_out = Path(model_out)
+
         # check valid mode
         if mode not in TRAINING_OPTIONS.keys():
             raise ValueError(f"mode argument must be one of {TRAINING_OPTIONS.keys()}")
@@ -106,7 +146,7 @@ class FlowGeneratorDataframeExtension:
             raise ValueError(f"stop_method argument must be one of {STOP_METHODS.keys()}")
 
         # reload weights from file, want to use pretrained weights
-        model = self._load_pretrained_flow_model(weight_path=Path('/home/clewis7/repos/animal-soup/pretrained_checkpoints/flow_gen.ckpt'),
+        model = self._load_pretrained_flow_model(weight_path=model_in,
                                             mode="slow",
                                             flow_window=flow_window)
 
@@ -163,9 +203,6 @@ class FlowGeneratorDataframeExtension:
         # train
 
 
-
-
-
         # in notes column, add flow_gen_train params for model
         # or should store all in output file
         # flow_gen output should also get stored in hdf5 file in same place as df path
@@ -186,10 +223,6 @@ class FlowGeneratorDataframeExtension:
                                flow_window: int) -> Union[TinyMotionNet3D]:
         """Returns a model with the pretrained weights."""
 
-        # check valid mode
-        if mode not in TRAINING_OPTIONS.keys():
-            raise ValueError(f"mode argument must be one of {TRAINING_OPTIONS.keys()}")
-
         if mode == "slow":
             model = TinyMotionNet3D(num_images=flow_window)
         elif mode == "medium":
@@ -197,11 +230,12 @@ class FlowGeneratorDataframeExtension:
         else: # mode is fast
             model = MotionNet(num_images=flow_window)
 
+        # using default weight path
+        if weight_path is None:
+            weight_path = Path('/home/clewis7/repos/animal-soup/pretrained_checkpoints/flow_gen.ckpt')
+
         if isinstance(weight_path, str):
             weight_path = Path(weight_path)
-
-        # validate weight path
-        validate_path(weight_path)
 
         # load model weights from checkpoint
         pretrained_model_state = torch.load(weight_path)["state_dict"]
@@ -225,16 +259,16 @@ class FlowGeneratorDataframeExtension:
                 # we will specify them for whatever we are currently training.
                 continue
             if k not in model_dict:
-                print('{} not found in model dictionary'.format(k))
+                raise ValueError(f'{k} not found in model dictionary')
+            elif model_dict[k].size() != v.size():
+                raise ValueError(f'{k} has different size: pretrained:{v.size()} model:{model_dict[k].size}')
             else:
-                if model_dict[k].size() != v.size():
-                    print('{} has different size: pretrained:{} model:{}'.format(k, v.size(), model_dict[k].size()))
-                else:
-                    print('Successfully loaded: {}'.format(k))
-                    pretrained_dict[k] = v
+                pretrained_dict[k] = v
 
         model_dict.update(pretrained_dict)
         model.load_state_dict(model_dict, strict=True)
+
+        print("Successfully loaded model from checkpoint!")
 
         return model
 

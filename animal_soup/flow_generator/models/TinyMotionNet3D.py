@@ -17,10 +17,8 @@ limitations under the License.
 Changes: 2D -> 3D. changed filter sizes, number of input images, number of layers... only kept their naming
 convention and overall structure
 """
-import logging
-
 from ._components import *
-# import warnings
+
 
 class TinyMotionNet3D(nn.Module):
     def __init__(self, num_images=11,
@@ -55,7 +53,6 @@ class TinyMotionNet3D(nn.Module):
         self.flow_div = 1
 
         self.channels = [channel_base * (2 ** i) for i in range(0, 3)]
-        print(self.channels)
 
         # convolutional layers
         self.conv1 = conv3d(self.input_channels, self.channels[0], kernel_size=7, batchnorm=batchnorm, bias=bias)

@@ -1,23 +1,26 @@
+import torch
 import torchvision
 from torch.utils import data
 from typing import *
 import numpy as np
 from pathlib import Path
 import os
-from ..arrays import LazyVideo
+from vidio import VideoReader
 import random
+
 
 class SingleVideoDataset(data.Dataset):
     """
     PyTorch Dataset for loading a set of sequential frames and applying pre-defined augmentations to each frame.
     """
+
     def __init__(self,
                  vid_path: Path,
                  mean_by_channels: Union[list, np.ndarray] = [0, 0, 0],
                  transform: torchvision.transforms = None,
                  conv_mode: str = '2d',
                  frames_per_clip: int = 1
-                ):
+                 ):
         """
         Initializes a VideoDataset object. Reads in a video, applies the CPU augmentations to every frame in the clip,
         and stacks all channels together for input to a CNN.
@@ -44,17 +47,14 @@ class SingleVideoDataset(data.Dataset):
         if not os.path.exists(vid_path):
             raise ValueError(f"No video found at this path: {vid_path}")
 
-        self._reader = LazyVideo(self.vid_path)
+        with VideoReader(str(self.vid_path)) as reader:
+            self.metadata = dict()
 
-        self.metadata = dict()
-
-        self._reader.shape
-
-        self.metadata['vid_path'] = vid_path
-        self.metadata['width'] = self._reader.shape[1]
-        self.metadata['height'] = self._reader.shape[0]
-        self.metadata['framecount'] = self._reader.n_frames
-        self.metadata['fps'] = None
+            self.metadata['vid_path'] = vid_path
+            self.metadata['width'] = reader.next().shape[1]
+            self.metadata['height'] = reader.next().shape[0]
+            self.metadata['framecount'] = reader.nframes
+            self.metadata['fps'] = reader.fps
 
         self._zeros_image = None
 
@@ -139,7 +139,7 @@ class SingleVideoDataset(data.Dataset):
 
         seed = np.random.randint(2147483647)
 
-        with LazyVideo(self.vid_path) as reader:
+        with VideoReader(str(self.vid_path)) as reader:
             for i in range(real_frames):
                 try:
                     image = reader[i + start_frame]
@@ -147,30 +147,24 @@ class SingleVideoDataset(data.Dataset):
                     image = self._zeros_image.copy().transpose(1, 2, 0)
                 if self.transform:
                     random.seed(seed)
-                    image = self.transform(image)
+                    image = self.transform(torch.from_numpy(image))
                     images.append(image)
 
         images = self._prepend_with_zeros(images, blank_start_frames)
         images = self._append_with_zeros(images, blank_end_frames)
 
-        print(f'idx: {index} '
-              f'st: {start_frame} '
-              f'blank_start: {blank_start_frames} '
-              f'blank_end: {blank_end_frames} '
-              f'real: {real_frames}'
-              f' total: {framecount}')
-
         # images are now numpy arrays of shape 3, H, W
         # stacking in the first dimension changes to 3, T, H, W, compatible with Conv3D
         images = np.stack(images, axis=1)
-        
-        print(f'images shape: {images.shape}')
 
         outputs = {'images': images}
+
         return outputs
+
 
 class VideoDataset(data.Dataset):
     """ Simple wrapper around SingleVideoDataset for smoothly loading multiple videos """
+
     def __init__(self,
                  vid_paths: List[Path],
                  transform: torchvision.transforms = None,
@@ -196,12 +190,12 @@ class VideoDataset(data.Dataset):
         dataset_info = list()
         for i in range(len(vid_paths)):
             dataset = SingleVideoDataset(
-                                vid_paths[i],
-                                transform=transform,
-                                conv_mode=conv_mode,
-                                mean_by_channels=mean_by_channels,
-                                frames_per_clip=frames_per_clip
-                                         )
+                vid_paths[i],
+                transform=transform,
+                conv_mode=conv_mode,
+                mean_by_channels=mean_by_channels,
+                frames_per_clip=frames_per_clip
+            )
             datasets.append(dataset)
             dataset_info.append(dataset.metadata)
 
