@@ -2,6 +2,27 @@
 # Jupyter Checkpoints
 .ipynb_checkpoints/
 
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
 # PyCharm
 .idea/
 
@@ -12,6 +33,5 @@ __pycache__/
 .pytest_cache/
 tests/tmp
 tests/sample_data/
-tests/sample_data.zip
-tests/ground_truth.zip
+tests/*.zip
 tests/ground_truth/
