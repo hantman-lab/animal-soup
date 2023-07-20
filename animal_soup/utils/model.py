@@ -14,3 +14,5 @@ def get_gpu_options() -> Dict[int, str]:
         gpu_options[gpu_id] = torch.cuda.get_device_properties(gpu_id).name
 
     return gpu_options
+
+

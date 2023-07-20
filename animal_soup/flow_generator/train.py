@@ -4,6 +4,9 @@ from typing import *
 from ..utils import get_gpu_transforms
 from .models import *
 from .loss import *
+from .reconstructor import Reconstructor
+from ..utils import L2, L2_SP
+from pathlib import Path
 
 DEFAULT_TRAINING_PARAMS = {
     "min_lr": 5e-07,
@@ -15,7 +18,16 @@ DEFAULT_TRAINING_PARAMS = {
         "alpha": 1.0e-05,
         "beta": 0.001,
         "style": "l2_sp"
-    }
+    },
+    "smooth_weight_multiplier": 1.0,
+    "sparsity_weight": 0.0,
+    "flow_sparsity": False
+}
+
+MODEL_MAP = {
+    TinyMotionNet3D: "TinyMotionNet3D",
+    TinyMotionNet: "TinyMotionNet",
+    MotionNet: "MotionNet"
 }
 
 
@@ -23,10 +35,12 @@ class FlowLightningModule(pl.LightningModule):
     def __init__(
             self,
             model: Union[TinyMotionNet3D, TinyMotionNet, MotionNet],
+            gpu_id: int,
             datasets: dict,
             initial_lr: float = 0.0001,
             batch_size: int = 32,
-            augs: dict = None
+            augs: dict = None,
+            model_in: Union[str, Path] = None
     ):
         """
         Class for training flow generator using lightning module.
@@ -38,11 +52,13 @@ class FlowLightningModule(pl.LightningModule):
         datasets: dict
             Dictionary of datasets created from available trials in dataframe.
         initial_lr: float, default 0.0001
-            Default learning rate to begin training with.
+            Learning rate to begin training with.
         batch_size: int, default 32
-            Default batch_size
-        augs: Dict
+            Batch size.
+        augs: Dict, default None
             Dictionary of augmentations, used to get gpu augs.
+        gpu_id: int
+            GPU to be used for training.
         """
         super().__init__()
 
@@ -50,16 +66,30 @@ class FlowLightningModule(pl.LightningModule):
         self.datasets = datasets
         self.batch_size = batch_size
         self.lr = initial_lr
-
-        # what to do about calculating and saving metrics
+        self.augs = augs
+        self.gpu_id = gpu_id
 
         if isinstance(self.model, TinyMotionNet3D):
-            self.gpu_transforms = get_gpu_transforms(augs=augs, conv_mode='3d')
+            self.gpu_transforms = get_gpu_transforms(augs=self.augs, conv_mode='3d')
         else:
-            self.gpu_transforms = get_gpu_transforms(augs=augs)
+            self.gpu_transforms = get_gpu_transforms(augs=self.augs)
 
+        if model_in is None:
+            self.model_in = Path('/home/clewis7/repos/animal-soup/pretrained_models/flow_generator').joinpath(
+                MODEL_MAP[type(self.model)]).with_suffix('.ckpt')
+        else:  # no need to validate because model weights will have already been loaded
+            self.model_in = model_in
+
+        # configure optimizer and criterion
         self.optimizer = None
-        self.reconstructor = None
+        self.scheduler = None
+        self.criterion = None
+
+        # configure optimizer, criterion, and scheduler
+        self.configure_optimizer()
+        self.configure_criterion()
+
+        self.reconstructor = Reconstructor(gpu_id=gpu_id, augs=self.augs)
 
     def get_dataloader(self):
         """Returns a dataloader."""
@@ -94,37 +124,40 @@ class FlowLightningModule(pl.LightningModule):
         optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, self.model.parameters()),
                                      lr=self.lr,
                                      weight_decay=weight_decay)
-        self.optimizer = optimizer
 
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,
-            mode="min", # mode will always be min because metrics are loss or SSIM
+            mode="min",  # mode will always be min because metrics are loss or SSIM
             factor=DEFAULT_TRAINING_PARAMS["reduction_factor"],
             patience=DEFAULT_TRAINING_PARAMS["patience"],
             verbose=True,
             min_lr=DEFAULT_TRAINING_PARAMS["min_lr"]
         )
 
-        monitor_key = 'val/' + self.metrics.key_metric
-        return {'optimizer': optimizer, 'lr_scheduler': scheduler, 'monitor': monitor_key}
+        self.optimizer = optimizer
+        self.scheduler = scheduler
 
     def configure_criterion(self):
         """Configure the loss function to be used in training the flow generator."""
         if DEFAULT_TRAINING_PARAMS["regularization"]["style"] == "l2":
             regularization_criterion = L2(
-                                        model=self.model,
-                                        alpha=DEFAULT_TRAINING_PARAMS["regularization"]["alpha"])
-        else: # regularization criterion must be "l2_sp"
-            pass
-        # regularization_criterion = L2_SP(model, pretrained_file, cfg.train.regularization.alpha,
-        #                                  cfg.train.regularization.beta)
+                model=self.model,
+                alpha=DEFAULT_TRAINING_PARAMS["regularization"]["alpha"])
+        else:  # regularization criterion must be "l2_sp"
+            regularization_criterion = L2_SP(
+                model=self.model,
+                path_to_pretrained_weights=self.model_in,
+                alpha=DEFAULT_TRAINING_PARAMS["regularization"]["alpha"],
+                beta=DEFAULT_TRAINING_PARAMS["regularization"]["beta"])
         # # criterion, loss func
-        # criterion = MotionNetLoss(
-        #     regularization_criterion,
-        #     flow_sparsity=cfg.flow_generator.flow_sparsity,
-        #     sparsity_weight=cfg.flow_generator.sparsity_weight,
-        #     smooth_weight_multiplier=cfg.flow_generator.smooth_weight_multiplier,
-        # )
+        criterion = MotionNetLoss(
+            regularization_criterion,
+            flow_sparsity=DEFAULT_TRAINING_PARAMS["flow_sparsity"],
+            sparsity_weight=DEFAULT_TRAINING_PARAMS["sparsity_weight"],
+            smooth_weight_multiplier=DEFAULT_TRAINING_PARAMS["smooth_weight_multiplier"],
+        )
+
+        self.criterion = criterion
 
     def forward(self, batch: dict) -> Tuple[torch.Tensor, List]:
         """
@@ -167,25 +200,23 @@ class FlowLightningModule(pl.LightningModule):
         loss: torch.Tensor
             Mean loss of the input batch for the backward pass
         """
+        # TODO: forward pass, reconstruct images and visualize with fpl in gridplot?, compute loss,
+        #  print/update loss, plot loss, compute metrics, print metrics
         pass
         # # forward pass. images are returned because the forward pass runs augmentations on the gpu as well
         images, outputs = self.forward(batch)
-        # # actually reconstruct t0 using t1 and estimated optic flow
-        # downsampled_t0, estimated_t0, flows_reshaped = self.reconstructor(images, outputs)
-        # loss, loss_components = self.criterion(batch, downsampled_t0, estimated_t0, flows_reshaped, self.model)
-        # self.visualize_batch(images, downsampled_t0, estimated_t0, flows_reshaped, split)
-        #
-        # to_log = loss_components
-        # to_log['loss'] = loss.detach()
-        #
-        # self.metrics.buffer.append(split, to_log)
-        # # need to use the native logger for lr scheduling, etc.
-        # key_metric = self.metrics.key_metric
-        # self.log(f'{split}_loss', loss)
-        # if split == 'val':
-        #     self.log(f'{split}_{key_metric}', loss_components[key_metric].mean())
-        #
-        # return loss
+        # actually reconstruct t0 using t1 and estimated optic flow
+        downsampled_t0, estimated_t0, flows_reshaped = self.reconstructor(images, outputs)
+        loss, loss_components = self.criterion(batch, downsampled_t0, estimated_t0, flows_reshaped, self.model)
 
-    def get_trainer(self):
-        pass
+        to_log = loss_components
+        to_log['loss'] = loss.detach()
+
+        print(f"loss: {to_log['loss']}")
+        print(f"SSIM: {to_log['SSIM'].mean()}")
+
+        return loss
+
+
+def get_flow_trainer():
+    pass

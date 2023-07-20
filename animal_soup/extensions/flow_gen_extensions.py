@@ -1,6 +1,5 @@
 import os.path
-
-from animal_soup.utils import *
+from ..utils import *
 from ..flow_generator import *
 from ..data import VideoDataset
 import pprint
@@ -182,7 +181,7 @@ class FlowGeneratorDataframeExtension:
             conv_mode = "3d"
 
         # generate torchvision.transforms object from augs
-        transforms = get_cpu_transforms(DEFAULT_AUGS)
+        transforms = get_cpu_transforms(AUGS)
 
         # create VideoDataset from available videos with augs
         datasets = VideoDataset(
@@ -207,10 +206,15 @@ class FlowGeneratorDataframeExtension:
             initial_lr=initial_lr,
             batch_size=batch_size,
             augs=AUGS,
-            gpu_id=gpu_id
+            gpu_id=gpu_id,
+            model_in=model_in
         )
 
         # trainer
+        # trainer = get_flow_trainer(
+        #     lightning_module,
+        #     stop_method
+        # )
 
         # train
         # trainer.fit(lightning_module)
@@ -228,6 +232,7 @@ class FlowGeneratorDataframeExtension:
         # metrics
         # weight in
         # weight out
+        # flow window
 
         print("Starting training")
         print(f"Training Mode: {mode} \n"
@@ -239,7 +244,7 @@ class FlowGeneratorDataframeExtension:
         pprint.pprint(dataset_metadata)
         print("Metrics: ['loss', 'SSIM']")
 
-        return model
+        return model, datasets
 
     def _load_pretrained_flow_model(self,
                                     weight_path: Union[str, Path],
@@ -282,7 +287,7 @@ class FlowGeneratorDataframeExtension:
         # load model weights from checkpoint
         pretrained_model_state = torch.load(weight_path)["state_dict"]
 
-        # remove "model." preprend if exists
+        # remove "model." prepend if exists
         new_state_dict = OrderedDict()
         for k, v in pretrained_model_state.items():
             if k[:6] == 'model.':

@@ -144,6 +144,8 @@ def get_video_statistics(video_path: Path, stride: int = 10) -> Dict[str, Union[
             v = v.tolist()
         imdata[k] = v
 
+    reader.close()
+
     return imdata
 
 

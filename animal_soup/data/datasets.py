@@ -160,6 +160,8 @@ class SingleVideoDataset(data.Dataset):
 
         outputs = {'images': images}
 
+        reader.close()
+
         return outputs
 
 
