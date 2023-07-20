@@ -54,3 +54,6 @@ share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+
+# Pre-trained Models
+pretrained_models/
