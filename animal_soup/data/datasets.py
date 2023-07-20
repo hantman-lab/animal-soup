@@ -1,4 +1,3 @@
-import torch
 import torchvision
 from torch.utils import data
 from typing import *
@@ -10,16 +9,13 @@ import random
 
 
 class SingleVideoDataset(data.Dataset):
-    """
-    PyTorch Dataset for loading a set of sequential frames and applying pre-defined augmentations to each frame.
-    """
+    """PyTorch Dataset for loading a set of sequential frames and applying pre-defined augmentations to each frame."""
 
     def __init__(self,
                  vid_path: Path,
                  mean_by_channels: Union[list, np.ndarray] = [0, 0, 0],
                  transform: torchvision.transforms = None,
                  conv_mode: str = '2d',
-                 frames_per_clip: int = 1
                  ):
         """
         Initializes a VideoDataset object. Reads in a video, applies the CPU augmentations to every frame in the clip,
@@ -30,7 +26,8 @@ class SingleVideoDataset(data.Dataset):
         vid_path: Path
             Path object to video being read in.
         mean_by_channels: Union[list, np.ndarray], default [0, 0, 0]
-            Mean for each channel input, initially 0 for all channels.
+            Mean for each channel input. Will either be the channel means given by the normalization augmentation
+            or will be the default.
         transform: torchvision Transform object, default None
             Image transformations to be applied to each frame.
         conv_mode: str, default '2d'
@@ -38,7 +35,13 @@ class SingleVideoDataset(data.Dataset):
         """
 
         self.vid_path = vid_path
-        self.mean_by_channels = self.parse_mean_by_channels(mean_by_channels)
+
+        if isinstance(mean_by_channels[0], (float, np.floating)):
+            self.mean_by_channels = np.clip(np.array(mean_by_channels) * 255, 0, 255).astype(np.uint8)
+        elif isinstance(mean_by_channels[0], (int, np.integer)):
+            assert np.array_equal(np.clip(mean_by_channels, 0, 255), np.array(mean_by_channels))
+            self.mean_by_channels = np.array(mean_by_channels).astype(np.uint8)
+
         self.frames_per_clip = 1
         self.transform = transform
         self.conv_mode = conv_mode
@@ -66,16 +69,6 @@ class SingleVideoDataset(data.Dataset):
             for i in range(3):
                 self._zeros_image[i, ...] = self.mean_by_channels[i]
         return self._zeros_image
-
-    def parse_mean_by_channels(self, mean_by_channels):
-        """Editing of mean_by_channels arg."""
-        if isinstance(mean_by_channels[0], (float, np.floating)):
-            return np.clip(np.array(mean_by_channels) * 255, 0, 255).astype(np.uint8)
-        elif isinstance(mean_by_channels[0], (int, np.integer)):
-            assert np.array_equal(np.clip(mean_by_channels, 0, 255), np.array(mean_by_channels))
-            return np.array(mean_by_channels).astype(np.uint8)
-        else:
-            raise ValueError('unexpected type for input channel mean: {}'.format(mean_by_channels))
 
     def __len__(self):
         return self.metadata['framecount']
@@ -116,15 +109,20 @@ class SingleVideoDataset(data.Dataset):
             stack.append(self.get_zeros_image(*stack[0].shape))
         return stack
 
-    def __getitem__(self, index: int):
+    def __getitem__(self, index: int) -> np.ndarray:
         """
         Used for reading frames from disk.
 
-        Args:
-            index: integer from 0 to number of total clips in dataset
-        Returns:
+        Parameters
+        ----------
+        index: int
+            Index to get given frame in video.
+
+        Returns
+        -------
+        frame: np.ndarray
             np.ndarray of shape (H,W,C), where C is 3* frames_per_clip
-                Could also be torch.Tensor of shape (C,H,W), depending on the augmentation applied
+            Could also be a torch.Tensor of shape (C,H,W), depending on the augmentation applied
         """
 
         images = list()
@@ -163,7 +161,7 @@ class SingleVideoDataset(data.Dataset):
 
 
 class VideoDataset(data.Dataset):
-    """ Simple wrapper around SingleVideoDataset for smoothly loading multiple videos """
+    """Simple wrapper around SingleVideoDataset for smoothly loading multiple videos."""
 
     def __init__(self,
                  vid_paths: List[Path],
