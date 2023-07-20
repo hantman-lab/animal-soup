@@ -4,7 +4,7 @@ from animal_soup import create_df, load_df
 import shutil
 import pandas as pd
 from typing import *
-from animal_soup.utils.df_utils import DATAFRAME_COLUMNS, set_parent_raw_data_path, get_parent_raw_data_path
+from animal_soup.utils.dataframe import DATAFRAME_COLUMNS, set_parent_raw_data_path, get_parent_raw_data_path
 import pytest
 from tqdm import tqdm
 from zipfile import ZipFile

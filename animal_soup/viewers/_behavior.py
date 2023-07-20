@@ -11,6 +11,7 @@ from decord import gpu as gpu_context
 
 DECORD_CONTEXT = "cpu"
 
+
 class BehaviorVizContainer:
     def __init__(
             self,
@@ -110,7 +111,6 @@ class BehaviorVizContainer:
         else:
             self._update_image_widget()
 
-
     def _make_image_widget(self):
         """Instantiates image widget to view behavior videos."""
         row = self._dataframe.iloc[self.current_row_ix]
@@ -121,17 +121,16 @@ class BehaviorVizContainer:
         if self.image_widget is None:
             if DECORD_CONTEXT == "gpu":
                 self.image_widget = ImageWidget(
-                                        data=LazyVideo(vid_path, ctx=gpu_context(0)),
-                                        grid_plot_kwargs={"size": (700, 300)}
-                                        )
+                    data=LazyVideo(vid_path, ctx=gpu_context(0)),
+                    grid_plot_kwargs={"size": (700, 300)}
+                )
             else:
                 self.image_widget = ImageWidget(
-                                        data=LazyVideo(vid_path),
-                                        grid_plot_kwargs={"size": (700, 300)}
-                                        )
+                    data=LazyVideo(vid_path),
+                    grid_plot_kwargs={"size": (700, 300)}
+                )
         # most the time video is rendered upside down, default flip camera
         self.image_widget.gridplot[0, 0].camera.world.scale_y *= -1
-
 
     def _update_image_widget(self):
         """If row changes, update the data in the ImageWidget with the new row selected."""
@@ -151,6 +150,3 @@ class BehaviorVizContainer:
             self.datagrid,
             HBox([self.image_widget.show(),
                   self.trial_selector])])
-
-
-

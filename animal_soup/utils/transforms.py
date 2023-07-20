@@ -1,3 +1,5 @@
+"""Utility functions and classes for getting transformations or applying them."""
+
 from typing import *
 import torch
 import torchvision
@@ -5,6 +7,135 @@ import numpy as np
 from kornia import augmentation as K
 from kornia.augmentation.container import VideoSequential
 
+
+class Normalizer:
+    """Allows for easy z-scoring of tensors on the GPU.
+    Example usage: You have a tensor of images of shape [N, C, H, W] or [N, T, C, H, W] in range [0,1]. You want to
+        z-score this tensor.
+
+    Methods:
+        process_inputs: converts input mean, std into a torch tensor
+        no_conversion: dummy method if you don't actually want to standardize the data
+        handle_tensor: deals with self.mean and self.std depending on inputs. Example: your Tensor arrives on the GPU
+            but your self.mean and self.std are still on the CPU. This method will move it appropriately.
+        denormalize: converts standardized arrays back to their original range
+        __call__: z-scores input data
+
+    Instance variables:
+        mean: mean of input data. For images, should have 2 or 3 channels
+        std: standard deviation of input data
+    """
+    def __init__(self,
+                 mean: Union[list, np.ndarray, torch.Tensor] = None,
+                 std: Union[list, np.ndarray, torch.Tensor] = None,
+                 clamp: bool = True):
+        """Constructor for Normalizer class.
+        Args:
+            mean: mean of input data. Should have 3 channels (for R,G,B) or 2 (for X,Y) in the optical flow case
+            std: standard deviation of input data.
+            clamp: if True, clips the output of a denormalized Tensor to between 0 and 1 (for images)
+        """
+        # make sure that if you have a mean, you also have a std
+        # XOR
+        has_mean, has_std = mean is None, std is None
+        assert (not has_mean ^ has_std)
+
+        self.mean = self.process_inputs(mean)
+        self.std = self.process_inputs(std)
+        # prevent divide by zero, but only change values if it's close to 0 already
+        if self.std is not None:
+            assert (self.std.min() > 0)
+            self.std[self.std < 1e-8] += 1e-8
+        self.clamp = clamp
+
+    def process_inputs(self, inputs: Union[torch.Tensor, np.ndarray]):
+        """Deals with input mean and std.
+        Converts to tensor if necessary. Reshapes to [length, 1, 1] for pytorch broadcasting.
+        """
+        if inputs is None:
+            return (inputs)
+        if type(inputs) == list:
+            inputs = np.array(inputs).astype(np.float32)
+        if type(inputs) == np.ndarray:
+            inputs = torch.from_numpy(inputs)
+        assert (type(inputs) == torch.Tensor)
+        inputs = inputs.float()
+        C = inputs.shape[0]
+        inputs = inputs.reshape(C, 1, 1)
+        inputs.requires_grad = False
+        return inputs
+
+    def no_conversion(self, inputs):
+        """Dummy function. Allows for normalizer to be called when you don't actually want to normalize.
+        That way we can leave normalize in the training loop and only optionally call it.
+        """
+        return inputs
+
+    def handle_tensor(self, tensor: torch.Tensor):
+        """Reshapes std and mean to deal with the dimensions of the input tensor.
+        Args:
+            tensor: PyTorch tensor of shapes NCHW or NCTHW, depending on if your CNN is 2D or 3D
+        Moves mean and std to the tensor's device if necessary
+        If you've stacked the C dimension to have multiple images, e.g. 10 optic flows stacked has dim C=20,
+            repeats self.mean and self.std to match
+        """
+        if tensor.ndim == 4:
+            N, C, H, W = tensor.shape
+        elif tensor.ndim == 5:
+            N, C, T, H, W = tensor.shape
+        else:
+            raise ValueError('Tensor input to normalizer of unknown shape: {}'.format(tensor.shape))
+
+        t_d = tensor.device
+        if t_d != self.mean.device:
+            self.mean = self.mean.to(t_d)
+        if t_d != self.std.device:
+            self.std = self.std.to(t_d)
+
+        c = self.mean.shape[0]
+        if c < C:
+            # handles the case where instead of N, C, T, H, W inputs, we have concatenated
+            # multiple images along the channel dimension, so it's
+            # N, C*T, H, W
+            # this code simply repeats the mean T times, so it's
+            # [R_mean, G_mean, B_mean, R_mean, G_mean, ... etc]
+            n_repeats = C / c
+            assert (int(n_repeats) == n_repeats)
+            n_repeats = int(n_repeats)
+            repeats = tuple([n_repeats] + [1 for i in range(self.mean.ndim - 1)])
+            self.mean = self.mean.repeat((repeats))
+            self.std = self.std.repeat((repeats))
+
+        if tensor.ndim - self.mean.ndim > 1:
+            # handles the case where our inputs are NCTHW
+            self.mean = self.mean.unsqueeze(-1)
+        if tensor.ndim - self.std.ndim > 1:
+            self.std = self.std.unsqueeze(-1)
+
+    def denormalize(self, tensor: torch.Tensor) -> torch.Tensor:
+        """Converts normalized data back into its original distribution.
+        If self.clamp: limits output tensor to the range (0,1). For images
+        """
+        if self.mean is None:
+            return tensor
+
+        # handles dealing with unexpected shape of inputs, wrong devices, etc.
+        self.handle_tensor(tensor)
+        tensor = (tensor * self.std) + self.mean
+        if self.clamp:
+            tensor = tensor.clamp(min=0.0, max=1.0)
+        return tensor
+
+    def __call__(self, tensor: torch.Tensor) -> torch.Tensor:
+        """Normalizes input data"""
+        if self.mean is None:
+            return tensor
+
+        # handles dealing with unexpected shape of inputs, wrong devices, etc.
+        self.handle_tensor(tensor)
+
+        tensor = (tensor - self.mean) / (self.std)
+        return tensor
 
 class Transpose:
     """Module to transpose image stacks."""
@@ -120,18 +251,6 @@ class StackClipInChannels(torch.nn.Module):
         return stacked
 
 
-def get_gpu_options() -> Dict[int, str]:
-    """Returns a dictionary of {gpu_id: gpu name}"""
-    gpu_options = dict()
-
-    device_count = torch.cuda.device_count()
-
-    for gpu_id in range(device_count):
-        gpu_options[gpu_id] = torch.cuda.get_device_properties(gpu_id).name
-
-    return gpu_options
-
-
 def get_cpu_transforms(augs: Dict[str, Any]) -> torchvision.transforms:
     """
     Takes in a dictionary of augmentations to be applied to each frame and returns
@@ -220,3 +339,4 @@ def get_gpu_transforms(augs: Dict[str, Any], conv_mode: str = '2d') -> torch.nn.
                           denormalize=denormalize)
 
     return gpu_transforms
+
