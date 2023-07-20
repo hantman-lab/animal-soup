@@ -3,6 +3,7 @@ import os.path
 from animal_soup.utils import *
 from ..flow_generator import *
 from ..data import VideoDataset
+import pprint
 
 # map the mode of training to the appropriate model
 TRAINING_OPTIONS = {"slow": "TinyMotionNet3D",
@@ -30,18 +31,6 @@ DEFAULT_AUGS = {
     "crop_size": None,
     "grayscale": 0.5,
     "hue": 0.1,
-    # currently using the normalization in a previous config
-    # but some kind of calculation is being done to calculate these based on videos?
-    # need to look into how this is calculated
-    "normalization": {
-        "N": 149760000,
-        "mean": [0.175888385730895,
-                 0.175888385730895,
-                 0.175888385730895],
-        "std": [0.22989982574283255,
-                0.22989982574283255,
-                0.22989982574283255]
-    },
     "pad": None,
     "random_resize": False,
     "resize": (224, 224),
@@ -86,12 +75,12 @@ class FlowGeneratorDataframeExtension:
         flow_window: int, default 11
             Window size for computing optical flow features of a frame. Recommended to be the minimum number of frames
             any given behavior takes.
-        batch_size: int, default 16
+        batch_size: int, default 32
             Batch size.
         gpu_id: int, default 0
             Specify which gpu to use for training the model.
         initial_lr: float, default 0.0001
-            Default learning rate.
+            Initial learning rate.
         stop_method: str, default learning_rate
             Method for stopping training. Argument must be one of ["early", "learning_rate", "num_epochs"]
 
@@ -108,8 +97,8 @@ class FlowGeneratorDataframeExtension:
             previously and wanted to use those weights instead.
         model_out: str or Path, default None
             User provided location of where to store model output such as model checkpoint with updated weights,
-            hdf5 file with model results, etc. By default, the model output will get stored in the same directory
-            as the dataframe.
+            hdf5 file with model results/metrics, etc. Should be a directory. By default, the model output will get stored in the same
+            directory as the dataframe.
         """
         # check valid model_in if not None
         if model_in is not None:
@@ -133,6 +122,9 @@ class FlowGeneratorDataframeExtension:
             # make sure path exists
             if not os.path.exists(model_out):
                 raise ValueError(f"path does not exist at: {model_out}")
+            # if model_out is not a directory, raise
+            if not os.path.isdir(model_out):
+                raise ValueError(f"path to store model output should be a directory")
             # if model_out is str, convert to path
             if isinstance(model_out, str):
                 model_out = Path(model_out)
@@ -177,6 +169,13 @@ class FlowGeneratorDataframeExtension:
             raise ValueError("You need at least 3 trials to train the flow generator. Please "
                              "add more trials to the current dataframe!")
 
+        # calculate norm augmentation values for given videos in dataframe
+        print("Calculating normalization statistics based on trials in dataframe")
+        normalization = get_normalization(training_vids)
+        # update AUGS
+        AUGS = DEFAULT_AUGS.copy()
+        AUGS["normalization"] = normalization
+
         # set the convolution mode
         conv_mode = "2d"
         if mode == "slow":
@@ -190,14 +189,14 @@ class FlowGeneratorDataframeExtension:
             vid_paths=training_vids,
             transform=transforms,
             conv_mode=conv_mode,
-            mean_by_channels=DEFAULT_AUGS["normalization"]["mean"],
+            mean_by_channels=AUGS["normalization"]["mean"],
             frames_per_clip=flow_window
         )
 
         dataset_metadata = datasets.dataset_info
 
         # metrics
-        key_metric = "SSIM"
+        metrics = ["loss", "SSIM"]
         #metrics = OpticalFlow(rundir, key_metric, num_parameters)
         # stopper
 
@@ -207,7 +206,8 @@ class FlowGeneratorDataframeExtension:
             datasets=datasets,
             initial_lr=initial_lr,
             batch_size=batch_size,
-            augs=DEFAULT_AUGS
+            augs=AUGS,
+            gpu_id=gpu_id
         )
 
         # trainer
@@ -220,20 +220,51 @@ class FlowGeneratorDataframeExtension:
         # flow_gen output should also get stored in hdf5 file in same place as df path
         # at end of training should also store new model checkpoint?
 
+        params = dict()
+        params["initial learning rate"] = initial_lr
+        params["batch_size"] = batch_size
+        params["image augmentations"] = AUGS
+        # stop method
+        # metrics
+        # weight in
+        # weight out
+
         print("Starting training")
         print(f"Training Mode: {mode} \n"
-              f"Model: {TRAINING_OPTIONS[mode]} \n"
-              f"Params: "
-              f"Data Info: ")
+              f"Model: {TRAINING_OPTIONS[mode]}"
+              )
+        print("Parameters: ")
+        pprint.pprint(params)
+        print("Data Info: ")
+        pprint.pprint(dataset_metadata)
+        print("Metrics: ['loss', 'SSIM']")
 
         return model
 
     def _load_pretrained_flow_model(self,
                                     weight_path: Union[str, Path],
                                     mode: str,
-                                    flow_window: int) -> Union[TinyMotionNet3D]:
-        """Returns a model with the pretrained weights."""
+                                    flow_window: int) -> Union[TinyMotionNet3D, MotionNet, TinyMotionNet]:
+        """
+        Returns a model with the pretrained weights.
 
+        Parameters
+        ----------
+        weight_path: str or Path object
+            Location of model checkpoint to use for reloading weights. If `None`, will use default pre-trained model
+            provided for given mode.
+        mode: str
+            One of ["slow", "medium", "fast"].
+        flow_window: int
+            Window size to compute optic flow metrics for. Will compute flow_window - 1 optic flow features.
+
+        Returns
+        -------
+        model: TinyMotionNet3D, MotionNet, or TinyMotionNet
+            A model instance corresponding to the mode with pre-trained weights loaded.
+        """
+        # TODO: need to have some kind of check if a path for the model is passed and the mode is not for that kind
+        #  of model, prevent a user from trying to use a model checkpoint with the wrong mode
         if mode == "slow":
             model = TinyMotionNet3D(num_images=flow_window)
         elif mode == "medium":
@@ -243,7 +274,7 @@ class FlowGeneratorDataframeExtension:
 
         # using default weight path
         if weight_path is None:
-            weight_path = Path('/home/clewis7/repos/animal-soup/pretrained_checkpoints/flow_gen.ckpt')
+            weight_path = Path('/home/clewis7/repos/animal-soup/pretrained_models/flow_generator').joinpath(TRAINING_OPTIONS[mode]).with_suffix('.ckpt')
 
         if isinstance(weight_path, str):
             weight_path = Path(weight_path)
