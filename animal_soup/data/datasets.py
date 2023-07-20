@@ -157,6 +157,7 @@ class SingleVideoDataset(data.Dataset):
         # images are now numpy arrays of shape 3, H, W
         # stacking in the first dimension changes to 3, T, H, W, compatible with Conv3D
         images = np.stack(images, axis=1)
+        images = images.transpose(2, 1, 0, 3)
 
         outputs = {'images': images}
 

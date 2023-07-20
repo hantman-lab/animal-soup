@@ -1,4 +1,5 @@
 import pytorch_lightning as pl
+import os
 import torch
 from typing import *
 from ..utils import get_gpu_transforms
@@ -70,9 +71,9 @@ class FlowLightningModule(pl.LightningModule):
         self.gpu_id = gpu_id
 
         if isinstance(self.model, TinyMotionNet3D):
-            self.gpu_transforms = get_gpu_transforms(augs=self.augs, conv_mode='3d')
+            self.gpu_transforms = get_gpu_transforms(augs=self.augs, conv_mode='3d')['train']
         else:
-            self.gpu_transforms = get_gpu_transforms(augs=self.augs)
+            self.gpu_transforms = get_gpu_transforms(augs=self.augs)['train']
 
         if model_in is None:
             self.model_in = Path('/home/clewis7/repos/animal-soup/pretrained_models/flow_generator').joinpath(
@@ -82,12 +83,7 @@ class FlowLightningModule(pl.LightningModule):
 
         # configure optimizer and criterion
         self.optimizer = None
-        self.scheduler = None
         self.criterion = None
-
-        # configure optimizer, criterion, and scheduler
-        self.configure_optimizer()
-        self.configure_criterion()
 
         self.reconstructor = Reconstructor(gpu_id=gpu_id, augs=self.augs)
 
@@ -116,7 +112,7 @@ class FlowLightningModule(pl.LightningModule):
             images = self.gpu_transforms(images).detach()
         return images
 
-    def configure_optimizer(self):
+    def configure_optimizers(self):
         """Configure the optimizer to be used in training the flow generator."""
 
         weight_decay = 0  # if self.hparams.weight_decay is None else self.hparams.weight_decay
@@ -135,7 +131,8 @@ class FlowLightningModule(pl.LightningModule):
         )
 
         self.optimizer = optimizer
-        self.scheduler = scheduler
+
+        return {'optimizer': optimizer, 'lr_scheduler': scheduler, "monitor": "val/loss"}
 
     def configure_criterion(self):
         """Configure the loss function to be used in training the flow generator."""
@@ -217,6 +214,55 @@ class FlowLightningModule(pl.LightningModule):
 
         return loss
 
+    def training_step(self, batch: dict):
+        return self.common_step(batch)
 
-def get_flow_trainer():
-    pass
+    def train_dataloader(self):
+        return self.get_dataloader()
+
+
+def get_flow_trainer(
+        gpu_id: int,
+        model_out: Path,
+        stop_method: str = "learning_rate",
+        profiler: str = None,
+):
+    """
+    Returns a Pytorch Lightning trainer to be used in training the flow generator.
+
+    Parameters
+    ----------
+    gpu_id: int
+        Integer id of gpu to complete training on
+    lightning_module: pl.LightningModule
+        Pytorch Lightning module that has the model, datasets, criterion, etc.
+        needed for training a model
+    stop_method: str, default learning_rate
+        Stop method for ending training, one of ["learning_rate", "num_epochs", "early"]
+    profiler: str, default None
+        Can be a string (ex: "simple", "advanced") or a Pytorch Lightning Profiler instance. Gives metrics
+        during training.
+
+    Returns
+    -------
+    trainer: pl.Trainer
+        A trainer to be used to manage training the flow generator.
+    """
+
+    tensorboard_logger = pl.loggers.tensorboard.TensorBoardLogger(
+                                                        save_dir=model_out,
+                                                        name="flow_gen_train"
+                                                        )
+
+    # tuning messes with the callbacks
+    trainer = pl.Trainer(devices=[gpu_id],
+                         precision=32,
+                         limit_train_batches=DEFAULT_TRAINING_PARAMS["steps_per_epoch"],
+                         logger=tensorboard_logger,
+                         max_epochs=DEFAULT_TRAINING_PARAMS["num_epochs"],
+                         num_sanity_val_steps=0,
+                         callbacks=None,
+                         profiler=profiler)
+    torch.cuda.empty_cache()
+
+    return trainer

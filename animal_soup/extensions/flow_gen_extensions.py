@@ -127,6 +127,10 @@ class FlowGeneratorDataframeExtension:
             # if model_out is str, convert to path
             if isinstance(model_out, str):
                 model_out = Path(model_out)
+        else:
+            df_path = self._df.paths.get_df_path()
+            df_dir, relative = self._df.paths.split(df_path)
+            model_out = df_dir
 
         # check valid mode
         if mode not in TRAINING_OPTIONS.keys():
@@ -210,14 +214,15 @@ class FlowGeneratorDataframeExtension:
             model_in=model_in
         )
 
-        # trainer
-        # trainer = get_flow_trainer(
-        #     lightning_module,
-        #     stop_method
-        # )
+        # get pytorch lightning trainer
+        trainer = get_flow_trainer(
+            gpu_id=gpu_id,
+            stop_method=stop_method,
+            model_out=model_out
+        )
 
-        # train
-        # trainer.fit(lightning_module)
+        # train.fit()
+        trainer.fit(lightning_module)
 
         # in notes column, add flow_gen_train params for model
         # or should store all in output file
@@ -244,7 +249,7 @@ class FlowGeneratorDataframeExtension:
         pprint.pprint(dataset_metadata)
         print("Metrics: ['loss', 'SSIM']")
 
-        return model, datasets
+        return model, datasets, trainer
 
     def _load_pretrained_flow_model(self,
                                     weight_path: Union[str, Path],

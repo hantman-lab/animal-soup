@@ -20,7 +20,8 @@ install_requires = [
     "jupyterlab-widgets==3.0.7",
     "nbmake",
     "vidio",
-    "lightning"
+    "lightning",
+    "tensorflow"
 ]
 
 with open(Path(__file__).parent.joinpath("README.md")) as f:

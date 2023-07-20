@@ -263,11 +263,11 @@ def get_cpu_transforms(augs: Dict[str, Any]) -> torchvision.transforms:
     transforms.append(torchvision.transforms.ToTensor())
 
     if "crop_size" in augs.keys() and augs["crop_size"] is not None:
-        transforms.append(torchvision.transforms.RandomCrop(augs["cro_size"]))
+        transforms.append(torchvision.transforms.RandomCrop(augs["cro_size"], antialias=True))
     if "resize" in augs.keys() and augs["resize"] is not None:
-        transforms.append(torchvision.transforms.Resize(augs["resize"]))
+        transforms.append(torchvision.transforms.Resize(augs["resize"], antialias=True))
     if "pad" in augs.keys() and augs["pad"] is not None:
-        transforms.append(torchvision.transforms.Pad(augs["pad"]))
+        transforms.append(torchvision.transforms.Pad(augs["pad"], antialias=True))
 
     transforms.append(Transpose())
 
@@ -301,6 +301,9 @@ def get_gpu_transforms(augs: Dict[str, Any], conv_mode: str = '2d') -> torch.nn.
     if "degrees" in augs.keys() and augs["degrees"] > 0:
         kornia_transforms.append(K.RandomRotation(augs["degrees"]))
 
+    if "grayscale" in augs.keys() and augs["grayscale"] > 0:
+        kornia_transforms.append(K.RandomGrayscale(p=augs["grayscale"]))
+
     if ("brightness" in augs.keys() and augs["brightness"] > 0) or \
             ("contrast" in augs.keys() and augs["contrast"] > 0) or \
             ("saturation" in augs.keys() and augs["saturation"] > 0) or \
@@ -311,8 +314,6 @@ def get_gpu_transforms(augs: Dict[str, Any], conv_mode: str = '2d') -> torch.nn.
                                                hue=augs["hue"],
                                                p=augs["color_p"],
                                                same_on_batch=False))
-    if "grayscale" in augs.keys() and augs["grayscale"] > 0:
-        kornia_transforms.append(K.RandomGrayscale(p=augs["grayscale"]))
 
     norm = NormalizeVideo(mean=augs["normalization"]["mean"],
                           std=augs["normalization"]["std"])
