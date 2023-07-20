@@ -16,6 +16,7 @@ class SingleVideoDataset(data.Dataset):
                  mean_by_channels: Union[list, np.ndarray] = [0, 0, 0],
                  transform: torchvision.transforms = None,
                  conv_mode: str = '2d',
+                 frames_per_clip: int = 1
                  ):
         """
         Initializes a VideoDataset object. Reads in a video, applies the CPU augmentations to every frame in the clip,
@@ -31,7 +32,9 @@ class SingleVideoDataset(data.Dataset):
         transform: torchvision Transform object, default None
             Image transformations to be applied to each frame.
         conv_mode: str, default '2d'
-            Indicates convolution mode.
+            Indicates convolution mode
+        frames_per_clip: int, default 1
+            How many sequential frames in a clip
         """
 
         self.vid_path = vid_path
@@ -42,7 +45,7 @@ class SingleVideoDataset(data.Dataset):
             assert np.array_equal(np.clip(mean_by_channels, 0, 255), np.array(mean_by_channels))
             self.mean_by_channels = np.array(mean_by_channels).astype(np.uint8)
 
-        self.frames_per_clip = 1
+        self.frames_per_clip = frames_per_clip
         self.transform = transform
         self.conv_mode = conv_mode
 
@@ -51,7 +54,7 @@ class SingleVideoDataset(data.Dataset):
             raise ValueError(f"No video found at this path: {vid_path}")
 
         with VideoReader(str(self.vid_path)) as reader:
-            self.metadata = dict()
+            self.metadata = OrderedDict()
 
             self.metadata['vid_path'] = vid_path
             self.metadata['width'] = reader.next().shape[1]
