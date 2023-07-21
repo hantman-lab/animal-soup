@@ -3,6 +3,7 @@ from ..utils import *
 from ..flow_generator import *
 from ..data import VideoDataset
 import pprint
+from typing import *
 
 # map the mode of training to the appropriate model
 TRAINING_OPTIONS = {"slow": "TinyMotionNet3D",
@@ -151,7 +152,7 @@ class FlowGeneratorDataframeExtension:
             raise ValueError(f"stop_method argument must be one of {STOP_METHODS.keys()}")
 
         # reload weights from file, want to use pretrained weights
-        model = self._load_pretrained_flow_model(
+        model, model_in = self._load_pretrained_flow_model(
             weight_path=model_in,
             mode="slow",
             flow_window=flow_window)
@@ -222,39 +223,52 @@ class FlowGeneratorDataframeExtension:
         )
 
         # train.fit()
-        trainer.fit(lightning_module)
+        #trainer.fit(lightning_module)
 
         # in notes column, add flow_gen_train params for model
         # or should store all in output file
         # flow_gen output should also get stored in hdf5 file in same place as df path
         # at end of training should also store new model checkpoint?
 
-        params = dict()
-        params["initial learning rate"] = initial_lr
-        params["batch_size"] = batch_size
-        params["image augmentations"] = AUGS
-        # stop method
-        # metrics
-        # weight in
-        # weight out
-        # flow window
+        model_params = {
+            "Model": TRAINING_OPTIONS[mode],
+            "Mode": mode,
+            "Parameters": {
+                "initial_learning_rate": initial_lr,
+                "batch_size": batch_size,
+                "stop_method": stop_method,
+                "flow_window": flow_window,
+                "image_augmentations": AUGS,
+            },
+            "Weight Path": model_in,
+            "Output Path": model_out
+        }
 
         print("Starting training")
-        print(f"Training Mode: {mode} \n"
-              f"Model: {TRAINING_OPTIONS[mode]}"
-              )
-        print("Parameters: ")
-        pprint.pprint(params)
+        print("Model Parameters:")
+        pprint.pprint(model_params)
         print("Data Info: ")
         pprint.pprint(dataset_metadata)
-        print("Metrics: ['loss', 'SSIM']")
+
+        if "model_params" not in self._df.columns:
+            self._df.insert(
+                loc=len(self._df.columns) - 1,
+                column="model_params",
+                value=[dict() for i in range(len(self._df.index))]
+            )
+
+        # add flow gen model params to df
+        for ix in range(len(self._df.index)):
+            self._df.loc[ix]["model_params"].update({"flow_gen_train": f"{model_params}"})
+        # save df
+        self._df.behavior.save_to_disk()
 
         return model, datasets, trainer
 
     def _load_pretrained_flow_model(self,
                                     weight_path: Union[str, Path],
                                     mode: str,
-                                    flow_window: int) -> Union[TinyMotionNet3D, MotionNet, TinyMotionNet]:
+                                    flow_window: int) -> Tuple[Union[TinyMotionNet3D, MotionNet, TinyMotionNet], Path]:
         """
         Returns a model with the pretrained weights.
 
@@ -272,6 +286,8 @@ class FlowGeneratorDataframeExtension:
         -------
         model: TinyMotionNet3D, MotionNet, or TinyMotionNet
             A model instance corresponding to the mode with pre-trained weights loaded.
+        weight_path: Path
+            Model weight path used to load the model, either user defined or pre-trained model.
         """
         # TODO: need to have some kind of check if a path for the model is passed and the mode is not for that kind
         #  of model, prevent a user from trying to use a model checkpoint with the wrong mode
@@ -322,4 +338,4 @@ class FlowGeneratorDataframeExtension:
 
         print("Successfully loaded model from checkpoint!")
 
-        return model
+        return model, weight_path

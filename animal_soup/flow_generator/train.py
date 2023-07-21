@@ -254,6 +254,8 @@ def get_flow_trainer(
                                                         name="flow_gen_train"
                                                         )
 
+    callbacks = list()
+
     # tuning messes with the callbacks
     trainer = pl.Trainer(devices=[gpu_id],
                          precision=32,
@@ -261,7 +263,7 @@ def get_flow_trainer(
                          logger=tensorboard_logger,
                          max_epochs=DEFAULT_TRAINING_PARAMS["num_epochs"],
                          num_sanity_val_steps=0,
-                         callbacks=None,
+                         callbacks=callbacks,
                          profiler=profiler)
     torch.cuda.empty_cache()
 
