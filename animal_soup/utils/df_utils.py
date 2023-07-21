@@ -11,6 +11,7 @@ PARENT_DATA_PATH: Path = None
 DATAFRAME_COLUMNS = ["animal_id",
                      "session_id",
                      "trial_id",
+                     "vid_path",
                      "ethograms",
                      "exp_type",
                      "notes"]
@@ -220,3 +221,59 @@ def create_df(path: Union[str, Path], remove_existing: bool = False) -> pd.DataF
     df.to_hdf(Path(path).with_suffix('.hdf'), key='df')
 
     return df
+
+
+def resolve_path(path: Union[str, Path]) -> Path:
+    """
+    Resolve the full path of the passed ``path`` if possible to "raw_data_dir".
+
+    Parameters
+    ----------
+    path: str or Path
+        The relative path to resolve
+
+    Returns
+    -------
+    Path
+        Full path with the  raw data path prepended
+
+    """
+    path = Path(path)
+
+    # check if in parent raw data dir
+    if get_parent_raw_data_path() is not None:
+        if get_parent_raw_data_path().joinpath(path).exists():
+            return get_parent_raw_data_path().joinpath(path)
+
+    raise FileNotFoundError(f"Could not resolve full path of:\n{path}")
+
+
+def split_path(path: Union[str, Path]):
+    """
+       Split a full path into (raw_data_dir, relative_path)
+
+       Parameters
+       ----------
+       path: str or Path
+           Full path to split with respect to raw_data_dir
+
+       Returns
+       -------
+       Tuple[Path, Path]
+           (<raw_data_dir>, <relative_path>)
+
+       """
+    path = Path(path)
+
+    # check if in parent raw data dir
+    if get_parent_raw_data_path() is not None:
+        if get_parent_raw_data_path() in path.parents:
+            return get_parent_raw_data_path(), path.relative_to(
+                get_parent_raw_data_path()
+            )
+
+    raise NotADirectoryError(
+        f"Could not split `path`:\n{path}"
+        f"\nnot relative to either df path:\n{self.get_df_path()}"
+        f"\nor parent raw data path:\n{get_parent_raw_data_path()}"
+    )

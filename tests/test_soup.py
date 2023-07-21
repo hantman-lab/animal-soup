@@ -24,9 +24,10 @@ os.makedirs(tmp_dir, exist_ok=True)
 os.makedirs(sample_data_dir, exist_ok=True)
 os.makedirs(ground_truth_dir, exist_ok=True)
 
+
 def _download_ground_truth():
     print(f"Downloading ground truth data")
-    url = f"https://zenodo.org/record/8144809/files/ground_truth.zip"
+    url = f"https://zenodo.org/record/8172852/files/ground_truth.zip"
 
     # basically from https://stackoverflow.com/questions/37573483/progress-bar-while-download-file-over-http-with-requests/37573701
     response = requests.get(url, stream=True)
@@ -42,9 +43,10 @@ def _download_ground_truth():
 
     ZipFile(ground_truth_file).extractall(ground_truth_dir.parent)
 
+
 def _download_sample_data():
     print(f"Downloading sample data")
-    url = f"https://zenodo.org/record/8136902/files/sample_data.zip"
+    url = f"https://zenodo.org/record/8172852/files/sample_data.zip"
 
     # basically from https://stackoverflow.com/questions/37573483/progress-bar-while-download-file-over-http-with-requests/37573701
     response = requests.get(url, stream=True)
@@ -59,6 +61,7 @@ def _download_sample_data():
     progress_bar.close()
 
     ZipFile(sample_data_file).extractall(sample_data_dir.parent)
+
 
 if len(list(sample_data_dir.iterdir())) == 0:
     _download_sample_data()
@@ -78,14 +81,17 @@ elif "DOWNLOAD_GROUND_TRUTH" in os.environ.keys():
 def get_tmp_filename():
     return os.path.join(tmp_dir, f"test_df.hdf")
 
+
 def clear_tmp():
     shutil.rmtree(tmp_dir)
+
 
 def _create_tmp_df() -> Tuple[pd.DataFrame, str]:
     fname = get_tmp_filename()
     df = create_df(fname)
 
     return df, fname
+
 
 def test_create_df() -> Tuple[pd.DataFrame, str]:
     fname = get_tmp_filename()
@@ -98,12 +104,12 @@ def test_create_df() -> Tuple[pd.DataFrame, str]:
             assert c in df.columns
 
         # assert dataframe is empty
-        assert(len(df.index) == 0)
+        assert (len(df.index) == 0)
         # assert dataframe is empty animal_soup df
         empty_df = pd.DataFrame(columns=DATAFRAME_COLUMNS)
         pd.testing.assert_frame_equal(empty_df, df)
 
-    else: # tmp df does not exist
+    else:  # tmp df does not exist
         # test creating a df
         df, fname = _create_tmp_df()
 
@@ -112,7 +118,7 @@ def test_create_df() -> Tuple[pd.DataFrame, str]:
             assert c in df.columns
 
         # assert dataframe is empty
-        assert(len(df.index) == 0)
+        assert (len(df.index) == 0)
 
         # assert dataframe is empty animal_soup df
         empty_df = pd.DataFrame(columns=DATAFRAME_COLUMNS)
@@ -122,12 +128,13 @@ def test_create_df() -> Tuple[pd.DataFrame, str]:
     with pytest.raises(FileExistsError):
         create_df(fname)
 
+
 def test_add_item():
     # set parent raw data path to sample data dir
     set_parent_raw_data_path(sample_data_dir)
 
     # assert path is as expected
-    assert(get_parent_raw_data_path(), sample_data_dir)
+    assert (get_parent_raw_data_path(), sample_data_dir)
 
     # create empty dataframe, remove existing if True
     fname = get_tmp_filename()
@@ -161,6 +168,7 @@ def test_add_item():
     # assert df is as expected
     ground_df = pd.read_hdf(ground_truth_dir.joinpath('add_trials.hdf'))
     pd.testing.assert_frame_equal(ground_df, df)
+
 
 def test_remove_item():
     # set parent raw data path to sample data dir
@@ -215,6 +223,7 @@ def test_remove_item():
     ground_df = pd.read_hdf(ground_truth_dir.joinpath('remove_single_trial.hdf'))
     pd.testing.assert_frame_equal(ground_df, df)
 
+
 def test_load_df():
     # add items to a df
     test_add_item()
@@ -224,4 +233,3 @@ def test_load_df():
 
     ground_df = pd.read_hdf(ground_truth_dir.joinpath('ground_df.hdf'))
     pd.testing.assert_frame_equal(ground_df, df)
-
