@@ -37,7 +37,7 @@ class EthogramCleanerVizContainer(EthogramVizContainer):
         # add column for cleaned ethograms to df if not exists
         if "cleaned_ethograms" not in self._dataframe.columns:
             self._dataframe.insert(
-                loc=4,
+                loc=5,
                 column="cleaned_ethograms",
                 value=None
             )

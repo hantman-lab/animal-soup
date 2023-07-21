@@ -5,7 +5,7 @@ from fastplotlib import ImageWidget
 from warnings import warn
 from ..arrays import LazyVideo
 from typing import *
-from ..utils import get_parent_raw_data_path
+from ..utils import get_parent_raw_data_path, resolve_path
 from decord import gpu as gpu_context
 
 DECORD_CONTEXT = "cpu"
@@ -113,19 +113,17 @@ class BehaviorVizContainer:
     def _make_image_widget(self):
         """Instantiates image widget to view behavior videos."""
         row = self._dataframe.iloc[self.current_row_ix]
-        vid_path = self.local_parent_path.joinpath(row['animal_id'],
-                                                   row['session_id'],
-                                                   row['trial_id']).with_suffix('.avi')
+        vid_path = row['vid_path']
 
         if self.image_widget is None:
             if DECORD_CONTEXT == "gpu":
                 self.image_widget = ImageWidget(
-                                        data=LazyVideo(vid_path, ctx=gpu_context(0)),
+                                        data=LazyVideo(resolve_path(vid_path), ctx=gpu_context(0)),
                                         grid_plot_kwargs={"size": (700, 300)}
                                         )
             else:
                 self.image_widget = ImageWidget(
-                                        data=LazyVideo(vid_path),
+                                        data=LazyVideo(resolve_path(vid_path)),
                                         grid_plot_kwargs={"size": (700, 300)}
                                         )
         # most the time video is rendered upside down, default flip camera
@@ -134,14 +132,12 @@ class BehaviorVizContainer:
     def _update_image_widget(self):
         """If row changes, update the data in the ImageWidget with the new row selected."""
         row = self._dataframe.iloc[self.current_row_ix]
-        vid_path = self.local_parent_path.joinpath(row['animal_id'],
-                                                   row['session_id'],
-                                                   row['trial_id']).with_suffix('.avi')
+        vid_path = row['vid_path']
 
         if DECORD_CONTEXT == "gpu":
-            self.image_widget.set_data([LazyVideo(vid_path, ctx=gpu_context(0))], reset_vmin_vmax=True)
+            self.image_widget.set_data([LazyVideo(resolve_path(vid_path), ctx=gpu_context(0))], reset_vmin_vmax=True)
         else:
-            self.image_widget.set_data([LazyVideo(vid_path)], reset_vmin_vmax=True)
+            self.image_widget.set_data([LazyVideo(resolve_path(vid_path))], reset_vmin_vmax=True)
 
     def show(self):
         """Shows the widget."""

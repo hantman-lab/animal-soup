@@ -125,12 +125,17 @@ class BehaviorDataFrameExtension:
                                          f"session_id={session_dir.stem}, and trial_id={trial.stem}. "
                                          f"Please remove the item before attempting to add again.")
 
+                    # get vid path regardless of codec
+                    full_vid_path = sorted(session_dir.glob(f'{trial.stem}*'))[0]
+                    parent_path, relative_vid_path = split_path(full_vid_path)
+
                     # add item to dataframe
                     s = pd.Series(
                         {
                             "animal_id": animal_id,
                             "session_id": session_dir.stem,
                             "trial_id": trial.stem,
+                            "vid_path": relative_vid_path,
                             "ethograms": None,
                             "exp_type": exp_type,
                             "notes": None
@@ -158,12 +163,17 @@ class BehaviorDataFrameExtension:
                                          f"session_id={session_id}, and trial_id={trial.stem}. "
                                          f"Please remove the item before attempting to add again.")
 
+                    # get vid path regardless of codec
+                    full_vid_path = sorted(get_parent_raw_data_path().joinpath(animal_id, session_id).glob(f'{trial.stem}*'))[0]
+                    parent_path, relative_vid_path = split_path(full_vid_path)
+
                     # add item to dataframe
                     s = pd.Series(
                         {
                             "animal_id": animal_id,
                             "session_id": session_id,
                             "trial_id": trial.stem,
+                            "vid_path": relative_vid_path,
                             "ethograms": None,
                             "exp_type": exp_type,
                             "notes": None
@@ -181,12 +191,17 @@ class BehaviorDataFrameExtension:
                                      f"session_id={session_id}, and trial_id={trial_id}. "
                                      f"Please remove the item before attempting to add again.")
 
+                # get vid path regardless of codec
+                full_vid_path = sorted(get_parent_raw_data_path().joinpath(animal_id, session_id).glob(f'{trial_id}*'))[0]
+                parent_path, relative_vid_path = split_path(full_vid_path)
+
                 # add item to dataframe
                 s = pd.Series(
                     {
                         "animal_id": animal_id,
                         "session_id": session_id,
                         "trial_id": trial_id,
+                        "vid_path": relative_vid_path,
                         "ethograms": None,
                         "exp_type": exp_type,
                         "notes": None
