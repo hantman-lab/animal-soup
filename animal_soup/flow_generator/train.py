@@ -1,5 +1,4 @@
 import pytorch_lightning as pl
-import os
 import torch
 from typing import *
 from ..utils import get_gpu_transforms
@@ -8,6 +7,7 @@ from .loss import *
 from .reconstructor import Reconstructor
 from ..utils import L2, L2_SP
 from pathlib import Path
+from ..utils import PrintCallback, PlotLossCallback, CheckpointCallback, CheckStopCallback
 
 DEFAULT_TRAINING_PARAMS = {
     "min_lr": 5e-07,
@@ -84,6 +84,8 @@ class FlowLightningModule(pl.LightningModule):
         # configure optimizer and criterion
         self.optimizer = None
         self.criterion = None
+        self.configure_criterion()
+        self.epoch_losses = list()
 
         self.reconstructor = Reconstructor(gpu_id=gpu_id, augs=self.augs)
 
@@ -94,7 +96,8 @@ class FlowLightningModule(pl.LightningModule):
             batch_size=self.batch_size,
             shuffle=True,
             num_workers=8,
-            pin_memory=torch.cuda.is_available()
+            pin_memory=torch.cuda.is_available(),
+            drop_last=True
         )
 
         return dataloader
@@ -132,7 +135,12 @@ class FlowLightningModule(pl.LightningModule):
 
         self.optimizer = optimizer
 
-        return {'optimizer': optimizer, 'lr_scheduler': scheduler, "monitor": "val/loss"}
+        return {'optimizer': optimizer,
+                'lr_scheduler': {
+                                "scheduler": scheduler,
+                                "monitor": "loss"
+                        }
+                }
 
     def configure_criterion(self):
         """Configure the loss function to be used in training the flow generator."""
@@ -179,7 +187,6 @@ class FlowLightningModule(pl.LightningModule):
         images = self.apply_gpu_transforms(images=images)
 
         outputs = self.model(images)
-        self.log_image_stats(images)
 
         return images, outputs
 
@@ -209,8 +216,9 @@ class FlowLightningModule(pl.LightningModule):
         to_log = loss_components
         to_log['loss'] = loss.detach()
 
-        print(f"loss: {to_log['loss']}")
-        print(f"SSIM: {to_log['SSIM'].mean()}")
+        self.epoch_losses.append(to_log["loss"].cpu())
+
+        self.log("loss", to_log['loss'], prog_bar=True)
 
         return loss
 
@@ -238,7 +246,7 @@ def get_flow_trainer(
         Pytorch Lightning module that has the model, datasets, criterion, etc.
         needed for training a model
     stop_method: str, default learning_rate
-        Stop method for ending training, one of ["learning_rate", "num_epochs", "early"]
+        Stop method for ending training, one of ["learning_rate", "num_epochs"]
     profiler: str, default None
         Can be a string (ex: "simple", "advanced") or a Pytorch Lightning Profiler instance. Gives metrics
         during training.
@@ -255,6 +263,11 @@ def get_flow_trainer(
                                                         )
 
     callbacks = list()
+    callbacks.append(PrintCallback())
+    callbacks.append(PlotLossCallback())
+    callbacks.append(pl.callbacks.LearningRateMonitor())
+    callbacks.append(CheckpointCallback(model_out=model_out))
+    callbacks.append(CheckStopCallback(model_out=model_out, stop_method=stop_method))
 
     # tuning messes with the callbacks
     trainer = pl.Trainer(devices=[gpu_id],

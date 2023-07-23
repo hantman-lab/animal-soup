@@ -21,7 +21,8 @@ install_requires = [
     "nbmake",
     "vidio",
     "lightning",
-    "tensorflow"
+    "tensorflow",
+    "matplotlib"
 ]
 
 with open(Path(__file__).parent.joinpath("README.md")) as f:

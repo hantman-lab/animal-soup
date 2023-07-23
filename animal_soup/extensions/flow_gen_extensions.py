@@ -11,8 +11,7 @@ TRAINING_OPTIONS = {"slow": "TinyMotionNet3D",
                     "fast": "TinyMotionNet"}
 
 # map the stop methods to default values
-STOP_METHODS = {"early": 5,
-                "learning_rate": 5e-7,
+STOP_METHODS = {"learning_rate": 5e-7,
                 "num_epochs": 15
                 }
 
@@ -86,7 +85,6 @@ class FlowGeneratorDataframeExtension:
 
             | stop method   | description                                                                |
             |---------------|----------------------------------------------------------------------------|
-            | early         | Stop training if there is no improvement after a certain number of events  |
             | learning_rate | Stop training when learning rate drops below a given threshold, means loss |
             |               | has stopped improving                                                      |
             | num_epochs    | Stop training after a given number of epochs                               |
@@ -199,11 +197,6 @@ class FlowGeneratorDataframeExtension:
 
         dataset_metadata = datasets.dataset_info
 
-        # metrics
-        metrics = ["loss", "SSIM"]
-        #metrics = OpticalFlow(rundir, key_metric, num_parameters)
-        # stopper
-
         # lightening module
         lightning_module = FlowLightningModule(
             model=model,
@@ -221,9 +214,6 @@ class FlowGeneratorDataframeExtension:
             stop_method=stop_method,
             model_out=model_out
         )
-
-        # train.fit()
-        #trainer.fit(lightning_module)
 
         # in notes column, add flow_gen_train params for model
         # or should store all in output file
@@ -263,7 +253,10 @@ class FlowGeneratorDataframeExtension:
         # save df
         self._df.behavior.save_to_disk()
 
-        return model, datasets, trainer
+        # train.fit()
+        trainer.fit(lightning_module)
+
+        return trainer
 
     def _load_pretrained_flow_model(self,
                                     weight_path: Union[str, Path],
