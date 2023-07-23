@@ -256,8 +256,6 @@ class FlowGeneratorDataframeExtension:
         # train.fit()
         trainer.fit(lightning_module)
 
-        return trainer
-
     def _load_pretrained_flow_model(self,
                                     weight_path: Union[str, Path],
                                     mode: str,
