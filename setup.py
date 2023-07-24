@@ -15,8 +15,15 @@ install_requires = [
     "tables",
     "jupyter-rfb",
     "jupyterlab",
+    "kornia",
+    "omegaconf", # needed because of how models are loaded from checkpoint
     "jupyterlab-widgets==3.0.7",
-    "nbmake"
+    "nbmake",
+    "vidio",
+    "lightning",
+    "tensorflow",
+    "matplotlib",
+    "torchvision"
 ]
 
 with open(Path(__file__).parent.joinpath("README.md")) as f:
@@ -24,7 +31,6 @@ with open(Path(__file__).parent.joinpath("README.md")) as f:
 
 with open(Path(__file__).parent.joinpath("animal_soup", "VERSION"), "r") as f:
     ver = f.read().split("\n")[0]
-
 
 setup(
     name='animal-soup',

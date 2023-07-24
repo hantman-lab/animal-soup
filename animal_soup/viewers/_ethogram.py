@@ -11,7 +11,7 @@ ETHOGRAM_COLORS = {
     "grab": "r",
     "sup": "cyan",
     "atmouth": "magenta",
-    "chew": "yellow"
+    "chew": "yellow",
 }
 
 ETHOGRAM_BEHAVIOR_MAPPING = {
@@ -25,10 +25,11 @@ ETHOGRAM_BEHAVIOR_MAPPING = {
 
 
 class EthogramVizContainer(BehaviorVizContainer):
-    def __init__(self,
-                 dataframe: pd.DataFrame,
-                 start_index: int = 0,
-                 ):
+    def __init__(
+        self,
+        dataframe: pd.DataFrame,
+        start_index: int = 0,
+    ):
         """
         Wraps BehaviorVizContainer, in addition to showing behavior videos, will also show corresponding ethograms.
 
@@ -41,8 +42,7 @@ class EthogramVizContainer(BehaviorVizContainer):
             Row index in datagrid that will start out as being selected initially. Default is first row.
         """
         super(EthogramVizContainer, self).__init__(
-            dataframe=dataframe,
-            start_index=start_index
+            dataframe=dataframe, start_index=start_index
         )
 
         self.plot = None
@@ -71,9 +71,7 @@ class EthogramVizContainer(BehaviorVizContainer):
             ys = np.zeros(xs.size, dtype=np.float32)
 
             lg = self.plot.add_line(
-                data=np.column_stack([xs, ys]),
-                thickness=20,
-                name=b
+                data=np.column_stack([xs, ys]), thickness=20, name=b
             )
 
             lg.colors = 0
@@ -91,7 +89,9 @@ class EthogramVizContainer(BehaviorVizContainer):
         )
 
         self.plot.add_graphic(self.ethogram_selector)
-        self.ethogram_selector.selection.add_event_handler(self.ethogram_selection_event_handler)
+        self.ethogram_selector.selection.add_event_handler(
+            self.ethogram_selection_event_handler
+        )
         self.plot.auto_scale()
 
     def _check_for_cleaned_array(self, row: pd.Series):
@@ -123,36 +123,46 @@ class EthogramVizContainer(BehaviorVizContainer):
         durations = self._get_behavior_frame_count()
         if self.behavior_count is None:
             self.behavior_count = Textarea(
-                                        value=f'lift: {durations["lift"]}\n'
-                                              f'handopen: {durations["handopen"]}\n'
-                                              f'grab: {durations["grab"]}\n'
-                                              f'sup: {durations["sup"]}\n'
-                                              f'atmouth: {durations["atmouth"]}\n'
-                                              f'chew: {durations["chew"]}',
-                                        description="Duration:",
-                                        disabled=True,
-                                        layout=Layout(height="65%", width="auto"))
+                value=f'lift: {durations["lift"]}\n'
+                f'handopen: {durations["handopen"]}\n'
+                f'grab: {durations["grab"]}\n'
+                f'sup: {durations["sup"]}\n'
+                f'atmouth: {durations["atmouth"]}\n'
+                f'chew: {durations["chew"]}',
+                description="Duration:",
+                disabled=True,
+                layout=Layout(height="65%", width="auto"),
+            )
         else:
-            self.behavior_count.value = (f'lift: {durations["lift"]}\n'
-            f'handopen: {durations["handopen"]}\n'
-            f'grab: {durations["grab"]}\n'
-            f'sup: {durations["sup"]}\n'
-            f'atmouth: {durations["atmouth"]}\n'
-            f'chew: {durations["chew"]}')
+            self.behavior_count.value = (
+                f'lift: {durations["lift"]}\n'
+                f'handopen: {durations["handopen"]}\n'
+                f'grab: {durations["grab"]}\n'
+                f'sup: {durations["sup"]}\n'
+                f'atmouth: {durations["atmouth"]}\n'
+                f'chew: {durations["chew"]}'
+            )
 
     def _get_behavior_frame_count(self):
         """Get the duration of each behavior in the currently selected ethogram."""
         durations = dict()
         for behavior in ETHOGRAM_BEHAVIOR_MAPPING.keys():
-            durations[behavior] = int(self.ethogram_array[ETHOGRAM_BEHAVIOR_MAPPING[behavior]].sum())
+            durations[behavior] = int(
+                self.ethogram_array[ETHOGRAM_BEHAVIOR_MAPPING[behavior]].sum()
+            )
         return durations
 
     def show(self):
         """Shows the widget."""
-        return VBox([
-            self.datagrid,
-            HBox([self.image_widget.show(),
-                  VBox([self.trial_selector,
-                        self.behavior_count])
-                  ]),
-            self.plot.show()])
+        return VBox(
+            [
+                self.datagrid,
+                HBox(
+                    [
+                        self.image_widget.show(),
+                        VBox([self.trial_selector, self.behavior_count]),
+                    ]
+                ),
+                self.plot.show(),
+            ]
+        )

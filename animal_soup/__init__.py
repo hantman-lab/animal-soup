@@ -1,14 +1,10 @@
-
-
-from animal_soup.utils.df_utils import (
-    create_df,
+from .extensions import *
+from .utils import (
     load_df,
+    create_df,
     set_parent_raw_data_path,
     get_parent_raw_data_path,
 )
-
-from .arrays import *
-from .extensions import *
 from .viewers import *
 
 from pathlib import Path
@@ -25,6 +21,5 @@ __all__ = [
     "BehaviorDataFrameExtension",
     "EthogramVizContainer",
     "EthogramCleanerVizContainer",
-    "EthogramComparisonVizContainer"
+    "EthogramComparisonVizContainer",
 ]
-
