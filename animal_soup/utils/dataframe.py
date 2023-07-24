@@ -17,6 +17,7 @@ DATAFRAME_COLUMNS = [
     "vid_path",
     "ethograms",
     "exp_type",
+    "model_params",
     "notes",
 ]
 
