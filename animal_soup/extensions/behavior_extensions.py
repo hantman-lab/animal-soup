@@ -141,7 +141,7 @@ class BehaviorDataFrameExtension:
                             "vid_path": relative_vid_path,
                             "ethograms": None,
                             "exp_type": exp_type,
-                            "model_params": None,
+                            "model_params": dict(),
                             "notes": None,
                         }
                     )
@@ -193,7 +193,7 @@ class BehaviorDataFrameExtension:
                             "vid_path": relative_vid_path,
                             "ethograms": None,
                             "exp_type": exp_type,
-                            "model_params": None,
+                            "model_params": dict(),
                             "notes": None,
                         }
                     )
@@ -235,7 +235,7 @@ class BehaviorDataFrameExtension:
                         "vid_path": relative_vid_path,
                         "ethograms": None,
                         "exp_type": exp_type,
-                        "model_params": None,
+                        "model_params": dict(),
                         "notes": None,
                     }
                 )
