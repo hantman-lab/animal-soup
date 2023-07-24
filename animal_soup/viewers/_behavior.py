@@ -14,9 +14,9 @@ DECORD_CONTEXT = "cpu"
 
 class BehaviorVizContainer:
     def __init__(
-            self,
-            dataframe: pd.DataFrame,
-            start_index: int = 0,
+        self,
+        dataframe: pd.DataFrame,
+        start_index: int = 0,
     ):
         """
         Creates an ipydatagrid and `fastplotlib` ``ImageWidget`` viewer based on a dataframe.
@@ -32,19 +32,17 @@ class BehaviorVizContainer:
         self._dataframe = dataframe
         self.local_parent_path = get_parent_raw_data_path()
 
-        hide_columns = ["ethograms",
-                        "cleaned_ethograms",
-                        "notes",
-                        "exp_type",
-                        "deg_preds"]
+        hide_columns = [
+            "ethograms",
+            "cleaned_ethograms",
+            "notes",
+            "exp_type",
+            "deg_preds",
+        ]
 
         columns = dataframe.columns
 
-        default_widths = {
-            'animal_id': 200,
-            'session_id': 100,
-            'trial_id': 200
-        }
+        default_widths = {"animal_id": 200, "session_id": 100, "trial_id": 200}
 
         df_show = self._dataframe[[c for c in columns if c not in hide_columns]]
 
@@ -54,18 +52,15 @@ class BehaviorVizContainer:
             layout={"height": "250px", "width": "750px"},
             base_row_size=24,
             index_name="index",
-            column_widths=default_widths)
+            column_widths=default_widths,
+        )
 
         self.current_row_ix: int = start_index
         self.trial_selector = None
         self.image_widget = None
 
         self.datagrid.select(
-            row1=start_index,
-            column1=0,
-            row2=start_index,
-            column2=0,
-            clear_mode="all"
+            row1=start_index, column1=0, row2=start_index, column2=0, clear_mode="all"
         )
         self._set_trial_selector()
 
@@ -114,20 +109,19 @@ class BehaviorVizContainer:
     def _make_image_widget(self):
         """Instantiates image widget to view behavior videos."""
         row = self._dataframe.iloc[self.current_row_ix]
-        vid_path = self.local_parent_path.joinpath(row['animal_id'],
-                                                   row['session_id'],
-                                                   row['trial_id']).with_suffix('.avi')
+        vid_path = self.local_parent_path.joinpath(
+            row["animal_id"], row["session_id"], row["trial_id"]
+        ).with_suffix(".avi")
 
         if self.image_widget is None:
             if DECORD_CONTEXT == "gpu":
                 self.image_widget = ImageWidget(
                     data=LazyVideo(vid_path, ctx=gpu_context(0)),
-                    grid_plot_kwargs={"size": (700, 300)}
+                    grid_plot_kwargs={"size": (700, 300)},
                 )
             else:
                 self.image_widget = ImageWidget(
-                    data=LazyVideo(vid_path),
-                    grid_plot_kwargs={"size": (700, 300)}
+                    data=LazyVideo(vid_path), grid_plot_kwargs={"size": (700, 300)}
                 )
         # most the time video is rendered upside down, default flip camera
         self.image_widget.gridplot[0, 0].camera.world.scale_y *= -1
@@ -135,18 +129,19 @@ class BehaviorVizContainer:
     def _update_image_widget(self):
         """If row changes, update the data in the ImageWidget with the new row selected."""
         row = self._dataframe.iloc[self.current_row_ix]
-        vid_path = self.local_parent_path.joinpath(row['animal_id'],
-                                                   row['session_id'],
-                                                   row['trial_id']).with_suffix('.avi')
+        vid_path = self.local_parent_path.joinpath(
+            row["animal_id"], row["session_id"], row["trial_id"]
+        ).with_suffix(".avi")
 
         if DECORD_CONTEXT == "gpu":
-            self.image_widget.set_data([LazyVideo(vid_path, ctx=gpu_context(0))], reset_vmin_vmax=True)
+            self.image_widget.set_data(
+                [LazyVideo(vid_path, ctx=gpu_context(0))], reset_vmin_vmax=True
+            )
         else:
             self.image_widget.set_data([LazyVideo(vid_path)], reset_vmin_vmax=True)
 
     def show(self):
         """Shows the widget."""
-        return VBox([
-            self.datagrid,
-            HBox([self.image_widget.show(),
-                  self.trial_selector])])
+        return VBox(
+            [self.datagrid, HBox([self.image_widget.show(), self.trial_selector])]
+        )

@@ -1,4 +1,9 @@
-"""Utility functions and classes for getting transformations or applying them."""
+"""
+Utility functions and classes for getting transformations or applying them.
+
+Taken from https://github.com/jbohnslav/deepethogram/blob/master/deepethogram/data/augs.py
+with some slight modifications.
+"""
 
 from typing import *
 import torch
@@ -25,10 +30,13 @@ class Normalizer:
         mean: mean of input data. For images, should have 2 or 3 channels
         std: standard deviation of input data
     """
-    def __init__(self,
-                 mean: Union[list, np.ndarray, torch.Tensor] = None,
-                 std: Union[list, np.ndarray, torch.Tensor] = None,
-                 clamp: bool = True):
+
+    def __init__(
+        self,
+        mean: Union[list, np.ndarray, torch.Tensor] = None,
+        std: Union[list, np.ndarray, torch.Tensor] = None,
+        clamp: bool = True,
+    ):
         """Constructor for Normalizer class.
         Args:
             mean: mean of input data. Should have 3 channels (for R,G,B) or 2 (for X,Y) in the optical flow case
@@ -38,13 +46,13 @@ class Normalizer:
         # make sure that if you have a mean, you also have a std
         # XOR
         has_mean, has_std = mean is None, std is None
-        assert (not has_mean ^ has_std)
+        assert not has_mean ^ has_std
 
         self.mean = self.process_inputs(mean)
         self.std = self.process_inputs(std)
         # prevent divide by zero, but only change values if it's close to 0 already
         if self.std is not None:
-            assert (self.std.min() > 0)
+            assert self.std.min() > 0
             self.std[self.std < 1e-8] += 1e-8
         self.clamp = clamp
 
@@ -53,12 +61,12 @@ class Normalizer:
         Converts to tensor if necessary. Reshapes to [length, 1, 1] for pytorch broadcasting.
         """
         if inputs is None:
-            return (inputs)
+            return inputs
         if type(inputs) == list:
             inputs = np.array(inputs).astype(np.float32)
         if type(inputs) == np.ndarray:
             inputs = torch.from_numpy(inputs)
-        assert (type(inputs) == torch.Tensor)
+        assert type(inputs) == torch.Tensor
         inputs = inputs.float()
         C = inputs.shape[0]
         inputs = inputs.reshape(C, 1, 1)
@@ -84,7 +92,9 @@ class Normalizer:
         elif tensor.ndim == 5:
             N, C, T, H, W = tensor.shape
         else:
-            raise ValueError('Tensor input to normalizer of unknown shape: {}'.format(tensor.shape))
+            raise ValueError(
+                "Tensor input to normalizer of unknown shape: {}".format(tensor.shape)
+            )
 
         t_d = tensor.device
         if t_d != self.mean.device:
@@ -100,7 +110,7 @@ class Normalizer:
             # this code simply repeats the mean T times, so it's
             # [R_mean, G_mean, B_mean, R_mean, G_mean, ... etc]
             n_repeats = C / c
-            assert (int(n_repeats) == n_repeats)
+            assert int(n_repeats) == n_repeats
             n_repeats = int(n_repeats)
             repeats = tuple([n_repeats] + [1 for i in range(self.mean.ndim - 1)])
             self.mean = self.mean.repeat((repeats))
@@ -137,6 +147,7 @@ class Normalizer:
         tensor = (tensor - self.mean) / (self.std)
         return tensor
 
+
 class Transpose:
     """Module to transpose image stacks."""
 
@@ -152,7 +163,7 @@ class Transpose:
             return images.transpose(2, 0, 1)
 
     def __repr__(self):
-        return self.__class__.__name__ + '()'
+        return self.__class__.__name__ + "()"
 
 
 class DenormalizeVideo(torch.nn.Module):
@@ -222,7 +233,7 @@ class ToFloat(torch.nn.Module):
         return tensor.float().div(255)
 
     def __repr__(self):
-        return self.__class__.__name__ + '()'
+        return self.__class__.__name__ + "()"
 
 
 class UnstackClip(torch.nn.Module):
@@ -263,7 +274,9 @@ def get_cpu_transforms(augs: Dict[str, Any]) -> torchvision.transforms:
     transforms.append(torchvision.transforms.ToTensor())
 
     if "crop_size" in augs.keys() and augs["crop_size"] is not None:
-        transforms.append(torchvision.transforms.RandomCrop(augs["cro_size"], antialias=True))
+        transforms.append(
+            torchvision.transforms.RandomCrop(augs["cro_size"], antialias=True)
+        )
     if "resize" in augs.keys() and augs["resize"] is not None:
         transforms.append(torchvision.transforms.Resize(augs["resize"], antialias=True))
     if "pad" in augs.keys() and augs["pad"] is not None:
@@ -276,7 +289,9 @@ def get_cpu_transforms(augs: Dict[str, Any]) -> torchvision.transforms:
     return transforms
 
 
-def get_gpu_transforms(augs: Dict[str, Any], conv_mode: str = '2d') -> torch.nn.Sequential:
+def get_gpu_transforms(
+    augs: Dict[str, Any], conv_mode: str = "2d"
+) -> torch.nn.Sequential:
     """
     Makes GPU augmentations.
 
@@ -304,40 +319,46 @@ def get_gpu_transforms(augs: Dict[str, Any], conv_mode: str = '2d') -> torch.nn.
     if "grayscale" in augs.keys() and augs["grayscale"] > 0:
         kornia_transforms.append(K.RandomGrayscale(p=augs["grayscale"]))
 
-    if ("brightness" in augs.keys() and augs["brightness"] > 0) or \
-            ("contrast" in augs.keys() and augs["contrast"] > 0) or \
-            ("saturation" in augs.keys() and augs["saturation"] > 0) or \
-            ("hue" in augs.keys() and augs["hue"] > 0):
-        kornia_transforms.append(K.ColorJitter(brightness=augs["brightness"],
-                                               contrast=augs["contrast"],
-                                               saturation=augs["saturation"],
-                                               hue=augs["hue"],
-                                               p=augs["color_p"],
-                                               same_on_batch=False))
+    if (
+        ("brightness" in augs.keys() and augs["brightness"] > 0)
+        or ("contrast" in augs.keys() and augs["contrast"] > 0)
+        or ("saturation" in augs.keys() and augs["saturation"] > 0)
+        or ("hue" in augs.keys() and augs["hue"] > 0)
+    ):
+        kornia_transforms.append(
+            K.ColorJitter(
+                brightness=augs["brightness"],
+                contrast=augs["contrast"],
+                saturation=augs["saturation"],
+                hue=augs["hue"],
+                p=augs["color_p"],
+                same_on_batch=False,
+            )
+        )
 
-    norm = NormalizeVideo(mean=augs["normalization"]["mean"],
-                          std=augs["normalization"]["std"])
+    norm = NormalizeVideo(
+        mean=augs["normalization"]["mean"], std=augs["normalization"]["std"]
+    )
 
-    kornia_transforms = VideoSequential(*kornia_transforms,
-                                        data_format='BCTHW',
-                                        same_on_frame=True)
+    kornia_transforms = VideoSequential(
+        *kornia_transforms, data_format="BCTHW", same_on_frame=True
+    )
 
-    train_transforms = [ToFloat(),
-                        kornia_transforms,
-                        norm]
+    train_transforms = [ToFloat(), kornia_transforms, norm]
 
     denormalize = []
-    if conv_mode == '2d':
+    if conv_mode == "2d":
         train_transforms.append(StackClipInChannels())
         denormalize.append(UnstackClip())
-    denormalize.append(DenormalizeVideo(mean=augs["normalization"]["mean"],
-                                        std=augs["normalization"]["std"]))
+    denormalize.append(
+        DenormalizeVideo(
+            mean=augs["normalization"]["mean"], std=augs["normalization"]["std"]
+        )
+    )
 
     train_transforms = torch.nn.Sequential(*train_transforms)
     denormalize = torch.nn.Sequential(*denormalize)
 
-    gpu_transforms = dict(train=train_transforms,
-                          denormalize=denormalize)
+    gpu_transforms = dict(train=train_transforms, denormalize=denormalize)
 
     return gpu_transforms
-

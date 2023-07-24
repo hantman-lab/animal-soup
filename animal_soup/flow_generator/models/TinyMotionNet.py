@@ -32,12 +32,13 @@ import torch
 
 
 class TinyMotionNet(torch.nn.Module):
-    def __init__(self,
-                 num_images: int = 11,
-                 input_channels: int = None,
-                 batchNorm: bool = True,
-                 output_channels: int = None,
-                 ):
+    def __init__(
+        self,
+        num_images: int = 11,
+        input_channels: int = None,
+        batchNorm: bool = True,
+        output_channels: int = None,
+    ):
         """
         Model used for "medium" training of flow generator.
 
@@ -86,8 +87,12 @@ class TinyMotionNet(torch.nn.Module):
         self.predict_flow3 = predict_flow(128, out_planes=self.output_channels)
         self.predict_flow2 = predict_flow(64, out_planes=self.output_channels)
 
-        self.upsampled_flow4_to_3 = nn.ConvTranspose2d(self.output_channels, self.output_channels, 4, 2, 1)
-        self.upsampled_flow3_to_2 = nn.ConvTranspose2d(self.output_channels, self.output_channels, 4, 2, 1)
+        self.upsampled_flow4_to_3 = nn.ConvTranspose2d(
+            self.output_channels, self.output_channels, 4, 2, 1
+        )
+        self.upsampled_flow3_to_2 = nn.ConvTranspose2d(
+            self.output_channels, self.output_channels, 4, 2, 1
+        )
 
         self.concat = CropConcat(dim=1)
         self.interpolate = Interpolate

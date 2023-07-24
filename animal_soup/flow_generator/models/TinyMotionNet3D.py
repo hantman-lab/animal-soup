@@ -21,11 +21,13 @@ from ._components import *
 
 
 class TinyMotionNet3D(nn.Module):
-    def __init__(self,
-                 num_images: int = 11,
-                 input_channels: int = 3,
-                 batchnorm: bool = True,
-                 channel_base: int = 16):
+    def __init__(
+        self,
+        num_images: int = 11,
+        input_channels: int = 3,
+        batchnorm: bool = True,
+        channel_base: int = 16,
+    ):
         """
         Model used for "slow" training of flow generator.
 
@@ -54,37 +56,105 @@ class TinyMotionNet3D(nn.Module):
         # set flow div
         self.flow_div = 1
 
-        self.channels = [channel_base * (2 ** i) for i in range(0, 3)]
+        self.channels = [channel_base * (2**i) for i in range(0, 3)]
 
         # convolutional layers
-        self.conv1 = conv3d(self.input_channels, self.channels[0], kernel_size=7, batchnorm=batchnorm, bias=bias)
-        self.conv2 = conv3d(self.channels[0], self.channels[1], stride=(1, 2, 2), kernel_size=5, batchnorm=batchnorm,
-                            bias=bias)
-        self.conv3 = conv3d(self.channels[1], self.channels[2], stride=(1, 2, 2), batchnorm=batchnorm, bias=bias)
-        self.conv4 = conv3d(self.channels[2], self.channels[1], stride=(1, 2, 2), batchnorm=batchnorm, bias=bias)
+        self.conv1 = conv3d(
+            self.input_channels,
+            self.channels[0],
+            kernel_size=7,
+            batchnorm=batchnorm,
+            bias=bias,
+        )
+        self.conv2 = conv3d(
+            self.channels[0],
+            self.channels[1],
+            stride=(1, 2, 2),
+            kernel_size=5,
+            batchnorm=batchnorm,
+            bias=bias,
+        )
+        self.conv3 = conv3d(
+            self.channels[1],
+            self.channels[2],
+            stride=(1, 2, 2),
+            batchnorm=batchnorm,
+            bias=bias,
+        )
+        self.conv4 = conv3d(
+            self.channels[2],
+            self.channels[1],
+            stride=(1, 2, 2),
+            batchnorm=batchnorm,
+            bias=bias,
+        )
 
-        self.conv5 = conv3d(self.channels[1], self.channels[1], kernel_size=(2, 3, 3), batchnorm=batchnorm, bias=bias)
+        self.conv5 = conv3d(
+            self.channels[1],
+            self.channels[1],
+            kernel_size=(2, 3, 3),
+            batchnorm=batchnorm,
+            bias=bias,
+        )
 
-        self.deconv3 = deconv3d(self.channels[1], self.channels[1], kernel_size=(1, 4, 4), stride=(1, 2, 2),
-                                padding=(0, 1, 1),
-                                batchnorm=batchnorm, bias=bias)
-        self.deconv2 = deconv3d(self.channels[1], self.channels[0], kernel_size=(1, 4, 4), stride=(1, 2, 2),
-                                padding=(0, 1, 1),
-                                batchnorm=batchnorm, bias=bias)
+        self.deconv3 = deconv3d(
+            self.channels[1],
+            self.channels[1],
+            kernel_size=(1, 4, 4),
+            stride=(1, 2, 2),
+            padding=(0, 1, 1),
+            batchnorm=batchnorm,
+            bias=bias,
+        )
+        self.deconv2 = deconv3d(
+            self.channels[1],
+            self.channels[0],
+            kernel_size=(1, 4, 4),
+            stride=(1, 2, 2),
+            padding=(0, 1, 1),
+            batchnorm=batchnorm,
+            bias=bias,
+        )
 
-        self.iconv3 = conv3d(self.channels[2], self.channels[2], kernel_size=(2, 3, 3), batchnorm=batchnorm, bias=bias)
-        self.iconv2 = conv3d(self.channels[1], self.channels[1], kernel_size=(2, 3, 3), batchnorm=batchnorm, bias=bias)
+        self.iconv3 = conv3d(
+            self.channels[2],
+            self.channels[2],
+            kernel_size=(2, 3, 3),
+            batchnorm=batchnorm,
+            bias=bias,
+        )
+        self.iconv2 = conv3d(
+            self.channels[1],
+            self.channels[1],
+            kernel_size=(2, 3, 3),
+            batchnorm=batchnorm,
+            bias=bias,
+        )
 
-        self.xconv3 = conv3d(self.channels[1] + self.channels[2] + 2, self.channels[1], batchnorm=batchnorm, act=False)
-        self.xconv2 = conv3d(self.channels[0] + self.channels[1] + 2, self.channels[0], batchnorm=batchnorm, act=False)
+        self.xconv3 = conv3d(
+            self.channels[1] + self.channels[2] + 2,
+            self.channels[1],
+            batchnorm=batchnorm,
+            act=False,
+        )
+        self.xconv2 = conv3d(
+            self.channels[0] + self.channels[1] + 2,
+            self.channels[0],
+            batchnorm=batchnorm,
+            act=False,
+        )
 
         self.predict_flow4 = predict_flow_3d(self.channels[1], 2)
         self.predict_flow3 = predict_flow_3d(self.channels[1], 2)
         self.predict_flow2 = predict_flow_3d(self.channels[0], 2)
 
-        self.upsampled_flow4_to_3 = nn.ConvTranspose3d(2, 2, kernel_size=(1, 4, 4), stride=(1, 2, 2), padding=(0, 1, 1))
+        self.upsampled_flow4_to_3 = nn.ConvTranspose3d(
+            2, 2, kernel_size=(1, 4, 4), stride=(1, 2, 2), padding=(0, 1, 1)
+        )
         # self.upsampled_flow4_to_3 = nn.ConvTranspose3d(2, 2, kernel_size=(1,4,4), stride=(1,2,2), padding=1)
-        self.upsampled_flow3_to_2 = nn.ConvTranspose3d(2, 2, kernel_size=(1, 4, 4), stride=(1, 2, 2), padding=(0, 1, 1))
+        self.upsampled_flow3_to_2 = nn.ConvTranspose3d(
+            2, 2, kernel_size=(1, 4, 4), stride=(1, 2, 2), padding=(0, 1, 1)
+        )
 
         self.concat = CropConcat(dim=1)
         # self.interpolate = Interpolate

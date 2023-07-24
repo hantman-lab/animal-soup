@@ -1,13 +1,18 @@
 import pytorch_lightning as pl
 import torch
 from typing import *
-from ..utils import get_gpu_transforms
+from ..utils import get_gpu_transforms, FLOW_GEN_MODEL_PATHS
 from .models import *
 from .loss import *
 from .reconstructor import Reconstructor
 from ..utils import L2, L2_SP
 from pathlib import Path
-from ..utils import PrintCallback, PlotLossCallback, CheckpointCallback, CheckStopCallback
+from ..utils import (
+    PrintCallback,
+    PlotLossCallback,
+    CheckpointCallback,
+    CheckStopCallback,
+)
 
 DEFAULT_TRAINING_PARAMS = {
     "min_lr": 5e-07,
@@ -15,33 +20,23 @@ DEFAULT_TRAINING_PARAMS = {
     "patience": 3,
     "reduction_factor": 0.1,
     "steps_per_epoch": 1000,
-    "regularization": {
-        "alpha": 1.0e-05,
-        "beta": 0.001,
-        "style": "l2_sp"
-    },
+    "regularization": {"alpha": 1.0e-05, "beta": 0.001, "style": "l2_sp"},
     "smooth_weight_multiplier": 1.0,
     "sparsity_weight": 0.0,
-    "flow_sparsity": False
-}
-
-MODEL_MAP = {
-    TinyMotionNet3D: "TinyMotionNet3D",
-    TinyMotionNet: "TinyMotionNet",
-    MotionNet: "MotionNet"
+    "flow_sparsity": False,
 }
 
 
 class FlowLightningModule(pl.LightningModule):
     def __init__(
-            self,
-            model: Union[TinyMotionNet3D, TinyMotionNet, MotionNet],
-            gpu_id: int,
-            datasets: dict,
-            initial_lr: float = 0.0001,
-            batch_size: int = 32,
-            augs: dict = None,
-            model_in: Union[str, Path] = None
+        self,
+        model: Union[TinyMotionNet3D, TinyMotionNet, MotionNet],
+        gpu_id: int,
+        datasets: dict,
+        initial_lr: float = 0.0001,
+        batch_size: int = 32,
+        augs: dict = None,
+        model_in: Union[str, Path] = None,
     ):
         """
         Class for training flow generator using lightning module.
@@ -71,15 +66,16 @@ class FlowLightningModule(pl.LightningModule):
         self.gpu_id = gpu_id
 
         if isinstance(self.model, TinyMotionNet3D):
-            self.gpu_transforms = get_gpu_transforms(augs=self.augs, conv_mode='3d')['train']
+            self.gpu_transforms = get_gpu_transforms(augs=self.augs, conv_mode="3d")[
+                "train"
+            ]
         else:
-            self.gpu_transforms = get_gpu_transforms(augs=self.augs)['train']
+            self.gpu_transforms = get_gpu_transforms(augs=self.augs)["train"]
 
         if model_in is None:
-            self.model_in = Path('/home/clewis7/repos/animal-soup/pretrained_models/flow_generator').joinpath(
-                MODEL_MAP[type(self.model)]).with_suffix('.ckpt')
-        else:  # no need to validate because model weights will have already been loaded
-            self.model_in = model_in
+            self.model_in = FLOW_GEN_MODEL_PATHS[self.model.__class__.__name__]
+        else:  # no need to validate model_in path because model weights will have already been loaded
+            self.model_in = Path(model_in)
 
         # configure optimizer and criterion
         self.optimizer = None
@@ -97,7 +93,7 @@ class FlowLightningModule(pl.LightningModule):
             shuffle=True,
             num_workers=8,
             pin_memory=torch.cuda.is_available(),
-            drop_last=True
+            drop_last=True,
         )
 
         return dataloader
@@ -118,11 +114,13 @@ class FlowLightningModule(pl.LightningModule):
     def configure_optimizers(self):
         """Configure the optimizer to be used in training the flow generator."""
 
-        weight_decay = 0  # if self.hparams.weight_decay is None else self.hparams.weight_decay
+        weight_decay = 0
 
-        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, self.model.parameters()),
-                                     lr=self.lr,
-                                     weight_decay=weight_decay)
+        optimizer = torch.optim.Adam(
+            filter(lambda p: p.requires_grad, self.model.parameters()),
+            lr=self.lr,
+            weight_decay=weight_decay,
+        )
 
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,
@@ -130,36 +128,38 @@ class FlowLightningModule(pl.LightningModule):
             factor=DEFAULT_TRAINING_PARAMS["reduction_factor"],
             patience=DEFAULT_TRAINING_PARAMS["patience"],
             verbose=True,
-            min_lr=DEFAULT_TRAINING_PARAMS["min_lr"]
+            min_lr=DEFAULT_TRAINING_PARAMS["min_lr"],
         )
 
         self.optimizer = optimizer
 
-        return {'optimizer': optimizer,
-                'lr_scheduler': {
-                                "scheduler": scheduler,
-                                "monitor": "loss"
-                        }
-                }
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {"scheduler": scheduler, "monitor": "loss"},
+        }
 
     def configure_criterion(self):
         """Configure the loss function to be used in training the flow generator."""
         if DEFAULT_TRAINING_PARAMS["regularization"]["style"] == "l2":
             regularization_criterion = L2(
                 model=self.model,
-                alpha=DEFAULT_TRAINING_PARAMS["regularization"]["alpha"])
+                alpha=DEFAULT_TRAINING_PARAMS["regularization"]["alpha"],
+            )
         else:  # regularization criterion must be "l2_sp"
             regularization_criterion = L2_SP(
                 model=self.model,
                 path_to_pretrained_weights=self.model_in,
                 alpha=DEFAULT_TRAINING_PARAMS["regularization"]["alpha"],
-                beta=DEFAULT_TRAINING_PARAMS["regularization"]["beta"])
+                beta=DEFAULT_TRAINING_PARAMS["regularization"]["beta"],
+            )
         # # criterion, loss func
         criterion = MotionNetLoss(
             regularization_criterion,
             flow_sparsity=DEFAULT_TRAINING_PARAMS["flow_sparsity"],
             sparsity_weight=DEFAULT_TRAINING_PARAMS["sparsity_weight"],
-            smooth_weight_multiplier=DEFAULT_TRAINING_PARAMS["smooth_weight_multiplier"],
+            smooth_weight_multiplier=DEFAULT_TRAINING_PARAMS[
+                "smooth_weight_multiplier"
+            ],
         )
 
         self.criterion = criterion
@@ -210,15 +210,19 @@ class FlowLightningModule(pl.LightningModule):
         # # forward pass. images are returned because the forward pass runs augmentations on the gpu as well
         images, outputs = self.forward(batch)
         # actually reconstruct t0 using t1 and estimated optic flow
-        downsampled_t0, estimated_t0, flows_reshaped = self.reconstructor(images, outputs)
-        loss, loss_components = self.criterion(batch, downsampled_t0, estimated_t0, flows_reshaped, self.model)
+        downsampled_t0, estimated_t0, flows_reshaped = self.reconstructor(
+            images, outputs
+        )
+        loss, loss_components = self.criterion(
+            batch, downsampled_t0, estimated_t0, flows_reshaped, self.model
+        )
 
         to_log = loss_components
-        to_log['loss'] = loss.detach()
+        to_log["loss"] = loss.detach()
 
         self.epoch_losses.append(to_log["loss"].cpu())
 
-        self.log("loss", to_log['loss'], prog_bar=True)
+        self.log("loss", to_log["loss"], prog_bar=True)
 
         return loss
 
@@ -230,10 +234,10 @@ class FlowLightningModule(pl.LightningModule):
 
 
 def get_flow_trainer(
-        gpu_id: int,
-        model_out: Path,
-        stop_method: str = "learning_rate",
-        profiler: str = None,
+    gpu_id: int,
+    model_out: Path,
+    stop_method: str = "learning_rate",
+    profiler: str = None,
 ):
     """
     Returns a Pytorch Lightning trainer to be used in training the flow generator.
@@ -258,9 +262,8 @@ def get_flow_trainer(
     """
 
     tensorboard_logger = pl.loggers.tensorboard.TensorBoardLogger(
-                                                        save_dir=model_out,
-                                                        name="flow_gen_train"
-                                                        )
+        save_dir=model_out, name="flow_gen_train"
+    )
 
     callbacks = list()
     callbacks.append(PrintCallback())
@@ -270,14 +273,16 @@ def get_flow_trainer(
     callbacks.append(CheckStopCallback(model_out=model_out, stop_method=stop_method))
 
     # tuning messes with the callbacks
-    trainer = pl.Trainer(devices=[gpu_id],
-                         precision=32,
-                         limit_train_batches=DEFAULT_TRAINING_PARAMS["steps_per_epoch"],
-                         logger=tensorboard_logger,
-                         max_epochs=DEFAULT_TRAINING_PARAMS["num_epochs"],
-                         num_sanity_val_steps=0,
-                         callbacks=callbacks,
-                         profiler=profiler)
+    trainer = pl.Trainer(
+        devices=[gpu_id],
+        precision=32,
+        limit_train_batches=DEFAULT_TRAINING_PARAMS["steps_per_epoch"],
+        logger=tensorboard_logger,
+        max_epochs=DEFAULT_TRAINING_PARAMS["num_epochs"],
+        num_sanity_val_steps=0,
+        callbacks=callbacks,
+        profiler=profiler,
+    )
     torch.cuda.empty_cache()
 
     return trainer

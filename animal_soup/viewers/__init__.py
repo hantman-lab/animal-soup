@@ -9,6 +9,5 @@ __all__ = [
     "EthogramComparisonVizContainer",
     "EthogramCleanerVizContainer",
     "EthogramVizContainer",
-    "DECORD_CONTEXT"
+    "DECORD_CONTEXT",
 ]
-

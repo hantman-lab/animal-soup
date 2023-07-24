@@ -10,12 +10,14 @@ import re as regex
 CURRENT_DF_PATH: Path = None  # only one df at a time
 PARENT_DATA_PATH: Path = None
 
-DATAFRAME_COLUMNS = ["animal_id",
-                     "session_id",
-                     "trial_id",
-                     "ethograms",
-                     "exp_type",
-                     "notes"]
+DATAFRAME_COLUMNS = [
+    "animal_id",
+    "session_id",
+    "trial_id",
+    "ethograms",
+    "exp_type",
+    "notes",
+]
 
 
 def validate_path(path: Union[str, Path]):
@@ -32,6 +34,11 @@ def validate_path(path: Union[str, Path]):
             "Paths must only contain alphanumeric characters, "
             "hyphens ( - ), underscores ( _ ) or periods ( . )"
         )
+
+    # make sure to always return Path object
+    if isinstance(path, str):
+        path = Path(path)
+
     return path
 
 
@@ -118,19 +125,19 @@ class _BasePathExtensions:
 
     def split(self, path: Union[str, Path]):
         """
-           Split a full path into (batch_dir, relative_path) or (raw_data_dir, relative_path)
+        Split a full path into (batch_dir, relative_path) or (raw_data_dir, relative_path)
 
-           Parameters
-           ----------
-           path: str or Path
-               Full path to split with respect to batch_dir or raw_data_dir
+        Parameters
+        ----------
+        path: str or Path
+            Full path to split with respect to batch_dir or raw_data_dir
 
-           Returns
-           -------
-           Tuple[Path, Path]
-               (<df_dir> or <raw_data_dir>, <relative_path>)
+        Returns
+        -------
+        Tuple[Path, Path]
+            (<df_dir> or <raw_data_dir>, <relative_path>)
 
-           """
+        """
         path = Path(path)
         # check if input movie is within batch dir
         if self.get_df_path().parent in path.parents:
@@ -219,6 +226,6 @@ def create_df(path: Union[str, Path], remove_existing: bool = False) -> pd.DataF
     df = pd.DataFrame(columns=DATAFRAME_COLUMNS)
     df.paths.set_df_path(path)
 
-    df.to_hdf(Path(path).with_suffix('.hdf'), key='df')
+    df.to_hdf(Path(path).with_suffix(".hdf"), key="df")
 
     return df

@@ -17,11 +17,7 @@ from ._components import *
 
 
 class MotionNet(nn.Module):
-    def __init__(
-            self,
-            num_images: int = 11,
-            batchNorm: bool = True
-    ):
+    def __init__(self, num_images: int = 11, batchNorm: bool = True):
         """
         Model used for "fast" training of flow generator.
 
@@ -74,10 +70,18 @@ class MotionNet(nn.Module):
         self.predict_flow3 = predict_flow(128, out_planes=self.out_channels)
         self.predict_flow2 = predict_flow(64, out_planes=self.out_channels)
 
-        self.upsampled_flow6_to_5 = nn.ConvTranspose2d(self.out_channels, self.out_channels, 4, 2, 1)
-        self.upsampled_flow5_to_4 = nn.ConvTranspose2d(self.out_channels, self.out_channels, 4, 2, 1)
-        self.upsampled_flow4_to_3 = nn.ConvTranspose2d(self.out_channels, self.out_channels, 4, 2, 1)
-        self.upsampled_flow3_to_2 = nn.ConvTranspose2d(self.out_channels, self.out_channels, 4, 2, 1)
+        self.upsampled_flow6_to_5 = nn.ConvTranspose2d(
+            self.out_channels, self.out_channels, 4, 2, 1
+        )
+        self.upsampled_flow5_to_4 = nn.ConvTranspose2d(
+            self.out_channels, self.out_channels, 4, 2, 1
+        )
+        self.upsampled_flow4_to_3 = nn.ConvTranspose2d(
+            self.out_channels, self.out_channels, 4, 2, 1
+        )
+        self.upsampled_flow3_to_2 = nn.ConvTranspose2d(
+            self.out_channels, self.out_channels, 4, 2, 1
+        )
         self.concat = CropConcat(dim=1)
 
         for m in self.modules():
@@ -91,7 +95,7 @@ class MotionNet(nn.Module):
                     torch.nn.Module.init.uniform_(m.bias)
                 torch.nn.Module.init.xavier_uniform_(m.weight)
                 # init_deconv_bilinear(m.weight)
-        self.upsample1 = nn.Upsample(scale_factor=4, mode='bilinear')
+        self.upsample1 = nn.Upsample(scale_factor=4, mode="bilinear")
 
     def forward(self, x):
         N, C, H, W = x.shape
@@ -122,7 +126,7 @@ class MotionNet(nn.Module):
         # a value of 1 in flow6 will naively be mapped to a value of 1 in flow5. now, this movement of 1 pixel no
         # longer means 1/8 of the image, it will only move 1/16 of the image. So to correct for this, we multiply
         # the upsampled version by 2.
-        flow6_up = self.upsampled_flow6_to_5(flow6)*2
+        flow6_up = self.upsampled_flow6_to_5(flow6) * 2
         out_deconv5 = self.deconv5(out_conv6)
 
         # if the image sizes are not divisible by 8, there will be rounding errors in the size
@@ -136,7 +140,7 @@ class MotionNet(nn.Module):
         out_interconv5 = self.xconv5(concat5)
         flow5 = self.predict_flow5(out_interconv5) * self.flow_div
 
-        flow5_up = self.upsampled_flow5_to_4(flow5)*2
+        flow5_up = self.upsampled_flow5_to_4(flow5) * 2
         out_deconv4 = self.deconv4(concat5)
 
         # if get_hw(out_conv4) != get_hw(out_deconv4):
@@ -147,7 +151,7 @@ class MotionNet(nn.Module):
         concat4 = self.concat((out_conv4, out_deconv4, flow5_up))
         out_interconv4 = self.xconv4(concat4)
         flow4 = self.predict_flow4(out_interconv4) * self.flow_div
-        flow4_up = self.upsampled_flow4_to_3(flow4)*2
+        flow4_up = self.upsampled_flow4_to_3(flow4) * 2
         out_deconv3 = self.deconv3(concat4)
 
         # if the image sizes are not divisible by 8, there will be rounding errors in the size
@@ -159,7 +163,7 @@ class MotionNet(nn.Module):
         concat3 = self.concat((out_conv3, out_deconv3, flow4_up))
         out_interconv3 = self.xconv3(concat3)
         flow3 = self.predict_flow3(out_interconv3) * self.flow_div
-        flow3_up = self.upsampled_flow3_to_2(flow3)*2
+        flow3_up = self.upsampled_flow3_to_2(flow3) * 2
         out_deconv2 = self.deconv2(concat3)
 
         # if get_hw(out_conv2) != get_hw(out_deconv2):

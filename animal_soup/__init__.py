@@ -1,10 +1,10 @@
 from .extensions import *
 from .utils import (
-                    load_df,
-                    create_df,
-                    set_parent_raw_data_path,
-                    get_parent_raw_data_path
-                    )
+    load_df,
+    create_df,
+    set_parent_raw_data_path,
+    get_parent_raw_data_path,
+)
 from .viewers import *
 
 from pathlib import Path
@@ -21,5 +21,5 @@ __all__ = [
     "BehaviorDataFrameExtension",
     "EthogramVizContainer",
     "EthogramCleanerVizContainer",
-    "EthogramComparisonVizContainer"
+    "EthogramComparisonVizContainer",
 ]

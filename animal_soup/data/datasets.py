@@ -3,7 +3,6 @@ from torch.utils import data
 from typing import *
 import numpy as np
 from pathlib import Path
-import os
 from vidio import VideoReader
 import random
 
@@ -11,13 +10,14 @@ import random
 class SingleVideoDataset(data.Dataset):
     """PyTorch Dataset for loading a set of sequential frames and applying pre-defined augmentations to each frame."""
 
-    def __init__(self,
-                 vid_path: Path,
-                 mean_by_channels: Union[list, np.ndarray] = [0, 0, 0],
-                 transform: torchvision.transforms = None,
-                 conv_mode: str = '2d',
-                 frames_per_clip: int = 1
-                 ):
+    def __init__(
+        self,
+        vid_path: Path,
+        mean_by_channels: Union[list, np.ndarray] = [0, 0, 0],
+        transform: torchvision.transforms = None,
+        conv_mode: str = "2d",
+        frames_per_clip: int = 1,
+    ):
         """
         Initializes a VideoDataset object. Reads in a video, applies the CPU augmentations to every frame in the clip,
         and stacks all channels together for input to a CNN.
@@ -40,9 +40,13 @@ class SingleVideoDataset(data.Dataset):
         self.vid_path = vid_path
 
         if isinstance(mean_by_channels[0], (float, np.floating)):
-            self.mean_by_channels = np.clip(np.array(mean_by_channels) * 255, 0, 255).astype(np.uint8)
+            self.mean_by_channels = np.clip(
+                np.array(mean_by_channels) * 255, 0, 255
+            ).astype(np.uint8)
         elif isinstance(mean_by_channels[0], (int, np.integer)):
-            assert np.array_equal(np.clip(mean_by_channels, 0, 255), np.array(mean_by_channels))
+            assert np.array_equal(
+                np.clip(mean_by_channels, 0, 255), np.array(mean_by_channels)
+            )
             self.mean_by_channels = np.array(mean_by_channels).astype(np.uint8)
 
         self.frames_per_clip = frames_per_clip
@@ -50,22 +54,33 @@ class SingleVideoDataset(data.Dataset):
         self.conv_mode = conv_mode
 
         # validate path
-        if not os.path.exists(vid_path):
+        if not Path.is_file(vid_path):
             raise ValueError(f"No video found at this path: {vid_path}")
 
         with VideoReader(str(self.vid_path)) as reader:
-            self.metadata = OrderedDict()
+            self.metadata = dict()
 
-            self.metadata['vid_path'] = vid_path
-            self.metadata['width'] = reader.next().shape[1]
-            self.metadata['height'] = reader.next().shape[0]
-            self.metadata['framecount'] = reader.nframes
-            self.metadata['fps'] = reader.fps
+            self.metadata["vid_path"] = vid_path
+            self.metadata["width"] = reader.next().shape[1]
+            self.metadata["height"] = reader.next().shape[0]
+            self.metadata["framecount"] = reader.nframes
+            self.metadata["fps"] = reader.fps
 
         self._zeros_image = None
 
     def get_zeros_image(self, c, h, w):
-        """Zero image frames to be added to front or back of image stack."""
+        """
+        Zero image frames to be added to front or back of image stack.
+
+        Parameters
+        ----------
+        c: int,
+            colors dims, will be 2 or 3
+        h: int
+            image height
+        w: int
+            image width
+        """
         if self._zeros_image is None:
             # ALWAYS ASSUME OUTPUT IS TRANSPOSED
             self._zeros_image = np.zeros((c, h, w), dtype=np.uint8)
@@ -74,19 +89,19 @@ class SingleVideoDataset(data.Dataset):
         return self._zeros_image
 
     def __len__(self):
-        return self.metadata['framecount']
+        return self.metadata["framecount"]
 
     def _prepend_with_zeros(self, stack: List[np.ndarray], blank_start_frames: int):
         """
-        For frames at beginning of video, for flow generator must create dummy frames to 
+        For frames at beginning of video, flow generator must create dummy frames to
         get optic flow features.
-        
+
         Parameters
         ----------
         stack: List[np.ndarray]
             List of frames.
         blank_start_frames: int
-            Number of frames that need to be prepended to stack. 
+            Number of frames that need to be prepended to stack.
         """
         if blank_start_frames == 0:
             return stack
@@ -96,7 +111,7 @@ class SingleVideoDataset(data.Dataset):
 
     def _append_with_zeros(self, stack: List[np.ndarray], blank_end_frames: int):
         """
-        For frames at end of video, for flow generator must create dummy frames to 
+        For frames at end of video, flow generator must create dummy frames to
         get optic flow features.
 
         Parameters
@@ -104,7 +119,7 @@ class SingleVideoDataset(data.Dataset):
         stack: List[np.ndarray]
             List of frames.
         blank_end_frames: int
-            Number of frames that need to be prepended to stack. 
+            Number of frames that need to be appended to stack.
         """
         if blank_end_frames == 0:
             return stack
@@ -132,7 +147,7 @@ class SingleVideoDataset(data.Dataset):
         # if frames per clip is 11, dataset[0] would have 5 blank frames preceding, with the 6th-11th being real frames
         blank_start_frames = max(self.frames_per_clip // 2 - index, 0)
 
-        framecount = self.metadata['framecount']
+        framecount = self.metadata["framecount"]
 
         start_frame = index - self.frames_per_clip // 2 + blank_start_frames
         blank_end_frames = max(index - framecount + self.frames_per_clip // 2 + 1, 0)
@@ -159,7 +174,7 @@ class SingleVideoDataset(data.Dataset):
         images = np.stack(images, axis=1)
         images = images.transpose(2, 1, 0, 3)
 
-        outputs = {'images': images}
+        outputs = {"images": images}
 
         reader.close()
 
@@ -169,13 +184,14 @@ class SingleVideoDataset(data.Dataset):
 class VideoDataset(data.Dataset):
     """Simple wrapper around SingleVideoDataset for smoothly loading multiple videos."""
 
-    def __init__(self,
-                 vid_paths: List[Path],
-                 transform: torchvision.transforms = None,
-                 conv_mode: str = '2d',
-                 mean_by_channels: Union[list, np.ndarray] = [0, 0, 0],
-                 frames_per_clip: int = 11
-                 ):
+    def __init__(
+        self,
+        vid_paths: List[Path],
+        transform: torchvision.transforms = None,
+        conv_mode: str = "2d",
+        mean_by_channels: Union[list, np.ndarray] = [0, 0, 0],
+        frames_per_clip: int = 11,
+    ):
         """
         Parameters
         ----------
@@ -198,7 +214,7 @@ class VideoDataset(data.Dataset):
                 transform=transform,
                 conv_mode=conv_mode,
                 mean_by_channels=mean_by_channels,
-                frames_per_clip=frames_per_clip
+                frames_per_clip=frames_per_clip,
             )
             datasets.append(dataset)
             dataset_info.append(dataset.metadata)

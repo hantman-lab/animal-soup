@@ -1,4 +1,3 @@
-import os.path
 from ..utils import *
 from ..flow_generator import *
 from ..data import VideoDataset
@@ -6,14 +5,14 @@ import pprint
 from typing import *
 
 # map the mode of training to the appropriate model
-TRAINING_OPTIONS = {"slow": "TinyMotionNet3D",
-                    "medium": "MotionNet",
-                    "fast": "TinyMotionNet"}
+TRAINING_OPTIONS = {
+    "slow": "TinyMotionNet3D",
+    "medium": "MotionNet",
+    "fast": "TinyMotionNet",
+}
 
 # map the stop methods to default values
-STOP_METHODS = {"learning_rate": 5e-7,
-                "num_epochs": 15
-                }
+STOP_METHODS = {"learning_rate": 5e-7, "num_epochs": 15}
 
 # max number of epochs before training will stop if stop method default value is never reached
 MAX_EPOCHS = 1000
@@ -33,7 +32,7 @@ DEFAULT_AUGS = {
     "pad": None,
     "random_resize": False,
     "resize": (224, 224),
-    "saturation": 0.1
+    "saturation": 0.1,
 }
 
 
@@ -46,16 +45,17 @@ class FlowGeneratorDataframeExtension:
     def __init__(self, df):
         self._df = df
 
-    def train(self,
-              mode: str = "slow",
-              flow_window: int = 11,
-              batch_size: int = 32,
-              gpu_id: int = 0,
-              initial_lr: float = 0.0001,
-              stop_method: str = "learning_rate",
-              model_in: Union[str, Path] = None,
-              model_out: Union[str, Path] = None
-              ):
+    def train(
+        self,
+        mode: str = "slow",
+        flow_window: int = 11,
+        batch_size: int = 32,
+        gpu_id: int = 0,
+        initial_lr: float = 0.0001,
+        stop_method: str = "learning_rate",
+        model_in: Union[str, Path] = None,
+        model_out: Union[str, Path] = None,
+    ):
         """
         Train flow generator model.
 
@@ -103,29 +103,22 @@ class FlowGeneratorDataframeExtension:
             # validate path
             validate_path(model_in)
             # check if path exists
-            if not os.path.exists(model_in):
-                raise ValueError(f'No checkpoint file exists at: {model_in}')
-            # if path is str, convert
-            if isinstance(model_in, str):
-                model_in = Path(model_in)
+            if not Path.is_file(model_in):
+                raise ValueError(f"No checkpoint file exists at: {model_in}")
             # check if model_in suffix in ["pt", "ckpt"]
             if model_in.suffix not in [".pt", ".ckpt"]:
-                raise ValueError("PyTorch model checkpoints should end in '.pt' or '.ckpt'. "
-                                 "Please make sure the file you are trying to use is a model checkpoint.")
+                raise ValueError(
+                    "PyTorch model checkpoints should end in '.pt' or '.ckpt'. "
+                    "Please make sure the file you are trying to use is a model checkpoint."
+                )
 
         # check if model_out is valid
         if model_out is not None:
             # validate path
             validate_path(model_out)
-            # make sure path exists
-            if not os.path.exists(model_out):
-                raise ValueError(f"path does not exist at: {model_out}")
             # if model_out is not a directory, raise
-            if not os.path.isdir(model_out):
+            if not model_out.is_dir():
                 raise ValueError(f"path to store model output should be a directory")
-            # if model_out is str, convert to path
-            if isinstance(model_out, str):
-                model_out = Path(model_out)
         else:
             df_path = self._df.paths.get_df_path()
             df_dir, relative = self._df.paths.split(df_path)
@@ -138,22 +131,26 @@ class FlowGeneratorDataframeExtension:
         # check gpu_id
         gpu_options = get_gpu_options()
         if gpu_id not in gpu_options.keys():
-            raise ValueError(f"gpu_id: {gpu_id} not in {gpu_options}. "
-                             f"Please select a valid gpu.")
+            raise ValueError(
+                f"gpu_id: {gpu_id} not in {gpu_options}. " f"Please select a valid gpu."
+            )
 
         # check batch_size
         if batch_size < MIN_BATCH_SIZE or batch_size > MAX_BATCH_SIZE:
-            raise ValueError(f'batch_size must be between {MIN_BATCH_SIZE} and {MAX_BATCH_SIZE}')
+            raise ValueError(
+                f"batch_size must be between {MIN_BATCH_SIZE} and {MAX_BATCH_SIZE}"
+            )
 
         # validate stop method
         if stop_method not in STOP_METHODS.keys():
-            raise ValueError(f"stop_method argument must be one of {STOP_METHODS.keys()}")
+            raise ValueError(
+                f"stop_method argument must be one of {STOP_METHODS.keys()}"
+            )
 
         # reload weights from file, want to use pretrained weights
         model, model_in = self._load_pretrained_flow_model(
-            weight_path=model_in,
-            mode="slow",
-            flow_window=flow_window)
+            weight_path=model_in, mode="slow", flow_window=flow_window
+        )
 
         # create available dataset from items in df
         training_vids = list()
@@ -162,14 +159,18 @@ class FlowGeneratorDataframeExtension:
             # should there be a vid_path column in dataframe, would simplify a lot of code in a lot of places
             # would alleviate codec issue
             # for now assuming codec is AVI, but in future will need to detect or update
-            training_vids.append(parent_data_path.joinpath(row["animal_id"],
-                                                           row["session_id"],
-                                                           row["trial_id"]).with_suffix('.avi'))
+            training_vids.append(
+                parent_data_path.joinpath(
+                    row["animal_id"], row["session_id"], row["trial_id"]
+                ).with_suffix(".avi")
+            )
 
         # validate number of videos in training set
         if len(training_vids) < 3:
-            raise ValueError("You need at least 3 trials to train the flow generator. Please "
-                             "add more trials to the current dataframe!")
+            raise ValueError(
+                "You need at least 3 trials to train the flow generator. Please "
+                "add more trials to the current dataframe!"
+            )
 
         # calculate norm augmentation values for given videos in dataframe
         print("Calculating normalization statistics based on trials in dataframe")
@@ -192,7 +193,7 @@ class FlowGeneratorDataframeExtension:
             transform=transforms,
             conv_mode=conv_mode,
             mean_by_channels=AUGS["normalization"]["mean"],
-            frames_per_clip=flow_window
+            frames_per_clip=flow_window,
         )
 
         dataset_metadata = datasets.dataset_info
@@ -205,14 +206,12 @@ class FlowGeneratorDataframeExtension:
             batch_size=batch_size,
             augs=AUGS,
             gpu_id=gpu_id,
-            model_in=model_in
+            model_in=model_in,
         )
 
         # get pytorch lightning trainer
         trainer = get_flow_trainer(
-            gpu_id=gpu_id,
-            stop_method=stop_method,
-            model_out=model_out
+            gpu_id=gpu_id, stop_method=stop_method, model_out=model_out
         )
 
         # in notes column, add flow_gen_train params for model
@@ -231,7 +230,7 @@ class FlowGeneratorDataframeExtension:
                 "image_augmentations": AUGS,
             },
             "Weight Path": model_in,
-            "Output Path": model_out
+            "Output Path": model_out,
         }
 
         print("Starting training")
@@ -244,22 +243,23 @@ class FlowGeneratorDataframeExtension:
             self._df.insert(
                 loc=len(self._df.columns) - 1,
                 column="model_params",
-                value=[dict() for i in range(len(self._df.index))]
+                value=[dict() for i in range(len(self._df.index))],
             )
 
         # add flow gen model params to df
         for ix in range(len(self._df.index)):
-            self._df.loc[ix]["model_params"].update({"flow_gen_train": f"{model_params}"})
+            self._df.loc[ix]["model_params"].update(
+                {"flow_gen_train": f"{model_params}"}
+            )
         # save df
         self._df.behavior.save_to_disk()
 
         # train.fit()
         trainer.fit(lightning_module)
 
-    def _load_pretrained_flow_model(self,
-                                    weight_path: Union[str, Path],
-                                    mode: str,
-                                    flow_window: int) -> Tuple[Union[TinyMotionNet3D, MotionNet, TinyMotionNet], Path]:
+    def _load_pretrained_flow_model(
+        self, weight_path: Union[str, Path], mode: str, flow_window: int
+    ) -> Tuple[Union[TinyMotionNet3D, MotionNet, TinyMotionNet], Path]:
         """
         Returns a model with the pretrained weights.
 
@@ -291,7 +291,7 @@ class FlowGeneratorDataframeExtension:
 
         # using default weight path
         if weight_path is None:
-            weight_path = Path('/home/clewis7/repos/animal-soup/pretrained_models/flow_generator').joinpath(TRAINING_OPTIONS[mode]).with_suffix('.ckpt')
+            weight_path = FLOW_GEN_MODEL_PATHS[TRAINING_OPTIONS[mode]]
 
         if isinstance(weight_path, str):
             weight_path = Path(weight_path)
@@ -302,7 +302,7 @@ class FlowGeneratorDataframeExtension:
         # remove "model." prepend if exists
         new_state_dict = OrderedDict()
         for k, v in pretrained_model_state.items():
-            if k[:6] == 'model.':
+            if k[:6] == "model.":
                 name = k[6:]
             else:
                 name = k
@@ -313,14 +313,16 @@ class FlowGeneratorDataframeExtension:
         model_dict = model.state_dict()
         pretrained_dict = {}
         for k, v in pretrained_model_state.items():
-            if 'criterion' in k:
+            if "criterion" in k:
                 # we might have parameters from the loss function in our loaded weights. we don't want to reload these;
                 # we will specify them for whatever we are currently training.
                 continue
             if k not in model_dict:
-                raise ValueError(f'{k} not found in model dictionary')
+                raise ValueError(f"{k} not found in model dictionary")
             elif model_dict[k].size() != v.size():
-                raise ValueError(f'{k} has different size: pretrained:{v.size()} model:{model_dict[k].size}')
+                raise ValueError(
+                    f"{k} has different size: pretrained:{v.size()} model:{model_dict[k].size}"
+                )
             else:
                 pretrained_dict[k] = v
 

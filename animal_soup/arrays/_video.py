@@ -16,14 +16,15 @@ from decord import VideoReader
 
 slice_or_int_or_range = Union[int, slice, range]
 
+
 class LazyVideo:
     def __init__(
-            self,
-            path: Union[Path, str],
-            min_max: Tuple[int, int] = None,
-            as_grayscale: bool = False,
-            rgb_weights: Tuple[float, float, float] = (0.299, 0.587, 0.114),
-            **kwargs,
+        self,
+        path: Union[Path, str],
+        min_max: Tuple[int, int] = None,
+        as_grayscale: bool = False,
+        rgb_weights: Tuple[float, float, float] = (0.299, 0.587, 0.114),
+        **kwargs,
     ):
         """
         LazyVideo reader, basically just a wrapper for ``decord.VideoReader``.
@@ -132,9 +133,11 @@ class LazyVideo:
             a = self._video_reader[indices].asnumpy()
 
             # R + G + B -> grayscale
-            gray = a[..., 0] * self.rgb_weights[0] +\
-            a[..., 1] * self.rgb_weights[1] +\
-            a[..., 2] * self.rgb_weights[2]
+            gray = (
+                a[..., 0] * self.rgb_weights[0]
+                + a[..., 1] * self.rgb_weights[1]
+                + a[..., 2] * self.rgb_weights[2]
+            )
 
             return gray
 
@@ -162,10 +165,7 @@ class LazyVideo:
 
         return a
 
-    def __getitem__(
-            self,
-            item: Union[int, Tuple[slice_or_int_or_range]]
-    ):
+    def __getitem__(self, item: Union[int, Tuple[slice_or_int_or_range]]):
         if isinstance(item, int):
             indexer = item
 
@@ -201,14 +201,18 @@ class LazyVideo:
 
             if start is not None:
                 if start > self.n_frames:
-                    raise IndexError(f"Cannot index beyond `n_frames`.\n"
-                                     f"Desired frame start index of <{start}> "
-                                     f"lies beyond `n_frames` <{self.n_frames}>")
+                    raise IndexError(
+                        f"Cannot index beyond `n_frames`.\n"
+                        f"Desired frame start index of <{start}> "
+                        f"lies beyond `n_frames` <{self.n_frames}>"
+                    )
             if stop is not None:
                 if stop > self.n_frames:
-                    raise IndexError(f"Cannot index beyond `n_frames`.\n"
-                                     f"Desired frame stop index of <{stop}> "
-                                     f"lies beyond `n_frames` <{self.n_frames}>")
+                    raise IndexError(
+                        f"Cannot index beyond `n_frames`.\n"
+                        f"Desired frame stop index of <{stop}> "
+                        f"lies beyond `n_frames` <{self.n_frames}>"
+                    )
 
             if step is None:
                 step = 1
@@ -233,7 +237,9 @@ class LazyVideo:
             return self._compute_at_indices(indexer)
 
     def __repr__(self):
-        return f"{self.__class__.__name__} @{hex(id(self))}\n" \
-               f"{self.__class__.__doc__}\n" \
-               f"Frames are computed only upon indexing\n" \
-               f"shape [frames, x, y]: {self.shape}\n"
+        return (
+            f"{self.__class__.__name__} @{hex(id(self))}\n"
+            f"{self.__class__.__doc__}\n"
+            f"Frames are computed only upon indexing\n"
+            f"shape [frames, x, y]: {self.shape}\n"
+        )

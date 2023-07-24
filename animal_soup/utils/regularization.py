@@ -1,7 +1,10 @@
-"""Classes for loss regularization including L2 and L2_SP"""
+"""
+Classes for loss regularization including L2 and L2_SP
+
+https://github.com/jbohnslav/deepethogram/blob/master/deepethogram/losses.py
+"""
 
 import torch
-import os
 from pathlib import Path
 
 
@@ -20,11 +23,11 @@ class L2_SP(torch.nn.Module):
     """
 
     def __init__(
-            self,
-            model: torch.nn.Module,
-            path_to_pretrained_weights: Path,
-            alpha: float,
-            beta: float
+        self,
+        model: torch.nn.Module,
+        path_to_pretrained_weights: Path,
+        alpha: float,
+        beta: float,
     ):
         """
         Parameters
@@ -43,9 +46,9 @@ class L2_SP(torch.nn.Module):
         self.alpha = alpha
         self.beta = beta
 
-        state = torch.load(path_to_pretrained_weights, map_location='cpu')
+        state = torch.load(path_to_pretrained_weights, map_location="cpu")
 
-        pretrained_state = state['state_dict']
+        pretrained_state = state["state_dict"]
 
         self.pretrained_keys, self.new_keys = self.get_keys(model, pretrained_state)
 
@@ -55,7 +58,7 @@ class L2_SP(torch.nn.Module):
 
     @staticmethod
     def dots_to_underscores(key):
-        return key.replace('.', '_')
+        return key.replace(".", "_")
 
     def get_keys(self, model: torch.nn.Module, pretrained_state):
         """Gets parameter names that are in both current model and pretrained weights, and unique keys to our model
@@ -108,17 +111,10 @@ class L2_SP(torch.nn.Module):
             towards_0 += model_param.pow(2).sum() * 0.5
 
         if towards_pretrained != towards_pretrained or towards_0 != towards_0:
-            msg = 'invalid loss in L2-SP: towards pretrained: {} towards 0: {}'.format(towards_pretrained, towards_0)
+            msg = "invalid loss in L2-SP: towards pretrained: {} towards 0: {}".format(
+                towards_pretrained, towards_0
+            )
             raise ValueError(msg)
-        # alternate method. same result, ~50% slower
-        #         towards_pretrained, towards_0 = 0, 0
-
-        #         for key, param in model.named_parameters():
-        #             if key in self.pretrained_keys:
-        #                 pretrained_param = getattr(self, self.dots_to_underscores(key))
-        #                 towards_pretrained += (param - pretrained_param).pow(2).sum()*0.5
-        #             elif key in self.new_keys:
-        #                 towards_0 += param.pow(2).sum()*0.5
 
         return towards_pretrained * self.alpha + towards_0 * self.beta
 
@@ -126,9 +122,7 @@ class L2_SP(torch.nn.Module):
 class L2(torch.nn.Module):
     """L2 regularization."""
 
-    def __init__(self,
-                 model: torch.nn.Module,
-                 alpha: float):
+    def __init__(self, model: torch.nn.Module, alpha: float):
         """
         Parameters
         ----------
@@ -144,11 +138,13 @@ class L2(torch.nn.Module):
         to_decay = list()
 
         for name, param in model.named_parameters():
-            if (not param.requires_grad) or \
-                    ('batchnorm' in name.lower()) or \
-                    ('bn' in name.lower()) or \
-                    ('bias' in name.lower()) or \
-                    (param.ndim == 1):
+            if (
+                (not param.requires_grad)
+                or ("batchnorm" in name.lower())
+                or ("bn" in name.lower())
+                or ("bias" in name.lower())
+                or (param.ndim == 1)
+            ):
                 continue
             else:
                 to_decay.append(name)
@@ -190,7 +186,7 @@ def should_decay_parameter(name: str, param: torch.Tensor) -> bool:
 
     if not param.requires_grad:
         return False
-    elif 'batchnorm' in name.lower() or 'bn' in name.lower() or 'bias' in name.lower():
+    elif "batchnorm" in name.lower() or "bn" in name.lower() or "bias" in name.lower():
         return False
     elif param.ndim == 1:
         return False

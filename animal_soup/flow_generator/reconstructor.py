@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 
 class Resample2d(torch.nn.Module):
-    """ Module to sample tensors using Spatial Transformer Networks. Caches multiple grids in GPU VRAM for speed.
+    """Module to sample tensors using Spatial Transformer Networks. Caches multiple grids in GPU VRAM for speed.
 
     Examples
     -------
@@ -20,12 +20,14 @@ class Resample2d(torch.nn.Module):
     disparity = model(left_images, right_images)
     """
 
-    def __init__(self,
-                 size: Union[tuple, list] = None,
-                 device: Union[str, torch.device] = None,
-                 horiz_only: bool = False,
-                 num_grids: int = 5):
-        """ Constructor for resampler.
+    def __init__(
+        self,
+        size: Union[tuple, list] = None,
+        device: Union[str, torch.device] = None,
+        horiz_only: bool = False,
+        num_grids: int = 5,
+    ):
+        """Constructor for resampler.
 
         Parameters
         ----------
@@ -52,7 +54,7 @@ class Resample2d(torch.nn.Module):
         """
         super().__init__()
         if size is not None:
-            assert (type(size) == tuple or type(size) == list)
+            assert type(size) == tuple or type(size) == list
         self.size = size
 
         # identity matrix
@@ -66,7 +68,7 @@ class Resample2d(torch.nn.Module):
         self.uses = []
 
     def forward(self, images: torch.Tensor, flow: torch.Tensor) -> torch.Tensor:
-        """ resample `images` according to `flow`
+        """resample `images` according to `flow`
 
         Parameters
         ----------
@@ -88,7 +90,7 @@ class Resample2d(torch.nn.Module):
         # images: NxCxHxW
         # flow: Bx2xHxW
         grid_size = [flow.size(0), 2, flow.size(2), flow.size(3)]
-        if not hasattr(self, 'grids') or grid_size not in self.sizes:
+        if not hasattr(self, "grids") or grid_size not in self.sizes:
             if len(self.sizes) >= self.num_grids:
                 min_uses = min(self.uses)
                 min_loc = self.uses.index(min_uses)
@@ -99,8 +101,11 @@ class Resample2d(torch.nn.Module):
             # function outputs N,H,W,2. Permuted to N,2,H,W to match flow
             # 0-th channel is x sample locations, -1 in left column, 1 in right column
             # 1-th channel is y sample locations, -1 in first row, 1 in bottom row
-            this_grid = F.affine_grid(self.affine_mat, images.shape, align_corners=False).permute(0, 3, 1, 2).to(
-                self.device)
+            this_grid = (
+                F.affine_grid(self.affine_mat, images.shape, align_corners=False)
+                .permute(0, 3, 1, 2)
+                .to(self.device)
+            )
             this_size = [i for i in this_grid.size()]
             self.sizes.append(this_size)
             self.grids.append(this_grid)
@@ -117,23 +122,34 @@ class Resample2d(torch.nn.Module):
         # horiz_only: for stereo matching, Y values are always the same
         if self.horiz_only:
             # flow = flow[:, 0:1, :, :] / ((W - 1.0) / 2.0)
-            flow = torch.cat([flow[:, 0:1, :, :] / ((W - 1.0) / 2.0),
-                              torch.zeros((flow.size(0), flow.size(1), H, W))], 1)
+            flow = torch.cat(
+                [
+                    flow[:, 0:1, :, :] / ((W - 1.0) / 2.0),
+                    torch.zeros((flow.size(0), flow.size(1), H, W)),
+                ],
+                1,
+            )
         else:
             # for optic flow matching: can be displaced in X or Y
-            flow = torch.cat([flow[:, 0:1, :, :] / ((W - 1.0) / 2.0),
-                              flow[:, 1:2, :, :] / ((H - 1.0) / 2.0)], 1)
+            flow = torch.cat(
+                [
+                    flow[:, 0:1, :, :] / ((W - 1.0) / 2.0),
+                    flow[:, 1:2, :, :] / ((H - 1.0) / 2.0),
+                ],
+                1,
+            )
         # sample according to grid + flow
-        return F.grid_sample(input=images, grid=(this_grid + flow).permute(0, 2, 3, 1),
-                             mode='bilinear', padding_mode='border', align_corners=False)
+        return F.grid_sample(
+            input=images,
+            grid=(this_grid + flow).permute(0, 2, 3, 1),
+            mode="bilinear",
+            padding_mode="border",
+            align_corners=False,
+        )
 
 
 class Reconstructor:
-    def __init__(
-            self,
-            gpu_id: int,
-            augs: Dict = None
-            ):
+    def __init__(self, gpu_id: int, augs: Dict = None):
         """
         Class for reconstructing images.
 
@@ -144,9 +160,11 @@ class Reconstructor:
         augs: Dict, default None
             Augmentations relevant to normalizing images in reconstructor.
         """
-        device = torch.device("cuda:" + str(gpu_id) if torch.cuda.is_available() else "cpu")
+        device = torch.device(
+            "cuda:" + str(gpu_id) if torch.cuda.is_available() else "cpu"
+        )
         self.resampler = Resample2d(device=device)
-        if 'normalization' in augs.keys():
+        if "normalization" in augs.keys():
             mean = list(augs["normalization"]["mean"])
             std = list(augs["normalization"]["std"])
         else:
@@ -155,14 +173,20 @@ class Reconstructor:
 
         self.normalizer = Normalizer(mean=mean, std=std)
 
-    def reconstruct_images(self, image_batch: torch.Tensor, flows: Union[tuple, list]) -> Tuple[tuple, tuple, tuple]:
+    def reconstruct_images(
+        self, image_batch: torch.Tensor, flows: Union[tuple, list]
+    ) -> Tuple[tuple, tuple, tuple]:
         # SSIM DOES NOT WORK WITH Z-SCORED IMAGES
         # requires images in the range [0,1]. So we have to denormalize for it to work!
         image_batch = self.normalizer.denormalize(image_batch)
         if image_batch.ndim == 4:
             N, C, H, W = image_batch.shape
             num_images = int(C / 3) - 1
-            t0 = image_batch[:, :num_images * 3, ...].contiguous().view(N * num_images, 3, H, W)
+            t0 = (
+                image_batch[:, : num_images * 3, ...]
+                .contiguous()
+                .view(N * num_images, 3, H, W)
+            )
             t1 = image_batch[:, 3:, ...].contiguous().view(N * num_images, 3, H, W)
         elif image_batch.ndim == 5:
             N, C, T, H, W = image_batch.shape
@@ -172,7 +196,7 @@ class Reconstructor:
             t1 = image_batch[:, :, 1:, ...]
             t1 = t1.transpose(1, 2).reshape(N * num_images, C, H, W)
         else:
-            raise ValueError('unexpected batch shape: {}'.format(image_batch))
+            raise ValueError("unexpected batch shape: {}".format(image_batch))
 
         reconstructed = []
         t1s = []
@@ -187,8 +211,12 @@ class Reconstructor:
                 n, c, t, h, w = flow.shape
                 flow = flow.transpose(1, 2).reshape(n * t, c, h, w)
 
-            downsampled_t1 = F.interpolate(t1, (h, w), mode='bilinear', align_corners=False)
-            downsampled_t0 = F.interpolate(t0, (h, w), mode='bilinear', align_corners=False)
+            downsampled_t1 = F.interpolate(
+                t1, (h, w), mode="bilinear", align_corners=False
+            )
+            downsampled_t0 = F.interpolate(
+                t0, (h, w), mode="bilinear", align_corners=False
+            )
             t0s.append(downsampled_t0)
             t1s.append(downsampled_t1)
             reconstructed.append(self.resampler(downsampled_t1, flow))
@@ -197,5 +225,7 @@ class Reconstructor:
 
         return tuple(t0s), tuple(reconstructed), tuple(flows_reshaped)
 
-    def __call__(self, image_batch: torch.Tensor, flows: Union[tuple, list]) -> Tuple[tuple, tuple, tuple]:
+    def __call__(
+        self, image_batch: torch.Tensor, flows: Union[tuple, list]
+    ) -> Tuple[tuple, tuple, tuple]:
         return self.reconstruct_images(image_batch, flows)
