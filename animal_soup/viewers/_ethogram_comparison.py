@@ -89,14 +89,12 @@ class EthogramComparisonVizContainer(EthogramVizContainer):
         )
         self.comparison_plot.auto_scale()
 
-    def _trial_change(self, obj):
-        """
-        Event handler called when a trial is changed in self.trial_selector.
-        Updates the behavior imagewidget and ethogram plot with new data.
-        """
+    def _row_changed(self, *args):
+        """Event handler for when a row in the datagrid is changed."""
+        super()._row_changed()
 
-        super()._trial_change(obj)
-
+        # force clearing of event handlers for selectors
+        # seems to be an issue with fpl delete graphic method for selectors
         self.comparison_plot.selectors[0].selection._event_handlers.clear()
         self.comparison_plot.clear()
         self._make_ethogram_comparison_plot()

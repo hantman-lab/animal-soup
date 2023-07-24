@@ -262,7 +262,7 @@ def get_flow_trainer(
     """
 
     tensorboard_logger = pl.loggers.tensorboard.TensorBoardLogger(
-        save_dir=model_out, name="flow_gen_train"
+        save_dir=model_out, name="flow_gen_train_logs"
     )
 
     callbacks = list()

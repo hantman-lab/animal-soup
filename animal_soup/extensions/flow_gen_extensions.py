@@ -119,10 +119,13 @@ class FlowGeneratorDataframeExtension:
             # if model_out is not a directory, raise
             if not model_out.is_dir():
                 raise ValueError(f"path to store model output should be a directory")
+            if os.listdir(model_out):
+                raise ValueError(f"directory to store model output should be empty")
         else:
             df_path = self._df.paths.get_df_path()
             df_dir, relative = self._df.paths.split(df_path)
-            model_out = df_dir
+            os.makedirs(df_dir.joinpath("flow_gen_output"))
+            model_out = df_dir.joinpath("flow_gen_output")
 
         # check valid mode
         if mode not in TRAINING_OPTIONS.keys():
