@@ -11,6 +11,16 @@ TRAINING_OPTIONS = {
     "fast": "ResNet18",
 }
 
+# class names
+BEHAVIOR_NAMES = [
+    "lift",
+    "handopen",
+    "grab",
+    "sup",
+    "atmouth",
+    "chew"
+]
+
 # map the stop methods to default values
 STOP_METHODS = {"learning_rate": 5e-7, "num_epochs": 15}
 
@@ -47,16 +57,16 @@ class FeatureExtractorDataframeExtension:
         self._df = df
 
     def train(
-        self,
-        mode: str = "slow",
-        batch_size: int = 32,
-        gpu_id: int = 0,
-        initial_lr: float = 0.0001,
-        stop_method: str = "learning_rate",
-        flow_model_in: Union[str, Path] = None,
-        flow_window: int = 11,
-        feature_model_in: Union[str, Path] = None,
-        model_out: Union[str, Path] = None,
+            self,
+            mode: str = "slow",
+            batch_size: int = 32,
+            gpu_id: int = 0,
+            initial_lr: float = 0.0001,
+            stop_method: str = "learning_rate",
+            flow_model_in: Union[str, Path] = None,
+            flow_window: int = 11,
+            feature_model_in: Union[str, Path] = None,
+            model_out: Union[str, Path] = None,
     ):
         """
         Train feature extractor model.
@@ -120,8 +130,8 @@ class FeatureExtractorDataframeExtension:
         else:
             df_path = self._df.paths.get_df_path()
             df_dir, relative = self._df.paths.split(df_path)
-            os.makedirs(df_dir.joinpath("flow_gen_output"), exist_ok=True)
-            model_out = df_dir.joinpath("flow_gen_output")
+            os.makedirs(df_dir.joinpath("feature_extr_output"), exist_ok=True)
+            model_out = df_dir.joinpath("feature_extr_output")
         if os.listdir(model_out):
             raise ValueError(f"directory to store model output should be empty")
 
@@ -158,6 +168,23 @@ class FeatureExtractorDataframeExtension:
             raise ValueError(
                 f"stop_method argument must be one of {STOP_METHODS.keys()}"
             )
+
+        # to train feature extractor must have ethograms in columns
+        ethograms = list(self._df["ethograms"])
+        for e in ethograms:
+            if e is None:
+                raise ValueError(
+                    "In order to train the feature extractor you must have labels "
+                    f"in the ethograms column. Row {ethograms.index(e)} does not have an ethogram. "
+                    f"Either remove the row from the dataframe before attempting training or add "
+                    f"labels for this trial."
+                )
+            if e.shape[0] != len(BEHAVIOR_NAMES):
+                raise ValueError(
+                    f"The ethogram in row {ethograms.index(e)} does not have the correct number of "
+                    f"behaviors. Each ethogram should have {len(BEHAVIOR_NAMES)} rows. The current "
+                    f"behaviors are: {BEHAVIOR_NAMES}"
+                )
 
         # reload flow generator model
         flow_model, flow_model_in = _load_pretrained_flow_model(
@@ -201,11 +228,48 @@ class FeatureExtractorDataframeExtension:
             conv_mode=conv_mode,
             mean_by_channels=AUGS["normalization"]["mean"],
             frames_per_clip=flow_window,
+            labels=ethograms
         )
 
-
+        dataset_metadata = datasets.dataset_info
 
         # reload feature extractor model
+
+        model_params = {
+            "Model": TRAINING_OPTIONS[mode],
+            "Mode": mode,
+            "Parameters": {
+                "initial_learning_rate": initial_lr,
+                "batch_size": batch_size,
+                "stop_method": stop_method,
+                "flow_window": flow_window,
+                "image_augmentations": AUGS,
+            },
+            "Flow Generator Weight Path": flow_model_in,
+            "Feature Extractor Weight Path": feature_model_in,
+            "Output Path": model_out,
+        }
+
+        print("Starting training")
+        print("Model Parameters:")
+        pprint.pprint(model_params)
+        print("Data Info: ")
+        pprint.pprint(dataset_metadata)
+
+        if "model_params" not in self._df.columns:
+            self._df.insert(
+                loc=len(self._df.columns) - 1,
+                column="model_params",
+                value=[dict() for i in range(len(self._df.index))],
+            )
+
+        # add flow gen model params to df
+        for ix in range(len(self._df.index)):
+            self._df.loc[ix]["model_params"].update(
+                {"feature_extr_train": f"{model_params}"}
+            )
+        # save df
+        self._df.behavior.save_to_disk()
 
     def infer(
             self,

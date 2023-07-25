@@ -5,6 +5,7 @@ import numpy as np
 from pathlib import Path
 from vidio import VideoReader
 import random
+from .utils import *
 
 
 class SingleVideoDataset(data.Dataset):
@@ -13,6 +14,7 @@ class SingleVideoDataset(data.Dataset):
     def __init__(
         self,
         vid_path: Path,
+        label: np.ndarray = None,
         mean_by_channels: Union[list, np.ndarray] = [0, 0, 0],
         transform: torchvision.transforms = None,
         conv_mode: str = "2d",
@@ -26,6 +28,8 @@ class SingleVideoDataset(data.Dataset):
         ----------
         vid_path: Path
             Path object to video being read in.
+        labels: np.ndarray, default None
+            If supervised training, ethogram labels of associated video.
         mean_by_channels: Union[list, np.ndarray], default [0, 0, 0]
             Mean for each channel input. Will either be the channel means given by the normalization augmentation
             or will be the default.
@@ -57,14 +61,33 @@ class SingleVideoDataset(data.Dataset):
         if not Path.is_file(vid_path):
             raise ValueError(f"No video found at this path: {vid_path}")
 
+        self.metadata = dict()
         with VideoReader(str(self.vid_path)) as reader:
-            self.metadata = dict()
+            data_metadata = dict()
 
-            self.metadata["vid_path"] = vid_path
-            self.metadata["width"] = reader.next().shape[1]
-            self.metadata["height"] = reader.next().shape[0]
-            self.metadata["framecount"] = reader.nframes
-            self.metadata["fps"] = reader.fps
+            data_metadata["vid_path"] = vid_path
+            data_metadata["width"] = reader.next().shape[1]
+            data_metadata["height"] = reader.next().shape[0]
+            data_metadata["framecount"] = reader.nframes
+            data_metadata["fps"] = reader.fps
+
+        self.metadata["data_metadata"] = data_metadata
+
+        if label is not None:
+            label_metadata = dict()
+
+            self.label = prepare_label(label)
+            self.class_counts = self.label.sum(axis=0).astype(int)
+            self.num_pos = (self.label == 1).sum(axis=0).astype(int)
+            self.num_neg = (self.label == 0).sum(axis=0).astype(int)
+            self.label_shape = self.label.shape
+
+            label_metadata["class_counts"] = self.class_counts
+            label_metadata["label_shape"] = self.label_shape
+
+            self.metadata["label_metadata"] = label_metadata
+        else:
+            self.label = None
 
         self._zeros_image = None
 
@@ -89,7 +112,7 @@ class SingleVideoDataset(data.Dataset):
         return self._zeros_image
 
     def __len__(self):
-        return self.metadata["framecount"]
+        return self.metadata["data_metadata"]["framecount"]
 
     def _prepend_with_zeros(self, stack: List[np.ndarray], blank_start_frames: int):
         """
@@ -147,7 +170,7 @@ class SingleVideoDataset(data.Dataset):
         # if frames per clip is 11, dataset[0] would have 5 blank frames preceding, with the 6th-11th being real frames
         blank_start_frames = max(self.frames_per_clip // 2 - index, 0)
 
-        framecount = self.metadata["framecount"]
+        framecount = self.metadata["data_metadata"]["framecount"]
 
         start_frame = index - self.frames_per_clip // 2 + blank_start_frames
         blank_end_frames = max(index - framecount + self.frames_per_clip // 2 + 1, 0)
@@ -176,6 +199,9 @@ class SingleVideoDataset(data.Dataset):
 
         outputs = {"images": images}
 
+        if self.label is not None:
+            outputs["labels"] = self.label[index]
+
         reader.close()
 
         return outputs
@@ -191,6 +217,7 @@ class VideoDataset(data.Dataset):
         conv_mode: str = "2d",
         mean_by_channels: Union[list, np.ndarray] = [0, 0, 0],
         frames_per_clip: int = 11,
+        labels: List[np.ndarray] = None
     ):
         """
         Parameters
@@ -205,19 +232,48 @@ class VideoDataset(data.Dataset):
             Mean of normalization aug.
         frames_per_clip: int, default 11
             Number of rgb frames in each training sample. Based on flow window.
+        labels: List[np.ndarray], default None
+            List of ethogram labels, used in supervised training (flow generator, sequence model).
         """
         datasets = list()
         dataset_info = list()
-        for i in range(len(vid_paths)):
-            dataset = SingleVideoDataset(
-                vid_paths[i],
-                transform=transform,
-                conv_mode=conv_mode,
-                mean_by_channels=mean_by_channels,
-                frames_per_clip=frames_per_clip,
-            )
-            datasets.append(dataset)
-            dataset_info.append(dataset.metadata)
+
+        if labels is None: # non supervised training
+            for i in range(len(vid_paths)):
+                dataset = SingleVideoDataset(
+                    vid_paths[i],
+                    label=None,
+                    transform=transform,
+                    conv_mode=conv_mode,
+                    mean_by_channels=mean_by_channels,
+                    frames_per_clip=frames_per_clip,
+                )
+                datasets.append(dataset)
+                dataset_info.append(dataset.metadata)
+        else: # supervised training
+            final_labels = list()
+            self.class_counts = 0
+            self.num_pos = 0
+            self.num_neg = 0
+            self.num_labels = len(labels)
+            for i in range(len(vid_paths)):
+                dataset = SingleVideoDataset(
+                    vid_paths[i],
+                    label=labels[i],
+                    transform=transform,
+                    conv_mode=conv_mode,
+                    mean_by_channels=mean_by_channels,
+                    frames_per_clip=frames_per_clip,
+                )
+                datasets.append(dataset)
+                dataset_info.append(dataset.metadata)
+                final_labels.append(dataset.label)
+
+                self.class_counts += dataset.class_counts
+                self.num_neg += dataset.num_neg
+                self.num_pos += dataset.num_pos
+
+                self.labels = np.concatenate(final_labels)
 
         self.dataset = data.ConcatDataset(datasets)
         self.dataset_info = dataset_info

@@ -193,6 +193,7 @@ class FlowGeneratorDataframeExtension:
             conv_mode=conv_mode,
             mean_by_channels=AUGS["normalization"]["mean"],
             frames_per_clip=flow_window,
+            labels=None
         )
 
         dataset_metadata = datasets.dataset_info
@@ -212,11 +213,6 @@ class FlowGeneratorDataframeExtension:
         trainer = get_flow_trainer(
             gpu_id=gpu_id, stop_method=stop_method, model_out=model_out
         )
-
-        # in notes column, add flow_gen_train params for model
-        # or should store all in output file
-        # flow_gen output should also get stored in hdf5 file in same place as df path
-        # at end of training should also store new model checkpoint?
 
         model_params = {
             "Model": TRAINING_OPTIONS[mode],
