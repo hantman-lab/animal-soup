@@ -82,7 +82,7 @@ class FlowGeneratorDataframeExtension:
         initial_lr: float, default 0.0001
             Initial learning rate.
         stop_method: str, default learning_rate
-            Method for stopping training. Argument must be one of ["early", "learning_rate", "num_epochs"]
+            Method for stopping training. Argument must be one of ["learning_rate", "num_epochs"]
 
             | stop method   | description                                                                |
             |---------------|----------------------------------------------------------------------------|
@@ -123,7 +123,6 @@ class FlowGeneratorDataframeExtension:
             raise ValueError("Training can only be completed with experiments of same type. "
                              f"The current experiments in your dataframe are: {set(list(self._df['exp_type']))} "
                              "Take a subset of your dataframe to train with one kind of experiment.")
-            # validate that an exp_type has been set
         if list(set(list(self._df["exp_type"])))[0] is None:
             raise ValueError("The experiment type for trials in your dataframe has not been set. Please"
                              "set the `exp_type` column in your dataframe before attempting training.")
