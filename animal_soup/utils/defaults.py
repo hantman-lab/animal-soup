@@ -21,3 +21,17 @@ FLOW_GEN_MODEL_PATHS = {
 
 }
 
+RESNET34_3D_PATH = pretrained_path.joinpath("misc", "misc").with_name("resnet34_3d.pth")
+
+FEATURE_EXTRACTOR_MODEL_PATHS = {
+    "table": {
+        "fast": pretrained_path.joinpath(
+            "table", "feature_extractor", "feature_extractor"
+        ).with_name("hidden_two_stream_fast.ckpt")
+    },
+    "pez": {
+
+    }
+}
+
+

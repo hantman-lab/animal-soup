@@ -3,6 +3,7 @@ from ..data import VideoDataset
 import pprint
 from typing import *
 from .flow_gen_extensions import _load_pretrained_flow_model
+from ..feature_extractor import get_cnn
 
 # map the mode of training to the appropriate model
 TRAINING_OPTIONS = {
@@ -11,8 +12,15 @@ TRAINING_OPTIONS = {
     "fast": "ResNet18",
 }
 
+# default augs for building flow and spatial classifier
+DEFAULT_CLASSIFIER_AUGS = {
+    "dropout_p": 0.25,
+    "fusion": "average",
+    "final_bn": False
+}
+
 # class names
-BEHAVIOR_NAMES = [
+BEHAVIOR_CLASSES = [
     "lift",
     "handopen",
     "grab",
@@ -58,7 +66,7 @@ class FeatureExtractorDataframeExtension:
 
     def train(
             self,
-            mode: str = "slow",
+            mode: str = "fast",
             batch_size: int = 32,
             gpu_id: int = 0,
             initial_lr: float = 0.0001,
@@ -77,11 +85,11 @@ class FeatureExtractorDataframeExtension:
             Argument must be one of ["slow", "medium", "fast"]. Determines the model used for training the feature
             extractor.
 
-            | mode   | model           |
-            |--------|-----------------|
-            | fast   | ResNet18        |
-            | medium | ResNet50        |
-            | slow   | ResNet3D-34     |
+            | mode   | flow model      | feature model   |
+            |--------|-----------------|-----------------|
+            | fast   | TinyMotionNet   | ResNet18        |
+            | medium | MotionNet       | ResNet50        |
+            | slow   | TinyMotionNet3D | ResNet3D-34     |
 
         batch_size: int, default 32
             Batch size.
@@ -100,7 +108,7 @@ class FeatureExtractorDataframeExtension:
 
         flow_model_in: str or Path, default None
             Location of checkpoint used for flow generator. If None, then will use default checkpoint of flow
-            generator.
+            generator based on the mode.
         flow_window: int, default 11
             Flow window size. Used to infer optic flow features to pass to the feature extractor.
         feature_model_in: str or Path, default None
@@ -179,17 +187,12 @@ class FeatureExtractorDataframeExtension:
                     f"Either remove the row from the dataframe before attempting training or add "
                     f"labels for this trial."
                 )
-            if e.shape[0] != len(BEHAVIOR_NAMES):
+            if e.shape[0] != len(BEHAVIOR_CLASSES):
                 raise ValueError(
                     f"The ethogram in row {ethograms.index(e)} does not have the correct number of "
-                    f"behaviors. Each ethogram should have {len(BEHAVIOR_NAMES)} rows. The current "
-                    f"behaviors are: {BEHAVIOR_NAMES}"
+                    f"behaviors. Each ethogram should have {len(BEHAVIOR_CLASSES)} rows. The current "
+                    f"behaviors are: {BEHAVIOR_CLASSES}"
                 )
-
-        # reload flow generator model
-        flow_model, flow_model_in = _load_pretrained_flow_model(
-            weight_path=flow_model_in, mode="slow", flow_window=flow_window, exp_type=exp_type
-        )
 
         # create available dataset from items in df
         training_vids = list()
@@ -233,7 +236,50 @@ class FeatureExtractorDataframeExtension:
 
         dataset_metadata = datasets.dataset_info
 
-        # reload feature extractor model
+        # reload flow generator model
+        flow_model, flow_model_in = _load_pretrained_flow_model(
+            weight_path=flow_model_in, mode=mode, flow_window=flow_window, exp_type=exp_type
+        )
+
+        num_classes = len(BEHAVIOR_CLASSES) + 1 # account for background
+
+        # build flow classifier
+        if mode == "slow":
+            in_channels = 2
+        else:
+            in_channels = (flow_window - 1) * 2
+        flow_classifier = _build_classifier(
+                                            mode=mode,
+                                            num_classes=num_classes,
+                                            exp_type=exp_type,
+                                            pos=datasets.num_pos,
+                                            neg=datasets.num_neg,
+                                            feature_model_in=feature_model_in,
+                                            classifier_type="flow",
+                                            final_bn=DEFAULT_CLASSIFIER_AUGS["final_bn"],
+                                            in_channels=in_channels
+                                            )
+
+        # build spatial classifier model
+        spatial_classifier = _build_classifier(
+                                            mode=mode,
+                                            num_classes=num_classes,
+                                            exp_type=exp_type,
+                                            classifier_type="spatial",
+                                            pos=datasets.num_pos,
+                                            neg=datasets.num_neg,
+                                            feature_model_in=feature_model_in,
+                                            final_bn=DEFAULT_CLASSIFIER_AUGS["final_bn"],
+                                            in_channels=3
+                                            )
+        # fuse spatial and flow classifiers into hidden two stream model
+
+        #hidden_two_stream = HiddenTwoStream(flow_generator, spatial_classifier, flow_classifier, fusion, mode)
+
+
+        #lightning module
+
+        #trainer
 
         model_params = {
             "Model": TRAINING_OPTIONS[mode],
@@ -271,16 +317,14 @@ class FeatureExtractorDataframeExtension:
         # save df
         self._df.behavior.save_to_disk()
 
+        # trainer.fit()
+
+        return flow_classifier, spatial_classifier
+
     def infer(
             self,
             mode: "fast",
-            batch_size: int = 32,
             gpu_id: int = 0,
-            initial_lr: float = 0.0001,
-            stop_method: str = "learning_rate",
-            flow_in: Union[str, Path] = None,
-            model_in: Union[str, Path] = None,
-            model_out: Union[str, Path] = None,
     ):
         """
         Inference using feature extractor.
@@ -288,13 +332,7 @@ class FeatureExtractorDataframeExtension:
         Parameters
         ----------
         mode
-        batch_size
         gpu_id
-        initial_lr
-        stop_method
-        flow_in
-        model_in
-        model_out
 
         Returns
         -------
@@ -303,5 +341,131 @@ class FeatureExtractorDataframeExtension:
         pass
 
 
-def _load_pretrained_feature_model():
+def _build_classifier(
+        mode: str,
+        num_classes: int,
+        exp_type: str,
+        classifier_type: str,
+        pos: np.ndarray,
+        neg: np.ndarray,
+        feature_model_in: Path,
+        in_channels: int,
+        final_bn: bool = False,
+):
+    """
+    Build a flow classifier model.
+
+    Parameters
+    ----------
+    mode: str
+        One of ["slow", "medium", "fast"]. Determines the ResNet architecture to use for the flow_classifier.
+    num_classes: int
+        Number of behaviors being classified.
+    exp_type: str
+        One of ["table", "pez"]. Reload from pretrained checkpoint if user did not provide weight path.
+    pos: np.ndarray
+        Number of positive examples in training set. Used for custom bias initialization in the final layer.
+    neg: np.ndarray
+        Number of negative examples in training set. Used for custom bias initialization in the final layer.
+    final_bn: bool, default False
+        Indicates whether there should be batch normalization at the end.
+    classifier_type: str
+        One of ["spatial", "flow"]. Type of classifier to instantiate.
+    in_channels: int
+        Number of input channels.
+
+    Returns
+    -------
+    model
+        One of [ResNet18, ResNet50, ResNet34-3D]. Depends on mode.
+    """
+    # validate classifier type
+    if classifier_type not in ["spatial", "flow"]:
+        raise ValueError("classifier_type must be one of ['spatial', 'flow']")
+
+    # construct CNN based on mode
+    if mode == "slow":
+        model = get_cnn(
+            model_name=TRAINING_OPTIONS["slow"],
+            in_channels=in_channels,
+            num_classes=num_classes,
+            dropout_p=DEFAULT_CLASSIFIER_AUGS["dropout_p"],
+            pos=pos,
+            neg=neg,
+            final_bn=final_bn
+        )
+    elif mode == "medium":
+        model = get_cnn(
+            model_name=TRAINING_OPTIONS["medium"],
+            in_channels=in_channels,
+            num_classes=num_classes,
+            dropout_p=DEFAULT_CLASSIFIER_AUGS["dropout_p"],
+            pos=pos,
+            neg=neg,
+            final_bn=final_bn
+        )
+    else: # mode must be fast
+        model = get_cnn(
+            model_name=TRAINING_OPTIONS["fast"],
+            in_channels=in_channels,
+            num_classes=num_classes,
+            dropout_p=DEFAULT_CLASSIFIER_AUGS["dropout_p"],
+            pos=pos,
+            neg=neg,
+            final_bn=final_bn
+        )
+
+    # load weight into CNN from pretrained checkpoint
+    if classifier_type == "spatial":
+        key = "spatial_classifier."
+    else: # classifier must be "flow"
+        key = "flow_classifier."
+
+    if feature_model_in is None:
+        feature_model_in = FEATURE_EXTRACTOR_MODEL_PATHS[exp_type][mode]
+
+    pretrained_model_state = torch.load(feature_model_in)["state_dict"]
+
+    # remove "model." prepend if exists
+    new_state_dict = OrderedDict()
+    for k, v in pretrained_model_state.items():
+        if k[:6] == "model.":
+            name = k[6:]
+        else:
+            name = k
+        new_state_dict[name] = v
+    pretrained_model_state = new_state_dict
+
+    # update model dict with model state from checkpoint
+    model_dict = model.state_dict()
+
+    # only update classifier model with keys pertaining to classifier
+    params = {k.replace(key, ''): v for k, v in pretrained_model_state.items() if k.startswith(key)}
+
+    pretrained_dict = {}
+    for k, v in params.items():
+        if "criterion" in k:
+            # we might have parameters from the loss function in our loaded weights. we don't want to reload these;
+            # we will specify them for whatever we are currently training.
+            continue
+        if k not in model_dict:
+            raise ValueError(f"{k} not found in model dictionary")
+        elif model_dict[k].size() != v.size():
+            raise ValueError(
+                f"{k} has different size: pretrained:{v.size()} model:{model_dict[k].size()}"
+            )
+        else:
+            pretrained_dict[k] = v
+
+    model_dict.update(pretrained_dict)
+    model.load_state_dict(model_dict, strict=True)
+
+    print(f"Successfully loaded {classifier_type} classifier from checkpoint!")
+
+    return model
+
+
+def _build_fusion_layer(
+
+):
     pass

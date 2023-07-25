@@ -153,7 +153,7 @@ class FlowGeneratorDataframeExtension:
 
         # reload weights from file, want to use pretrained weights
         model, model_in = _load_pretrained_flow_model(
-            weight_path=model_in, mode="slow", flow_window=flow_window, exp_type=exp_type
+            weight_path=model_in, mode=mode, flow_window=flow_window, exp_type=exp_type
         )
 
         # create available dataset from items in df
@@ -283,16 +283,13 @@ def _load_pretrained_flow_model(
     if mode == "slow":
         model = TinyMotionNet3D(num_images=flow_window)
     elif mode == "medium":
-        model = TinyMotionNet(num_images=flow_window)
-    else:  # mode is fast
         model = MotionNet(num_images=flow_window)
+    else:  # mode is fast
+        model = TinyMotionNet(num_images=flow_window)
 
     # using default weight path
     if weight_path is None:
         weight_path = FLOW_GEN_MODEL_PATHS[exp_type][TRAINING_OPTIONS[mode]]
-
-    if isinstance(weight_path, str):
-        weight_path = Path(weight_path)
 
     # load model weights from checkpoint
     pretrained_model_state = torch.load(weight_path)["state_dict"]
@@ -319,7 +316,7 @@ def _load_pretrained_flow_model(
             raise ValueError(f"{k} not found in model dictionary")
         elif model_dict[k].size() != v.size():
             raise ValueError(
-                f"{k} has different size: pretrained:{v.size()} model:{model_dict[k].size}"
+                f"{k} has different size: pretrained:{v.size()} model:{model_dict[k].size()}"
             )
         else:
             pretrained_dict[k] = v
