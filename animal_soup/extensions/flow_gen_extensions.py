@@ -33,6 +33,7 @@ DEFAULT_AUGS = {
     "random_resize": False,
     "resize": (224, 224),
     "saturation": 0.1,
+    "degrees": 10
 }
 
 
@@ -100,17 +101,7 @@ class FlowGeneratorDataframeExtension:
         """
         # check valid model_in if not None
         if model_in is not None:
-            # validate path
-            validate_path(model_in)
-            # check if path exists
-            if not Path.is_file(model_in):
-                raise ValueError(f"No checkpoint file exists at: {model_in}")
-            # check if model_in suffix in ["pt", "ckpt"]
-            if model_in.suffix not in [".pt", ".ckpt"]:
-                raise ValueError(
-                    "PyTorch model checkpoints should end in '.pt' or '.ckpt'. "
-                    "Please make sure the file you are trying to use is a model checkpoint."
-                )
+            model_in = validate_checkpoint_path(model_in)
 
         # check if model_out is valid
         if model_out is not None:
@@ -122,7 +113,21 @@ class FlowGeneratorDataframeExtension:
         else:
             df_path = self._df.paths.get_df_path()
             df_dir, relative = self._df.paths.split(df_path)
-            model_out = df_dir
+            os.makedirs(df_dir.joinpath("flow_gen_output"), exist_ok=True)
+            model_out = df_dir.joinpath("flow_gen_output")
+        if os.listdir(model_out):
+            raise ValueError(f"directory to store model output should be empty")
+
+        # validate only one experiment type being used in training
+        if len(list(set(list(self._df["exp_type"])))) != 1:
+            raise ValueError("Training can only be completed with experiments of same type. "
+                             f"The current experiments in your dataframe are: {set(list(self._df['exp_type']))} "
+                             "Take a subset of your dataframe to train with one kind of experiment.")
+            # validate that an exp_type has been set
+        if list(set(list(self._df["exp_type"])))[0] is None:
+            raise ValueError("The experiment type for trials in your dataframe has not been set. Please"
+                             "set the `exp_type` column in your dataframe before attempting training.")
+        exp_type = list(self._df["exp_type"])[0]
 
         # check valid mode
         if mode not in TRAINING_OPTIONS.keys():
@@ -148,21 +153,16 @@ class FlowGeneratorDataframeExtension:
             )
 
         # reload weights from file, want to use pretrained weights
-        model, model_in = self._load_pretrained_flow_model(
-            weight_path=model_in, mode="slow", flow_window=flow_window
+        model, model_in = _load_pretrained_flow_model(
+            weight_path=model_in, mode="slow", flow_window=flow_window, exp_type=exp_type
         )
 
         # create available dataset from items in df
         training_vids = list()
         parent_data_path = get_parent_raw_data_path()
         for ix, row in self._df.iterrows():
-            # should there be a vid_path column in dataframe, would simplify a lot of code in a lot of places
-            # would alleviate codec issue
-            # for now assuming codec is AVI, but in future will need to detect or update
             training_vids.append(
-                parent_data_path.joinpath(
-                    row["animal_id"], row["session_id"], row["trial_id"]
-                ).with_suffix(".avi")
+                parent_data_path.joinpath(row["vid_path"])
             )
 
         # validate number of videos in training set
@@ -257,78 +257,81 @@ class FlowGeneratorDataframeExtension:
         # train.fit()
         trainer.fit(lightning_module)
 
-    def _load_pretrained_flow_model(
-        self, weight_path: Union[str, Path], mode: str, flow_window: int
-    ) -> Tuple[Union[TinyMotionNet3D, MotionNet, TinyMotionNet], Path]:
-        """
-        Returns a model with the pretrained weights.
 
-        Parameters
-        ----------
-        weight_path: str or Path object
-            Location of model checkpoint to use for reloading weights. If `None`, will use default pre-trained model
-            provided for given mode.
-        mode: str
-            One of ["slow", "medium", "fast"].
-        flow_window: int
-            Window size to compute optic flow metrics for. Will compute flow_window - 1 optic flow features.
+def _load_pretrained_flow_model(
+    weight_path: Union[str, Path], mode: str, flow_window: int, exp_type: str
+) -> Tuple[Union[TinyMotionNet3D, MotionNet, TinyMotionNet], Path]:
+    """
+    Returns a model with the pretrained weights.
 
-        Returns
-        -------
-        model: TinyMotionNet3D, MotionNet, or TinyMotionNet
-            A model instance corresponding to the mode with pre-trained weights loaded.
-        weight_path: Path
-            Model weight path used to load the model, either user defined or pre-trained model.
-        """
-        # TODO: need to have some kind of check if a path for the model is passed and the mode is not for that kind
-        #  of model, prevent a user from trying to use a model checkpoint with the wrong mode
-        if mode == "slow":
-            model = TinyMotionNet3D(num_images=flow_window)
-        elif mode == "medium":
-            model = TinyMotionNet(num_images=flow_window)
-        else:  # mode is fast
-            model = MotionNet(num_images=flow_window)
+    Parameters
+    ----------
+    weight_path: str or Path object
+        Location of model checkpoint to use for reloading weights. If `None`, will use default pre-trained model
+        provided for given mode.
+    mode: str
+        One of ["slow", "medium", "fast"].
+    flow_window: int
+        Window size to compute optic flow metrics for. Will compute flow_window - 1 optic flow features.
+    exp_type: str
+            One of ["table", "pez"]. Indicates which pre-trained model checkpoint to load from if weight_path is None.
 
-        # using default weight path
-        if weight_path is None:
-            weight_path = FLOW_GEN_MODEL_PATHS[TRAINING_OPTIONS[mode]]
+    Returns
+    -------
+    model: TinyMotionNet3D, MotionNet, or TinyMotionNet
+        A model instance corresponding to the mode with pre-trained weights loaded.
+    weight_path: Path
+        Model weight path used to load the model, either user defined or pre-trained model.
+    """
+    # TODO: need to have some kind of check if a path for the model is passed and the mode is not for that kind
+    #  of model, prevent a user from trying to use a model checkpoint with the wrong mode
+    if mode == "slow":
+        model = TinyMotionNet3D(num_images=flow_window)
+    elif mode == "medium":
+        model = TinyMotionNet(num_images=flow_window)
+    else:  # mode is fast
+        model = MotionNet(num_images=flow_window)
 
-        if isinstance(weight_path, str):
-            weight_path = Path(weight_path)
+    # using default weight path
+    if weight_path is None:
+        weight_path = FLOW_GEN_MODEL_PATHS[exp_type][TRAINING_OPTIONS[mode]]
 
-        # load model weights from checkpoint
-        pretrained_model_state = torch.load(weight_path)["state_dict"]
+    if isinstance(weight_path, str):
+        weight_path = Path(weight_path)
 
-        # remove "model." prepend if exists
-        new_state_dict = OrderedDict()
-        for k, v in pretrained_model_state.items():
-            if k[:6] == "model.":
-                name = k[6:]
-            else:
-                name = k
-            new_state_dict[name] = v
-        pretrained_model_state = new_state_dict
+    # load model weights from checkpoint
+    pretrained_model_state = torch.load(weight_path)["state_dict"]
 
-        # update model dict with model state from checkpoint
-        model_dict = model.state_dict()
-        pretrained_dict = {}
-        for k, v in pretrained_model_state.items():
-            if "criterion" in k:
-                # we might have parameters from the loss function in our loaded weights. we don't want to reload these;
-                # we will specify them for whatever we are currently training.
-                continue
-            if k not in model_dict:
-                raise ValueError(f"{k} not found in model dictionary")
-            elif model_dict[k].size() != v.size():
-                raise ValueError(
-                    f"{k} has different size: pretrained:{v.size()} model:{model_dict[k].size}"
-                )
-            else:
-                pretrained_dict[k] = v
+    # remove "model." prepend if exists
+    new_state_dict = OrderedDict()
+    for k, v in pretrained_model_state.items():
+        if k[:6] == "model.":
+            name = k[6:]
+        else:
+            name = k
+        new_state_dict[name] = v
+    pretrained_model_state = new_state_dict
 
-        model_dict.update(pretrained_dict)
-        model.load_state_dict(model_dict, strict=True)
+    # update model dict with model state from checkpoint
+    model_dict = model.state_dict()
+    pretrained_dict = {}
+    for k, v in pretrained_model_state.items():
+        if "criterion" in k:
+            # we might have parameters from the loss function in our loaded weights. we don't want to reload these;
+            # we will specify them for whatever we are currently training.
+            continue
+        if k not in model_dict:
+            raise ValueError(f"{k} not found in model dictionary")
+        elif model_dict[k].size() != v.size():
+            raise ValueError(
+                f"{k} has different size: pretrained:{v.size()} model:{model_dict[k].size}"
+            )
+        else:
+            pretrained_dict[k] = v
 
-        print("Successfully loaded model from checkpoint!")
+    model_dict.update(pretrained_dict)
+    model.load_state_dict(model_dict, strict=True)
 
-        return model, weight_path
+    print("Successfully loaded model from checkpoint!")
+
+    return model, weight_path
