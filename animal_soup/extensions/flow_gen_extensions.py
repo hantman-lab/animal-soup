@@ -81,7 +81,7 @@ class FlowGeneratorDataframeExtension:
         initial_lr: float, default 0.0001
             Initial learning rate.
         stop_method: str, default learning_rate
-            Method for stopping training. Argument must be one of ["early", "learning_rate", "num_epochs"]
+            Method for stopping training. Argument must be one of ["learning_rate", "num_epochs"]
 
             | stop method   | description                                                                |
             |---------------|----------------------------------------------------------------------------|
@@ -122,7 +122,21 @@ class FlowGeneratorDataframeExtension:
         else:
             df_path = self._df.paths.get_df_path()
             df_dir, relative = self._df.paths.split(df_path)
-            model_out = df_dir
+            os.makedirs(df_dir.joinpath("flow_gen_output"), exist_ok=True)
+            model_out = df_dir.joinpath("flow_gen_output")
+        if os.listdir(model_out):
+            raise ValueError(f"directory to store model output should be empty")
+
+        # validate only one experiment type being used in training
+        if len(list(set(list(self._df["exp_type"])))) != 1:
+            raise ValueError("Training can only be completed with experiments of same type. "
+                             f"The current experiments in your dataframe are: {set(list(self._df['exp_type']))} "
+                             "Take a subset of your dataframe to train with one kind of experiment.")
+        # validate that an exp_type has been set
+        if list(set(list(self._df["exp_type"])))[0] is None:
+            raise ValueError("The experiment type for trials in your dataframe has not been set. Please"
+                             "set the `exp_type` column in your dataframe before attempting training.")
+        exp_type = list(self._df["exp_type"])[0]
 
         # check valid mode
         if mode not in TRAINING_OPTIONS.keys():
@@ -149,7 +163,7 @@ class FlowGeneratorDataframeExtension:
 
         # reload weights from file, want to use pretrained weights
         model, model_in = self._load_pretrained_flow_model(
-            weight_path=model_in, mode="slow", flow_window=flow_window
+            weight_path=model_in, mode="slow", flow_window=flow_window, exp_type=exp_type
         )
 
         # create available dataset from items in df
@@ -258,7 +272,7 @@ class FlowGeneratorDataframeExtension:
         trainer.fit(lightning_module)
 
     def _load_pretrained_flow_model(
-        self, weight_path: Union[str, Path], mode: str, flow_window: int
+        self, weight_path: Union[str, Path], mode: str, flow_window: int, exp_type: str
     ) -> Tuple[Union[TinyMotionNet3D, MotionNet, TinyMotionNet], Path]:
         """
         Returns a model with the pretrained weights.
@@ -272,6 +286,8 @@ class FlowGeneratorDataframeExtension:
             One of ["slow", "medium", "fast"].
         flow_window: int
             Window size to compute optic flow metrics for. Will compute flow_window - 1 optic flow features.
+        exp_type: str
+            One of ["table", "pez"]. Indicates which pre-trained model checkpoint to load from if weight_path is None.
 
         Returns
         -------
@@ -291,7 +307,7 @@ class FlowGeneratorDataframeExtension:
 
         # using default weight path
         if weight_path is None:
-            weight_path = FLOW_GEN_MODEL_PATHS[TRAINING_OPTIONS[mode]]
+            weight_path = FLOW_GEN_MODEL_PATHS[exp_type][TRAINING_OPTIONS[mode]]
 
         if isinstance(weight_path, str):
             weight_path = Path(weight_path)

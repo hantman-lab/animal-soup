@@ -36,4 +36,4 @@ tests/*.zip
 tests/ground_truth/
 
 # Pre-trained Models
-pretrained_models/
+animal_soup/pretrained_models/

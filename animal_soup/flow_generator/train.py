@@ -31,12 +31,12 @@ class FlowLightningModule(pl.LightningModule):
     def __init__(
         self,
         model: Union[TinyMotionNet3D, TinyMotionNet, MotionNet],
+        model_in: Union[str, Path],
         gpu_id: int,
         datasets: dict,
         initial_lr: float = 0.0001,
         batch_size: int = 32,
         augs: dict = None,
-        model_in: Union[str, Path] = None,
     ):
         """
         Class for training flow generator using lightning module.
@@ -45,6 +45,8 @@ class FlowLightningModule(pl.LightningModule):
         ----------
         model: torch.nn.Module
             Model for training flow generator. Will be one of [TinyMotionNet3D, TinyMotionNet, MotionNet].
+        model_in: str or Path
+            Location of model weights used to reload the model previously. Needed for L2_SP regularization.
         datasets: dict
             Dictionary of datasets created from available trials in dataframe.
         initial_lr: float, default 0.0001
@@ -66,16 +68,11 @@ class FlowLightningModule(pl.LightningModule):
         self.gpu_id = gpu_id
 
         if isinstance(self.model, TinyMotionNet3D):
-            self.gpu_transforms = get_gpu_transforms(augs=self.augs, conv_mode="3d")[
-                "train"
-            ]
+            self.gpu_transforms = get_gpu_transforms(augs=self.augs, conv_mode="3d")["train"]
         else:
             self.gpu_transforms = get_gpu_transforms(augs=self.augs)["train"]
 
-        if model_in is None:
-            self.model_in = FLOW_GEN_MODEL_PATHS[self.model.__class__.__name__]
-        else:  # no need to validate model_in path because model weights will have already been loaded
-            self.model_in = Path(model_in)
+        self.model_in = Path(model_in)
 
         # configure optimizer and criterion
         self.optimizer = None
@@ -262,7 +259,7 @@ def get_flow_trainer(
     """
 
     tensorboard_logger = pl.loggers.tensorboard.TensorBoardLogger(
-        save_dir=model_out, name="flow_gen_train"
+        save_dir=model_out, name="flow_gen_train_logs"
     )
 
     callbacks = list()
