@@ -136,6 +136,7 @@ class FlowGeneratorDataframeExtension:
         if list(set(list(self._df["exp_type"])))[0] is None:
             raise ValueError("The experiment type for trials in your dataframe has not been set. Please"
                              "set the `exp_type` column in your dataframe before attempting training.")
+        exp_type = list(self._df["exp_type"])[0]
 
         # check valid mode
         if mode not in TRAINING_OPTIONS.keys():
@@ -162,7 +163,7 @@ class FlowGeneratorDataframeExtension:
 
         # reload weights from file, want to use pretrained weights
         model, model_in = self._load_pretrained_flow_model(
-            weight_path=model_in, mode="slow", flow_window=flow_window
+            weight_path=model_in, mode="slow", flow_window=flow_window, exp_type=exp_type
         )
 
         # create available dataset from items in df
@@ -271,7 +272,7 @@ class FlowGeneratorDataframeExtension:
         trainer.fit(lightning_module)
 
     def _load_pretrained_flow_model(
-        self, weight_path: Union[str, Path], mode: str, flow_window: int
+        self, weight_path: Union[str, Path], mode: str, flow_window: int, exp_type: str
     ) -> Tuple[Union[TinyMotionNet3D, MotionNet, TinyMotionNet], Path]:
         """
         Returns a model with the pretrained weights.
@@ -285,6 +286,8 @@ class FlowGeneratorDataframeExtension:
             One of ["slow", "medium", "fast"].
         flow_window: int
             Window size to compute optic flow metrics for. Will compute flow_window - 1 optic flow features.
+        exp_type: str
+            One of ["table", "pez"]. Indicates which pre-trained model checkpoint to load from if weight_path is None.
 
         Returns
         -------
@@ -304,7 +307,7 @@ class FlowGeneratorDataframeExtension:
 
         # using default weight path
         if weight_path is None:
-            weight_path = FLOW_GEN_MODEL_PATHS[TRAINING_OPTIONS[mode]]
+            weight_path = FLOW_GEN_MODEL_PATHS[exp_type][TRAINING_OPTIONS[mode]]
 
         if isinstance(weight_path, str):
             weight_path = Path(weight_path)
