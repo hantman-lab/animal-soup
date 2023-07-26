@@ -243,9 +243,6 @@ def get_flow_trainer(
     ----------
     gpu_id: int
         Integer id of gpu to complete training on
-    lightning_module: pl.LightningModule
-        Pytorch Lightning module that has the model, datasets, criterion, etc.
-        needed for training a model
     stop_method: str, default learning_rate
         Stop method for ending training, one of ["learning_rate", "num_epochs"]
     profiler: str, default None

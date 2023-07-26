@@ -32,3 +32,5 @@ def validate_checkpoint_path(model_checkpoint_path: Union[str, Path]) -> Path:
             "Please make sure the file you are trying to use is a model checkpoint."
         )
     return model_checkpoint_path
+
+

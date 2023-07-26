@@ -6,6 +6,12 @@ from .models import HiddenTwoStream
 from .loss import *
 from ..utils import L2, L2_SP
 from typing import *
+from ..utils import (
+    PrintCallback,
+    PlotLossCallback,
+    CheckpointCallback,
+    CheckStopCallback,
+)
 from pathlib import Path
 
 DEFAULT_TRAINING_PARAMS = {
@@ -216,3 +222,57 @@ class HiddenTwoStreamLightningModule(pl.LightningModule):
         self.log("loss", to_log["loss"], prog_bar=True)
 
         return loss
+
+    def train_dataloader(self):
+        return self.get_dataloader()
+
+
+def get_feature_trainer(
+        gpu_id: int,
+        model_out: Path,
+        stop_method: str = "learning rate",
+        profiler: str = None,
+):
+    """
+    Returns a Pytorch Lightning trainer to be used in training the flow generator.
+
+    Parameters
+    ----------
+    gpu_id: int
+        Integer id of gpu to complete training on
+    stop_method: str, default learning_rate
+        Stop method for ending training, one of ["learning_rate", "num_epochs"]
+    profiler: str, default None
+        Can be a string (ex: "simple", "advanced") or a Pytorch Lightning Profiler instance. Gives metrics
+        during training.
+
+    Returns
+    -------
+    trainer: pl.Trainer
+        A trainer to be used to manage training the feature extractor.
+    """
+    tensorboard_logger = pl.loggers.tensorboard.TensorBoardLogger(
+        save_dir=model_out, name="flow_gen_train_logs"
+    )
+
+    callbacks = list()
+    callbacks.append(PrintCallback())
+    callbacks.append(PlotLossCallback())
+    callbacks.append(pl.callbacks.LearningRateMonitor())
+    callbacks.append(CheckpointCallback(model_out=model_out))
+    callbacks.append(CheckStopCallback(model_out=model_out, stop_method=stop_method))
+
+    # tuning messes with the callbacks
+    trainer = pl.Trainer(
+        devices=[gpu_id],
+        precision=32,
+        limit_train_batches=DEFAULT_TRAINING_PARAMS["steps_per_epoch"],
+        logger=tensorboard_logger,
+        max_epochs=DEFAULT_TRAINING_PARAMS["num_epochs"],
+        num_sanity_val_steps=0,
+        callbacks=callbacks,
+        profiler=profiler,
+    )
+    torch.cuda.empty_cache()
+
+    return trainer

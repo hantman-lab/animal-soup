@@ -6,7 +6,8 @@ from .flow_gen_extensions import _load_pretrained_flow_model
 from ..feature_extractor import (get_cnn,
                                  remove_cnn_classifier_layer,
                                  Fusion, HiddenTwoStream,
-                                 HiddenTwoStreamLightningModule)
+                                 HiddenTwoStreamLightningModule,
+                                 get_feature_trainer)
 
 # map the mode of training to the appropriate model
 TRAINING_OPTIONS = {
@@ -329,9 +330,13 @@ class FeatureExtractorDataframeExtension:
         )
 
         # trainer
+        trainer = get_feature_trainer(
+            gpu_id=gpu_id, model_out=model_out, stop_method=stop_method
+        )
 
         model_params = {
-            "Model": TRAINING_OPTIONS[mode],
+            "Feature Model": TRAINING_OPTIONS[mode],
+            "Flow Model": flow_model.__class__.__name__,
             "Mode": mode,
             "Parameters": {
                 "initial_learning_rate": initial_lr,
@@ -366,7 +371,7 @@ class FeatureExtractorDataframeExtension:
         # save df
         self._df.behavior.save_to_disk()
 
-        # trainer.fit()
+        trainer.fit(lightning_module)
 
     def infer(
             self,
