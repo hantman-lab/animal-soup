@@ -62,7 +62,7 @@ DEFAULT_AUGS = {
 @pd.api.extensions.register_dataframe_accessor("feature_extractor")
 class FeatureExtractorDataframeExtension:
     """
-    Pandas dataframe extensions for training and inference of the feature extractor.
+    Pandas dataframe extensions for training the feature extractor.
     """
 
     def __init__(self, df):
@@ -373,23 +373,152 @@ class FeatureExtractorDataframeExtension:
 
         trainer.fit(lightning_module)
 
+
+@pd.api.extensions.register_series_accessor("feature_extractor")
+class FeatureExtractorSeriesExtensions:
+    """Pandas series extensions for inference of the feature extractor."""
+
+    def __init__(self, s: pd.Series):
+        self._series = s
+
     def infer(
             self,
-            mode: "fast",
+            mode: str = "fast",
             gpu_id: int = 0,
+            feature_model_in: Union[str, Path] = None,
+            flow_model_in: Union[str, Path] = None,
+            flow_mode: str = None,
+            flow_window: int = 11
     ):
         """
-        Inference using feature extractor.
+        Run feature extractor inference on a single trial.
 
         Parameters
         ----------
-        mode
-        gpu_id
+        mode: str, default 'fast'
+            One of ["slow", "medium", "fast"]. Indicates what feature extractor to use for
+            inference.
+
+            | mode   | flow model      | feature model   | inference speed |
+            |--------|-----------------|-----------------|-----------------|
+            | fast   | TinyMotionNet   | ResNet18        | ~150 fps        |
+            | medium | MotionNet       | ResNet50        | ~80 fps         |
+            | slow   | TinyMotionNet3D | ResNet3D-34     | ~13 fps         |
+
+        gpu_id: int, default 0
+            Specify which gpu to use for training the model.
+        flow_model_in: str or Path, default None
+            Location of checkpoint used for flow generator. If None, then will use default checkpoint of flow
+            generator based on the mode.
+        flow_mode: str, default None
+            One of ["slow", "medium", "fast"]. If you are using a different flow generator checkpoint than the
+            default, you need to specify the mode so the correct flow generator and flow classifier can be
+            reconstructed.
+        flow_window: int, default 11
+            Flow window size. Used to infer optic flow features to pass to the feature extractor.
+        feature_model_in: str or Path, default None
+            If you want to train the model using different model weights than the default. User can
+            provide a location to a different model checkpoint. For example, if you had retrained the feature extractor
+            previously and wanted to use those weights instead. This should be a path to a hidden_two_stream model
+            checkpoint that can be used to reconstruct the spatial and flow classifier.
 
         Returns
         -------
 
         """
+        # validate feature_model_in
+        if feature_model_in is not None:
+            feature_model_in = validate_checkpoint_path(feature_model_in)
+
+        # validate flow_model_in and flow_mode
+        if flow_model_in is not None:
+            flow_model_in = validate_checkpoint_path(flow_model_in)
+            # if flow_mode is None raise, need to know what model to reconstruct
+            if flow_mode is None:
+                raise ValueError("If you are using a non-default flow generator model checkpoint, you must"
+                                 "also specify the corresponding mode for the model you are reconstructing."
+                                 "See below for mode/model correspondence: \n "
+                                 "{'slow': 'TinyMotionNet3D', 'medium': 'MotionNet', 'fast': 'TinyMotionNet}")
+            # validate flow mode
+            if flow_mode not in ["slow", "medium", "fast"]:
+                raise ValueError(f'flow_mode: {flow_mode} must be one of ["slow", "medium", "fast"]')
+
+        # if using default pre-trained checkpoints, will construct models of same speed for flow and feature
+        if flow_model_in is None:
+            flow_mode = mode
+
+        # check valid mode
+        if mode not in TRAINING_OPTIONS.keys():
+            raise ValueError(f"mode argument must be one of {TRAINING_OPTIONS.keys()}")
+
+        # check gpu_id
+        gpu_options = get_gpu_options()
+        if gpu_id not in gpu_options.keys():
+            raise ValueError(
+                f"gpu_id: {gpu_id} not in {gpu_options}. " f"Please select a valid gpu."
+            )
+
+        # set experiment type
+        exp_type = self._series["exp_type"]
+
+        # reconstruct hidden two stream
+        # reload flow generator model
+        flow_model, flow_model_in = _load_pretrained_flow_model(
+            weight_path=flow_model_in, mode=flow_mode, flow_window=flow_window, exp_type=exp_type
+        )
+
+        num_classes = len(BEHAVIOR_CLASSES) + 1  # account for background
+
+        # build flow classifier
+        if mode == "slow":
+            in_channels = 2
+        else:
+            in_channels = (flow_window - 1) * 2
+        flow_classifier, feature_model_in = _build_classifier(
+            mode=mode,
+            num_classes=num_classes,
+            exp_type=exp_type,
+            pos=None,
+            neg=None,
+            feature_model_in=feature_model_in,
+            classifier_type="flow",
+            final_bn=DEFAULT_CLASSIFIER_AUGS["final_bn"],
+            in_channels=in_channels
+        )
+
+        # build spatial classifier model
+        spatial_classifier, feature_model_in = _build_classifier(
+            mode=mode,
+            num_classes=num_classes,
+            exp_type=exp_type,
+            classifier_type="spatial",
+            pos=None,
+            neg=None,
+            feature_model_in=feature_model_in,
+            final_bn=DEFAULT_CLASSIFIER_AUGS["final_bn"],
+            in_channels=3
+        )
+
+        # fuse spatial and flow classifiers into hidden two stream model
+        spatial_classifier, flow_classifier, fused_model = _build_fusion(
+            spatial_classifier=spatial_classifier,
+            flow_classifier=flow_classifier,
+            fusion_type=DEFAULT_CLASSIFIER_AUGS["fusion"],
+            num_classes=num_classes
+        )
+        print("Successfully fused the flow classifier and spatial classifier models!")
+
+        hidden_two_stream = HiddenTwoStream(
+            flow_generator=flow_model,
+            spatial_classifier=spatial_classifier,
+            flow_classifier=flow_classifier,
+            fusion=fused_model,
+            classifier_name=TRAINING_OPTIONS[mode],
+            num_images=flow_window
+        )
+        hidden_two_stream.set_mode("inference")
+        print("Successfully reloaded hidden two stream model!")
+
         pass
 
 
