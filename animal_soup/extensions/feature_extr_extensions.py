@@ -144,14 +144,15 @@ class FeatureExtractorDataframeExtension:
             raise ValueError(f"directory to store model output should be empty")
 
         # validate only one experiment type being used in training
-        if len(list(set(list(self._df["exp_type"])))) != 1:
+        if len(set(self._df["exp_type"].values)) > 1:
             raise ValueError("Training can only be completed with experiments of same type. "
                              f"The current experiments in your dataframe are: {set(list(self._df['exp_type']))} "
                              "Take a subset of your dataframe to train with one kind of experiment.")
             # validate that an exp_type has been set
-        if list(set(list(self._df["exp_type"])))[0] is None:
+        if None in set(self._df["exp_type"].values):
             raise ValueError("The experiment type for trials in your dataframe has not been set. Please"
                              "set the `exp_type` column in your dataframe before attempting training.")
+        # set the experiment type
         exp_type = list(self._df["exp_type"])[0]
 
         # check valid mode
@@ -166,7 +167,7 @@ class FeatureExtractorDataframeExtension:
             )
 
         # check batch_size
-        if batch_size < MIN_BATCH_SIZE or batch_size > MAX_BATCH_SIZE:
+        if not MIN_BATCH_SIZE < batch_size < MAX_BATCH_SIZE:
             raise ValueError(
                 f"batch_size must be between {MIN_BATCH_SIZE} and {MAX_BATCH_SIZE}"
             )
@@ -248,7 +249,7 @@ class FeatureExtractorDataframeExtension:
             in_channels = 2
         else:
             in_channels = (flow_window - 1) * 2
-        flow_classifier = _build_classifier(
+        flow_classifier, feature_model_in = _build_classifier(
                                             mode=mode,
                                             num_classes=num_classes,
                                             exp_type=exp_type,
@@ -261,7 +262,7 @@ class FeatureExtractorDataframeExtension:
                                             )
 
         # build spatial classifier model
-        spatial_classifier = _build_classifier(
+        spatial_classifier, feature_model_in = _build_classifier(
                                             mode=mode,
                                             num_classes=num_classes,
                                             exp_type=exp_type,
@@ -377,7 +378,9 @@ def _build_classifier(
     Returns
     -------
     model
-        One of [ResNet18, ResNet50, ResNet34-3D]. Depends on mode.
+        One of [ResNet18, ResNet50, ResNet34-3D]. Depends on mode. Either a flow classifier or a spatial classifier.
+    flow_model_in: Path
+        The path used for loading in the spatial and flow classifier weights.
     """
     # validate classifier type
     if classifier_type not in ["spatial", "flow"]:
@@ -462,7 +465,7 @@ def _build_classifier(
 
     print(f"Successfully loaded {classifier_type} classifier from checkpoint!")
 
-    return model
+    return model, feature_model_in
 
 
 def _build_fusion_layer(

@@ -119,13 +119,15 @@ class FlowGeneratorDataframeExtension:
             raise ValueError(f"directory to store model output should be empty")
 
         # validate only one experiment type being used in training
-        if len(list(set(list(self._df["exp_type"])))) != 1:
+        if len(set(self._df["exp_type"].values)) > 1:
             raise ValueError("Training can only be completed with experiments of same type. "
                              f"The current experiments in your dataframe are: {set(list(self._df['exp_type']))} "
                              "Take a subset of your dataframe to train with one kind of experiment.")
-        if list(set(list(self._df["exp_type"])))[0] is None:
+            # validate that an exp_type has been set
+        if None in set(self._df["exp_type"].values):
             raise ValueError("The experiment type for trials in your dataframe has not been set. Please"
                              "set the `exp_type` column in your dataframe before attempting training.")
+        # set the experiment type
         exp_type = list(self._df["exp_type"])[0]
 
         # check valid mode
@@ -140,7 +142,7 @@ class FlowGeneratorDataframeExtension:
             )
 
         # check batch_size
-        if batch_size < MIN_BATCH_SIZE or batch_size > MAX_BATCH_SIZE:
+        if not MIN_BATCH_SIZE < batch_size < MAX_BATCH_SIZE:
             raise ValueError(
                 f"batch_size must be between {MIN_BATCH_SIZE} and {MAX_BATCH_SIZE}"
             )
