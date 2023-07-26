@@ -3,7 +3,10 @@ from ..data import VideoDataset
 import pprint
 from typing import *
 from .flow_gen_extensions import _load_pretrained_flow_model
-from ..feature_extractor import get_cnn, remove_cnn_classifier_layer, Fusion, HiddenTwoStream
+from ..feature_extractor import (get_cnn,
+                                 remove_cnn_classifier_layer,
+                                 Fusion, HiddenTwoStream,
+                                 HiddenTwoStreamLightningModule)
 
 # map the mode of training to the appropriate model
 TRAINING_OPTIONS = {
@@ -314,6 +317,16 @@ class FeatureExtractorDataframeExtension:
         print("Successfully created hidden two stream model!")
 
         # lightning module
+        lightning_module = HiddenTwoStreamLightningModule(
+            hidden_two_stream=hidden_two_stream,
+            datasets=datasets,
+            initial_lr=initial_lr,
+            batch_size=batch_size,
+            augs=AUGS,
+            gpu_id=gpu_id,
+            classifier_name=TRAINING_OPTIONS[mode],
+            model_in=feature_model_in
+        )
 
         # trainer
 

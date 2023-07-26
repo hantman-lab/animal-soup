@@ -1,7 +1,7 @@
 import pytorch_lightning as pl
 import torch
 from typing import *
-from ..utils import get_gpu_transforms, FLOW_GEN_MODEL_PATHS
+from ..utils import get_gpu_transforms
 from .models import *
 from .loss import *
 from .reconstructor import Reconstructor

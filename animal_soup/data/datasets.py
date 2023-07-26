@@ -275,6 +275,8 @@ class VideoDataset(data.Dataset):
 
                 self.labels = np.concatenate(final_labels)
 
+                self.pos_weight = make_loss_weight(self.num_pos, self.num_neg)
+
         self.dataset = data.ConcatDataset(datasets)
         self.dataset_info = dataset_info
 
