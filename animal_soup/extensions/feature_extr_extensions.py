@@ -3,7 +3,7 @@ from ..data import VideoDataset
 import pprint
 from typing import *
 from .flow_gen_extensions import _load_pretrained_flow_model
-from ..feature_extractor import get_cnn
+from ..feature_extractor import get_cnn, remove_cnn_classifier_layer, Fusion, HiddenTwoStream
 
 # map the mode of training to the appropriate model
 TRAINING_OPTIONS = {
@@ -261,7 +261,7 @@ class FeatureExtractorDataframeExtension:
             weight_path=flow_model_in, mode=flow_mode, flow_window=flow_window, exp_type=exp_type
         )
 
-        num_classes = len(BEHAVIOR_CLASSES) + 1 # account for background
+        num_classes = len(BEHAVIOR_CLASSES) + 1  # account for background
 
         # build flow classifier
         if mode == "slow":
@@ -269,44 +269,53 @@ class FeatureExtractorDataframeExtension:
         else:
             in_channels = (flow_window - 1) * 2
         flow_classifier, feature_model_in = _build_classifier(
-                                            mode=mode,
-                                            num_classes=num_classes,
-                                            exp_type=exp_type,
-                                            pos=datasets.num_pos,
-                                            neg=datasets.num_neg,
-                                            feature_model_in=feature_model_in,
-                                            classifier_type="flow",
-                                            final_bn=DEFAULT_CLASSIFIER_AUGS["final_bn"],
-                                            in_channels=in_channels
-                                            )
+            mode=mode,
+            num_classes=num_classes,
+            exp_type=exp_type,
+            pos=datasets.num_pos,
+            neg=datasets.num_neg,
+            feature_model_in=feature_model_in,
+            classifier_type="flow",
+            final_bn=DEFAULT_CLASSIFIER_AUGS["final_bn"],
+            in_channels=in_channels
+        )
 
         # build spatial classifier model
         spatial_classifier, feature_model_in = _build_classifier(
-                                            mode=mode,
-                                            num_classes=num_classes,
-                                            exp_type=exp_type,
-                                            classifier_type="spatial",
-                                            pos=datasets.num_pos,
-                                            neg=datasets.num_neg,
-                                            feature_model_in=feature_model_in,
-                                            final_bn=DEFAULT_CLASSIFIER_AUGS["final_bn"],
-                                            in_channels=3
-                                            )
+            mode=mode,
+            num_classes=num_classes,
+            exp_type=exp_type,
+            classifier_type="spatial",
+            pos=datasets.num_pos,
+            neg=datasets.num_neg,
+            feature_model_in=feature_model_in,
+            final_bn=DEFAULT_CLASSIFIER_AUGS["final_bn"],
+            in_channels=3
+        )
 
         # fuse spatial and flow classifiers into hidden two stream model
-        fused_model = _build_fusion(
+        spatial_classifier, flow_classifier, fused_model = _build_fusion(
             spatial_classifier=spatial_classifier,
             flow_classifier=flow_classifier,
             fusion_type=DEFAULT_CLASSIFIER_AUGS["fusion"],
             num_classes=num_classes
         )
+        print("Successfully fused the flow classifier and spatial classifier models!")
 
-        #hidden_two_stream = HiddenTwoStream(flow_generator, spatial_classifier, flow_classifier, fusion, mode)
+        hidden_two_stream = HiddenTwoStream(
+                                        flow_generator=flow_model,
+                                        spatial_classifier=spatial_classifier,
+                                        flow_classifier=flow_classifier,
+                                        fusion=fused_model,
+                                        classifier_name=TRAINING_OPTIONS[mode],
+                                        num_images=flow_window
+        )
+        hidden_two_stream.set_mode("classifier")
+        print("Successfully created hidden two stream model!")
 
+        # lightning module
 
-        #lightning module
-
-        #trainer
+        # trainer
 
         model_params = {
             "Model": TRAINING_OPTIONS[mode],
@@ -345,8 +354,6 @@ class FeatureExtractorDataframeExtension:
         self._df.behavior.save_to_disk()
 
         # trainer.fit()
-
-        return flow_classifier, spatial_classifier
 
     def infer(
             self,
@@ -433,7 +440,7 @@ def _build_classifier(
             neg=neg,
             final_bn=final_bn
         )
-    else: # mode must be fast
+    else:  # mode must be fast
         model = get_cnn(
             model_name=TRAINING_OPTIONS["fast"],
             in_channels=in_channels,
@@ -447,7 +454,7 @@ def _build_classifier(
     # load weight into CNN from pretrained checkpoint
     if classifier_type == "spatial":
         key = "spatial_classifier."
-    else: # classifier must be "flow"
+    else:  # classifier must be "flow"
         key = "flow_classifier."
 
     if feature_model_in is None:
@@ -516,12 +523,27 @@ def _build_fusion(
         One of ["average", "weighted_average", "concatenate"]. Indicates the way that fusing the classifier
         models together should occur.
     num_classes: int
-        Number of behaviors being classified for.
+        Number of behaviors being classified for plus background.
     fusion_weight: float, default 1.5
         How much to up-weight the flow fusion.
 
     Returns
     -------
-
+    spatial_classifier, flow_classifier, fusion_model
     """
-    return []
+    if fusion_type in ["average", "weighted_average"]:
+        num_spatial_features = None
+        num_flow_features = None
+    elif fusion_type == "concatenate":
+        spatial_classifier, num_spatial_features = remove_cnn_classifier_layer(spatial_classifier)
+        flow_classifier, num_flow_features = remove_cnn_classifier_layer(flow_classifier)
+    else:
+        raise ValueError("fusion_type must be one of ['average', 'weighted_average', 'concatenate']")
+
+    fusion_model = Fusion(fusion_type=fusion_type,
+                          num_spatial_features=num_spatial_features,
+                          num_flow_features=num_flow_features,
+                          num_classes=num_classes,
+                          flow_fusion_weight=fusion_weight)
+
+    return spatial_classifier, flow_classifier, fusion_model

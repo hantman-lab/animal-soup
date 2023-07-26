@@ -173,8 +173,6 @@ class ResNet(nn.Module):
                     nn.ReLU(inplace=True)
                 )
                 fc_infeatures = compress_to
-                print('Altered from standard resnet50: instead of {} inputs to the fc layer, it has {}'.format(
-                    512 * block.expansion, compress_to))
             else:
                 self.compression_fc = nn.Identity()
                 fc_infeatures = 512 * block.expansion
