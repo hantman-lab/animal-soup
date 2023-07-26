@@ -72,6 +72,7 @@ class FeatureExtractorDataframeExtension:
             initial_lr: float = 0.0001,
             stop_method: str = "learning_rate",
             flow_model_in: Union[str, Path] = None,
+            flow_mode: str = None,
             flow_window: int = 11,
             feature_model_in: Union[str, Path] = None,
             model_out: Union[str, Path] = None,
@@ -109,12 +110,17 @@ class FeatureExtractorDataframeExtension:
         flow_model_in: str or Path, default None
             Location of checkpoint used for flow generator. If None, then will use default checkpoint of flow
             generator based on the mode.
+        flow_mode: str, default None
+            One of ["slow", "medium", "fast"]. If you are using a different flow generator checkpoint than the
+            default, you need to specify the mode so the correct flow generator and flow classifier can be
+            reconstructed.
         flow_window: int, default 11
             Flow window size. Used to infer optic flow features to pass to the feature extractor.
         feature_model_in: str or Path, default None
             If you want to train the model using different model weights than the default. User can
             provide a location to a different model checkpoint. For example, if you had retrained the feature extractor
-            previously and wanted to use those weights instead.
+            previously and wanted to use those weights instead. This should be a path to a hidden_two_stream model
+            checkpoint that can be used to reconstruct the spatial and flow classifier.
         model_out: str or Path, default None
             User provided location of where to store model output such as model checkpoint with updated weights,
             hdf5 file with model results/metrics, etc. Should be a directory. By default, the model output will get
@@ -124,9 +130,22 @@ class FeatureExtractorDataframeExtension:
         if feature_model_in is not None:
             feature_model_in = validate_checkpoint_path(feature_model_in)
 
-        # validate flow_model_in
+        # validate flow_model_in and flow_mode
         if flow_model_in is not None:
             flow_model_in = validate_checkpoint_path(flow_model_in)
+            # if flow_mode is None raise, need to know what model to reconstruct
+            if flow_mode is None:
+                raise ValueError("If you are using a non-default flow generator model checkpoint, you must"
+                                 "also specify the corresponding mode for the model you are reconstructing."
+                                 "See below for mode/model correspondence: \n "
+                                 "{'slow': 'TinyMotionNet3D', 'medium': 'MotionNet', 'fast': 'TinyMotionNet}")
+            # validate flow mode
+            if flow_mode not in ["slow", "medium", "fast"]:
+                raise ValueError(f'flow_mode: {flow_mode} must be one of ["slow", "medium", "fast"]')
+
+        # if using default pre-trained checkpoints, will construct models of same speed for flow and feature
+        if flow_model_in is None:
+            flow_mode = mode
 
         # check if model_out is valid
         if model_out is not None:
@@ -239,7 +258,7 @@ class FeatureExtractorDataframeExtension:
 
         # reload flow generator model
         flow_model, flow_model_in = _load_pretrained_flow_model(
-            weight_path=flow_model_in, mode=mode, flow_window=flow_window, exp_type=exp_type
+            weight_path=flow_model_in, mode=flow_mode, flow_window=flow_window, exp_type=exp_type
         )
 
         num_classes = len(BEHAVIOR_CLASSES) + 1 # account for background
@@ -273,7 +292,14 @@ class FeatureExtractorDataframeExtension:
                                             final_bn=DEFAULT_CLASSIFIER_AUGS["final_bn"],
                                             in_channels=3
                                             )
+
         # fuse spatial and flow classifiers into hidden two stream model
+        fused_model = _build_fusion(
+            spatial_classifier=spatial_classifier,
+            flow_classifier=flow_classifier,
+            fusion_type=DEFAULT_CLASSIFIER_AUGS["fusion"],
+            num_classes=num_classes
+        )
 
         #hidden_two_stream = HiddenTwoStream(flow_generator, spatial_classifier, flow_classifier, fusion, mode)
 
@@ -468,7 +494,34 @@ def _build_classifier(
     return model, feature_model_in
 
 
-def _build_fusion_layer(
-
+def _build_fusion(
+        spatial_classifier,
+        flow_classifier,
+        fusion_type: str,
+        num_classes: int,
+        fusion_weight: float = 1.5
 ):
-    pass
+    """
+    Fuses the flow classifier and spatial classifier together based on a fusion type.
+
+    Parameters
+    ----------
+    spatial_classifier
+        Spatial classifier model with pre-trained weights already loaded.
+        One of [resnet18, resnet50, resnet34-3D] depending on the mode.
+    flow_classifier
+        Flow classifier model with pre-trained weights already loaded.
+        One of [resnet18, resnet50, resnet34-3D] depending on the mode.
+    fusion_type: str
+        One of ["average", "weighted_average", "concatenate"]. Indicates the way that fusing the classifier
+        models together should occur.
+    num_classes: int
+        Number of behaviors being classified for.
+    fusion_weight: float, default 1.5
+        How much to up-weight the flow fusion.
+
+    Returns
+    -------
+
+    """
+    return []
