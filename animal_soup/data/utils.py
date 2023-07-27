@@ -11,9 +11,9 @@ def prepare_label(label: np.ndarray) -> np.ndarray:
     # add background row
     rows = list()
     for row in label:
-        # sum across all behaviors for a time point
-        # insert in first position the background value
-        # for that time point
+        # sum across all behaviors at a given time point
+        # if the sum is zero (no behavior labeled at this time point),
+        # set background = 1
         if sum(row) > 0:
             background = 0
         else:
@@ -43,7 +43,11 @@ def make_loss_weight(
     Returns
     -------
     pos_weight_transformed: np.ndarray, shape (K, )
-        amount to weight each class. Used with sigmoid activation, BCE loss
+        Amount to weight each class. Used with sigmoid activation, BCE loss
+
+        Note: pos_weight is the relative amount of positive labels for each behavior.
+        Want this to be calculated in order to factor into the loss function for
+        the feature extractor.
 
     """
 

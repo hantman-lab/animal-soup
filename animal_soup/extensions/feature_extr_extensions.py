@@ -116,8 +116,10 @@ class FeatureExtractorDataframeExtension:
             generator based on the mode.
         flow_mode: str, default None
             One of ["slow", "medium", "fast"]. If you are using a different flow generator checkpoint than the
-            default, you need to specify the mode so the correct flow generator and flow classifier can be
-            reconstructed.
+            default, you need to specify the mode so the correct flow generator can be
+            reconstructed. If None, then the flow generator reconstructed will be based on the ``mode``
+            argument. See the table above for more details on which flow generator will be reconstructed based on
+            the ``mode``.
         flow_window: int, default 11
             Flow window size. Used to infer optic flow features to pass to the feature extractor.
         feature_model_in: str or Path, default None
@@ -558,7 +560,7 @@ def _build_classifier(
     Returns
     -------
     model
-        One of [ResNet18, ResNet50, ResNet34-3D]. Depends on mode. Either a flow classifier or a spatial classifier.
+        One of [ResNet18, ResNet50, ResNet34-3D]. Depends on ``mode``. Either a flow classifier or a spatial classifier.
     flow_model_in: Path
         The path used for loading in the spatial and flow classifier weights.
     """
