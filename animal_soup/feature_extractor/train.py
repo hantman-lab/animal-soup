@@ -1,86 +1,87 @@
 import pytorch_lightning as pl
-import torch
-from typing import *
+import torch.nn
 from ..utils import get_gpu_transforms
-from .models import *
+import numpy as np
+from .models import HiddenTwoStream
 from .loss import *
-from .reconstructor import Reconstructor
 from ..utils import L2, L2_SP
-from pathlib import Path
+from typing import *
 from ..utils import (
     PrintCallback,
     PlotLossCallback,
     CheckpointCallback,
     CheckStopCallback,
 )
+from pathlib import Path
 
 DEFAULT_TRAINING_PARAMS = {
     "min_lr": 5e-07,
-    "num_epochs": 10,
+    "num_epochs": 20,
     "patience": 3,
     "reduction_factor": 0.1,
     "steps_per_epoch": 1000,
     "regularization": {"alpha": 1.0e-05, "beta": 0.001, "style": "l2_sp"},
-    "smooth_weight_multiplier": 1.0,
-    "sparsity_weight": 0.0,
-    "flow_sparsity": False,
+    "label_smoothing": 0.05,
+    "loss_gamma": 1.0
 }
 
 
-class FlowLightningModule(pl.LightningModule):
+class HiddenTwoStreamLightningModule(pl.LightningModule):
     def __init__(
-        self,
-        model: Union[TinyMotionNet3D, TinyMotionNet, MotionNet],
-        model_in: Union[str, Path],
-        gpu_id: int,
-        datasets: dict,
-        initial_lr: float = 0.0001,
-        batch_size: int = 32,
-        augs: dict = None,
+            self,
+            hidden_two_stream: HiddenTwoStream,
+            model_in: Union[str, Path],
+            gpu_id: int,
+            datasets: dict,
+            classifier_name: str,
+            initial_lr: float = 0.0001,
+            batch_size: int = 32,
+            augs: dict = None,
     ):
         """
-        Class for training flow generator using lightning module.
+        Class for training hidden two stream model for feature extractor using a lightning module.
 
         Parameters
         ----------
-        model: torch.nn.Module
-            Model for training flow generator. Will be one of [TinyMotionNet3D, TinyMotionNet, MotionNet].
+        hidden_two_stream: HiddenTwoStream
+            Hidden two stream model for feature extraction.
         model_in: str or Path
             Location of model weights used to reload the model previously. Needed for L2_SP regularization.
-        datasets: dict
-            Dictionary of datasets created from available trials in dataframe.
-        initial_lr: float, default 0.0001
-            Learning rate to begin training with.
-        batch_size: int, default 32
-            Batch size.
-        augs: Dict, default None
-            Dictionary of augmentations, used to get gpu augs.
         gpu_id: int
             GPU to be used for training.
+        datasets: dict
+            Dictionary of datasets created from available trials in the dataframe.
+        classifier_name: str
+            One of ['resnet18', 'resnet50', 'resnet34_3d'].
+        initial_lr: float, default 0.0001
+            Learning rate to begin training with/
+        batch_size: int, default 32
+            Batch size.
+        augs: dict, default None
+            Dictionary of augmentations, used to get gpu augs.
         """
         super().__init__()
 
-        self.model = model
+        self.model = hidden_two_stream
         self.datasets = datasets
         self.batch_size = batch_size
         self.lr = initial_lr
         self.augs = augs
         self.gpu_id = gpu_id
+        self.model_in = Path(model_in)
 
-        if isinstance(self.model, TinyMotionNet3D):
+        self.final_activation = torch.nn.Sigmoid()
+
+        if '3d' in classifier_name.lower():
             self.gpu_transforms = get_gpu_transforms(augs=self.augs, conv_mode="3d")["train"]
         else:
             self.gpu_transforms = get_gpu_transforms(augs=self.augs)["train"]
-
-        self.model_in = Path(model_in)
 
         # configure optimizer and criterion
         self.optimizer = None
         self.criterion = None
         self.configure_criterion()
         self.epoch_losses = list()
-
-        self.reconstructor = Reconstructor(gpu_id=gpu_id, augs=self.augs)
 
     def get_dataloader(self):
         """Returns a dataloader."""
@@ -97,9 +98,12 @@ class FlowLightningModule(pl.LightningModule):
 
     def _validate_batch_size(self, batch: dict):
         """Validate a batch size to make sure it has the right shape."""
-        if "images" in batch.keys():
-            if batch["images"].ndim != 5:
-                batch["images"] = batch["images"].unsqueeze(0)
+        if 'images' in batch.keys():
+            if batch['images'].ndim != 5:
+                batch['images'] = batch['images'].unsqueeze(0)
+        if 'labels' in batch.keys():
+            if self.final_activation == 'sigmoid' and batch['labels'].ndim == 1:
+                batch['labels'] = batch['labels'].unsqueeze(0)
         return batch
 
     def apply_gpu_transforms(self, images: torch.Tensor) -> torch.Tensor:
@@ -109,7 +113,7 @@ class FlowLightningModule(pl.LightningModule):
         return images
 
     def configure_optimizers(self):
-        """Configure the optimizer to be used in training the flow generator."""
+        """Configure the optimizer to be used in training the feature extractor."""
 
         weight_decay = 0
 
@@ -136,7 +140,16 @@ class FlowLightningModule(pl.LightningModule):
         }
 
     def configure_criterion(self):
-        """Configure the loss function to be used in training the flow generator."""
+        """Configure loss function to be used in training the feature extractor"""
+        pos_weight = self.datasets.pos_weight
+
+        if type(pos_weight) == np.ndarray:
+            pos_weight = torch.from_numpy(pos_weight)
+
+        data_criterion = BinaryFocalLoss(pos_weight=pos_weight,
+                                         gamma=DEFAULT_TRAINING_PARAMS["loss_gamma"],
+                                         label_smoothing=DEFAULT_TRAINING_PARAMS["label_smoothing"])
+
         if DEFAULT_TRAINING_PARAMS["regularization"]["style"] == "l2":
             regularization_criterion = L2(
                 model=self.model,
@@ -149,21 +162,14 @@ class FlowLightningModule(pl.LightningModule):
                 alpha=DEFAULT_TRAINING_PARAMS["regularization"]["alpha"],
                 beta=DEFAULT_TRAINING_PARAMS["regularization"]["beta"],
             )
-        # # criterion, loss func
-        criterion = MotionNetLoss(
-            regularization_criterion,
-            flow_sparsity=DEFAULT_TRAINING_PARAMS["flow_sparsity"],
-            sparsity_weight=DEFAULT_TRAINING_PARAMS["sparsity_weight"],
-            smooth_weight_multiplier=DEFAULT_TRAINING_PARAMS[
-                "smooth_weight_multiplier"
-            ],
-        )
+
+        criterion = ClassificationLoss(data_criterion, regularization_criterion)
 
         self.criterion = criterion
 
-    def forward(self, batch: dict) -> Tuple[torch.Tensor, List]:
+    def forward(self, batch: dict) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        Compute the optic flow through the forward pass.
+        Forward pass through hidden two stream.
 
         Parameters
         ----------
@@ -175,47 +181,41 @@ class FlowLightningModule(pl.LightningModule):
         images: torch.Tensor
             Input images after gpu augmentations have been applied
         outputs: list
-            List of optic flows at multiple scales
+            List of fused spatial and flow features
         """
         batch = self._validate_batch_size(batch)
 
-        images = batch["images"]
+        images = batch['images']
 
-        images = self.apply_gpu_transforms(images=images)
+        images = self.apply_gpu_transforms(images)
 
         outputs = self.model(images)
 
         return images, outputs
 
-    def common_step(self, batch: dict) -> torch.Tensor:
+    def training_step(self, batch: dict) -> torch.Tensor:
         """
-        Method for doing forward pass, reconstructing images, and computing loss.
+        Method for forward pass, loss calculation, backward pass, and parameter update.
 
         Parameters
         ----------
-        batch: dict
-            Current batch of videos.
+        batch : dict
+            contains images and other information
 
         Returns
         -------
-        loss: torch.Tensor
-            Mean loss of the input batch for the backward pass
+        loss : torch.Tensor
+            mean loss for batch for Lightning's backward + update hooks
         """
-        # TODO: forward pass, reconstruct images and visualize with fpl in gridplot?, compute loss,
-        #  print/update loss, plot loss, compute metrics, print metrics
-        pass
-        # # forward pass. images are returned because the forward pass runs augmentations on the gpu as well
         images, outputs = self.forward(batch)
-        # actually reconstruct t0 using t1 and estimated optic flow
-        downsampled_t0, estimated_t0, flows_reshaped = self.reconstructor(
-            images, outputs
-        )
-        loss, loss_components = self.criterion(
-            batch, downsampled_t0, estimated_t0, flows_reshaped, self.model
-        )
 
-        to_log = loss_components
+        probabilities = self.final_activation(outputs)
+
+        loss, loss_dict = self.criterion(outputs, batch['labels'], self.model)
+
+        to_log = loss_dict
         to_log["loss"] = loss.detach()
+        to_log["probabilities"] = probabilities.detach()
 
         self.epoch_losses.append(to_log["loss"].cpu())
 
@@ -223,18 +223,15 @@ class FlowLightningModule(pl.LightningModule):
 
         return loss
 
-    def training_step(self, batch: dict):
-        return self.common_step(batch)
-
     def train_dataloader(self):
         return self.get_dataloader()
 
 
-def get_flow_trainer(
-    gpu_id: int,
-    model_out: Path,
-    stop_method: str = "learning_rate",
-    profiler: str = None,
+def get_feature_trainer(
+        gpu_id: int,
+        model_out: Path,
+        stop_method: str = "learning rate",
+        profiler: str = None,
 ):
     """
     Returns a Pytorch Lightning trainer to be used in training the flow generator.
@@ -252,18 +249,17 @@ def get_flow_trainer(
     Returns
     -------
     trainer: pl.Trainer
-        A trainer to be used to manage training the flow generator.
+        A trainer to be used to manage training the feature extractor.
     """
-
     tensorboard_logger = pl.loggers.tensorboard.TensorBoardLogger(
-        save_dir=model_out, name="flow_gen_train_logs"
+        save_dir=model_out, name="feature_extr_train_logs"
     )
 
     callbacks = list()
     callbacks.append(PrintCallback())
     callbacks.append(PlotLossCallback())
     callbacks.append(pl.callbacks.LearningRateMonitor())
-    callbacks.append(CheckpointCallback(model_out=model_out, train_type="flow_generator"))
+    callbacks.append(CheckpointCallback(model_out=model_out, train_type="feature_extractor"))
     callbacks.append(CheckStopCallback(model_out=model_out, stop_method=stop_method))
 
     # tuning messes with the callbacks
