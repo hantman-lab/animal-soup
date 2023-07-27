@@ -37,3 +37,7 @@ tests/ground_truth/
 
 # Pre-trained Models
 animal_soup/pretrained_models/
+
+# DS_store
+.DS_Store
+animal_soup/.DS_Store

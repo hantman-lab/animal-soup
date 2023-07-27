@@ -7,7 +7,8 @@ from ..feature_extractor import (get_cnn,
                                  remove_cnn_classifier_layer,
                                  Fusion, HiddenTwoStream,
                                  HiddenTwoStreamLightningModule,
-                                 get_feature_trainer)
+                                 get_feature_trainer,
+                                 predict_single_video)
 
 # map the mode of training to the appropriate model
 TRAINING_OPTIONS = {
@@ -309,12 +310,12 @@ class FeatureExtractorDataframeExtension:
         print("Successfully fused the flow classifier and spatial classifier models!")
 
         hidden_two_stream = HiddenTwoStream(
-                                        flow_generator=flow_model,
-                                        spatial_classifier=spatial_classifier,
-                                        flow_classifier=flow_classifier,
-                                        fusion=fused_model,
-                                        classifier_name=TRAINING_OPTIONS[mode],
-                                        num_images=flow_window
+            flow_generator=flow_model,
+            spatial_classifier=spatial_classifier,
+            flow_classifier=flow_classifier,
+            fusion=fused_model,
+            classifier_name=TRAINING_OPTIONS[mode],
+            num_images=flow_window
         )
         hidden_two_stream.set_mode("classifier")
         print("Successfully created hidden two stream model!")
@@ -521,7 +522,30 @@ class FeatureExtractorSeriesExtensions:
         hidden_two_stream.set_mode("inference")
         print("Successfully reloaded hidden two stream model!")
 
-        pass
+        # calculate norm augmentation values for given videos in dataframe
+        print("Calculating vid normalization statistics")
+        normalization = get_normalization([resolve_path(self._series["vid_path"])])
+        # update AUGS
+        AUGS = DEFAULT_AUGS.copy()
+        AUGS["normalization"] = normalization
+
+        # set the convolution mode
+        conv_mode = "2d"
+        if mode == "slow":
+            conv_mode = "3d"
+
+        prediction_info = predict_single_video(
+            vid_path=resolve_path(self._series["vid_path"]),
+            hidden_two_stream=hidden_two_stream,
+            fusion_type=DEFAULT_CLASSIFIER_AUGS["fusion"],
+            mean_by_channels=AUGS["normalization"]["mean"],
+            gpu_id=gpu_id,
+            flow_window=flow_window,
+            cpu_transform=get_cpu_transforms(AUGS),
+            gpu_transform=get_gpu_inference_transforms(AUGS, conv_mode=conv_mode)
+        )
+
+        return prediction_info
 
 
 def _build_classifier(

@@ -252,14 +252,14 @@ def get_feature_trainer(
         A trainer to be used to manage training the feature extractor.
     """
     tensorboard_logger = pl.loggers.tensorboard.TensorBoardLogger(
-        save_dir=model_out, name="flow_gen_train_logs"
+        save_dir=model_out, name="feature_extr_train_logs"
     )
 
     callbacks = list()
     callbacks.append(PrintCallback())
     callbacks.append(PlotLossCallback())
     callbacks.append(pl.callbacks.LearningRateMonitor())
-    callbacks.append(CheckpointCallback(model_out=model_out))
+    callbacks.append(CheckpointCallback(model_out=model_out, train_type="feature_extractor"))
     callbacks.append(CheckStopCallback(model_out=model_out, stop_method=stop_method))
 
     # tuning messes with the callbacks

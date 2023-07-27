@@ -362,3 +362,19 @@ def get_gpu_transforms(
     gpu_transforms = dict(train=train_transforms, denormalize=denormalize)
 
     return gpu_transforms
+
+
+def get_gpu_inference_transforms(augs: Dict[str, Any], conv_mode: str = '2d') -> torch.nn.Sequential:
+    """Inference gpu transforms."""
+    kornia_transforms = [
+        ToFloat(),
+        NormalizeVideo(mean=augs["normalization"]["mean"], std=augs["normalization"]["std"])
+    ]
+
+    if conv_mode == '2d':
+        kornia_transforms.append(StackClipInChannels())
+
+    inference_transforms = torch.nn.Sequential(*kornia_transforms)
+
+    return inference_transforms
+

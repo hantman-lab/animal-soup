@@ -6,6 +6,7 @@ from pathlib import Path
 from vidio import VideoReader
 import random
 from .utils import *
+from collections import deque
 
 
 class SingleVideoDataset(data.Dataset):
@@ -285,3 +286,167 @@ class VideoDataset(data.Dataset):
 
     def __getitem__(self, index: int):
         return self.dataset[index]
+
+
+# https://pytorch.org/docs/stable/data.html
+class VideoIterable(data.IterableDataset):
+    """Highly optimized Dataset for running inference on videos.
+
+    Features:
+        - Data is only read sequentially
+        - Each frame is only read once
+        - The input video is divided into NUM_WORKERS segments. Each worker reads its segment in parallel
+        - Each clip is read with stride = 1. If sequence_length==3, the first clips would be frames [0, 1, 2],
+            [1, 2, 3], [2, 3, 4], ... etc
+    """
+
+    def __init__(self,
+                 vid_path: str,
+                 cpu_transform,
+                 sequence_length: int = 11,
+                 num_workers: int = 8,
+                 mean_by_channels: Union[list, np.ndarray] = [0, 0, 0]):
+        """
+        Parameters
+        ----------
+        vid_path: str
+            Path to video file
+        cpu_transform:
+            CPU transforms (cropping, resizing)
+        sequence_length: int, optional
+            Number of images in one clip, by default 11
+        num_workers: int, default 8
+            num_workers for parallelized reading of frames
+        mean_by_channels : Union[list, np.ndarray], optional
+            [description], by default [0, 0, 0]
+        """
+        super().__init__()
+
+        self.readers = {i: 0 for i in range(num_workers)}
+        self.vid_path = vid_path
+        self.transform = cpu_transform
+
+        self.start = 0
+        self.sequence_length = sequence_length
+
+        with VideoReader(self.vid_path) as reader:
+            self.N = len(reader)
+
+        self.blank_start_frames = self.sequence_length // 2
+        self.cnt = 0
+
+        self.mean_by_channels = self.parse_mean_by_channels(mean_by_channels)
+        self.num_workers = num_workers
+        self.buffer = deque([], maxlen=self.sequence_length)
+
+        self.reset_counter = self.num_workers
+        self._zeros_image = None
+        self._image_shape = None
+        self.get_image_shape()
+
+    def __len__(self):
+        return self.N
+
+    def get_image_shape(self):
+        """Get image shape after CPU augmentations applied"""
+        with VideoReader(self.vid_path) as reader:
+            im = reader[0]
+        im = self.transform(im)
+        self._image_shape = im.shape
+
+    def get_zeros_image(self, ):
+        if self._zeros_image is None:
+            if self._image_shape is None:
+                raise ValueError('must set shape before getting zeros image')
+            # ALWAYS ASSUME OUTPUT IS TRANSPOSED
+            self._zeros_image = np.zeros(self._image_shape, dtype=np.uint8)
+            for i in range(3):
+                self._zeros_image[i, ...] = self.mean_by_channels[i]
+        return self._zeros_image.copy()
+
+    def parse_mean_by_channels(self, mean_by_channels):
+        if isinstance(mean_by_channels[0], (float, np.floating)):
+            return np.clip(np.array(mean_by_channels) * 255, 0, 255).astype(np.uint8)
+        elif isinstance(mean_by_channels[0], (int, np.integer)):
+            assert np.array_equal(np.clip(mean_by_channels, 0, 255), np.array(mean_by_channels))
+            return np.array(mean_by_channels).astype(np.uint8)
+        else:
+            raise ValueError('unexpected type for input channel mean: {}'.format(mean_by_channels))
+
+    def my_iter_func(self, start, end):
+        for i in range(start, end):
+            self.buffer.append(self.get_current_item())
+
+            yield {'images': np.stack(self.buffer, axis=1).transpose(2, 1, 0, 3), 'framenum': self.cnt - 1 - self.sequence_length // 2}
+
+    def get_current_item(self):
+        worker_info = data.get_worker_info()
+        worker_id = worker_info.id if worker_info is not None else 0
+        # blank_start_frames =
+        # print(self.cnt)
+        if self.cnt < 0:
+            im = self.get_zeros_image()
+        elif self.cnt >= self.N:
+            im = self.get_zeros_image()
+        else:
+            try:
+                im = self.readers[worker_id][self.cnt]
+            except Exception as e:
+                print(f'problem reading frame {self.cnt}')
+                raise
+            im = self.transform(im)
+        self.cnt += 1
+        return im
+
+    def fill_buffer_init(self, iter_start):
+        self.cnt = iter_start
+        # hack for the first one: don't quite fill it up
+        for i in range(iter_start, iter_start + self.sequence_length - 1):
+            self.buffer.append(self.get_current_item())
+
+    def __iter__(self):
+        worker_info = data.get_worker_info()
+        # print(worker_info)
+        iter_end = self.N - self.sequence_length // 2
+        if worker_info is None:
+            iter_start = -self.blank_start_frames
+            self.readers[0] = VideoReader(self.vid_path)
+        else:
+            per_worker = self.N // self.num_workers
+            remaining = self.N % per_worker
+            nums = [per_worker for i in range(self.num_workers)]
+            nums = [nums[i] + 1 if i < remaining else nums[i] for i in range(self.num_workers)]
+            # print(nums)
+            nums.insert(0, 0)
+            starts = np.cumsum(nums[:-1])  # - self.blank_start_frames
+            starts = starts.tolist()
+            ends = starts[1:] + [iter_end]
+            starts[0] = -self.blank_start_frames
+
+            # print(starts, ends)
+
+            iter_start = starts[worker_info.id]
+            iter_end = min(ends[worker_info.id], self.N)
+            # print(f'worker: {worker_info.id}, start: {iter_start} end: {iter_end}')
+            self.readers[worker_info.id] = VideoReader(self.vid_path)
+        # FILL THE BUFFER TO START
+        # print('iter start: {}'.format(iter_start))
+        self.fill_buffer_init(iter_start)
+        return self.my_iter_func(iter_start, iter_end)
+
+    def close(self):
+        for k, v in self.readers.items():
+            if isinstance(v, int):
+                continue
+            try:
+                v.close()
+            except Exception as e:
+                print(f'error destroying reader {k}')
+            else:
+                print(f'destroyed {k}')
+
+    def __exit__(self, *args):
+        self.close()
+
+    def __del__(self):
+        self.close()

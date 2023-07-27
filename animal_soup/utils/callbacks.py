@@ -56,7 +56,7 @@ class PlotLossCallback(pl.Callback):
 
 
 class CheckpointCallback(pl.Callback):
-    def __init__(self, model_out: Path):
+    def __init__(self, model_out: Path, train_type: str):
         """
         Callback to save model after training has finished.
 
@@ -64,11 +64,14 @@ class CheckpointCallback(pl.Callback):
         ----------
         model_out: Path
             location of where to store model checkpoint after training has finished
+        train_type: str
+            One of ['feature_extractor', 'flow_generator', 'sequence_model']
 
         """
         super().__init__()
 
         self.model_out = model_out
+        self.train_type = train_type
 
     def on_train_end(
         self, trainer: "pl.Trainer", pl_module: "pl.LightningModule"
@@ -77,7 +80,7 @@ class CheckpointCallback(pl.Callback):
         epoch = trainer.current_epoch
         state_dict = pl_module.model.state_dict()
 
-        save_path = self.model_out.joinpath("flow_generator_train.ckpt")
+        save_path = self.model_out.joinpath(f"{self.train_type}_train.ckpt")
 
         torch.save({"epoch": epoch, "state_dict": state_dict}, save_path)
 

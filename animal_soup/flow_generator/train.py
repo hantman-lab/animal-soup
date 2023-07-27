@@ -263,7 +263,7 @@ def get_flow_trainer(
     callbacks.append(PrintCallback())
     callbacks.append(PlotLossCallback())
     callbacks.append(pl.callbacks.LearningRateMonitor())
-    callbacks.append(CheckpointCallback(model_out=model_out))
+    callbacks.append(CheckpointCallback(model_out=model_out, train_type="flow_generator"))
     callbacks.append(CheckStopCallback(model_out=model_out, stop_method=stop_method))
 
     # tuning messes with the callbacks
