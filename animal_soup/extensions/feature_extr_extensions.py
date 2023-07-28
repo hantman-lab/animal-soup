@@ -537,7 +537,6 @@ class FeatureExtractorSeriesExtensions:
         prediction_info = predict_single_video(
             vid_path=resolve_path(self._series["vid_path"]),
             hidden_two_stream=hidden_two_stream,
-            fusion_type=DEFAULT_CLASSIFIER_AUGS["fusion"],
             mean_by_channels=AUGS["normalization"]["mean"],
             gpu_id=gpu_id,
             flow_window=flow_window,

@@ -1,3 +1,9 @@
+"""
+Feature extractor loss.
+
+https://github.com/jbohnslav/deepethogram/blob/master/deepethogram/feature_extractor/losses.py
+"""
+
 from torch import nn
 import torch
 

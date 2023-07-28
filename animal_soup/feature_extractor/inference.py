@@ -1,6 +1,11 @@
+"""
+Feature extractor inference.
+
+Adopted from: https://github.com/jbohnslav/deepethogram/blob/master/deepethogram/feature_extractor/inference.py
+"""
+
 from pathlib import Path
 import torch
-from torch import nn
 import numpy as np
 from tqdm import tqdm
 
@@ -12,7 +17,6 @@ from .utils import *
 def predict_single_video(
         vid_path: Path,
         hidden_two_stream: HiddenTwoStream,
-        fusion_type: str,
         mean_by_channels: np.ndarray = [0, 0, 0],
         gpu_id: int = 0,
         flow_window: int = 11,
@@ -31,21 +35,18 @@ def predict_single_video(
         Hidden two-stream model, feature extractor
     gpu_id: int, default 0
         GPU to use for inference. Default 0, assuming there is only one GPU to use.
-    fusion_type : str
-        One of ["average", "weighted_average", "concatenate"]. Indicates the way that fusing the classifier
-        models together should occur.
     flow_window: int, default 11
-            Flow window size. Used to infer optic flow features to pass to the feature extractor.
-    mean_by_channels : np.ndarray
+        Flow window size. Used to infer optic flow features to pass to the feature extractor.
+    mean_by_channels: np.ndarray, default [0, 0, 0]
         Image channel mean for z-scoring
-    cpu_transform : callable, optional
-        CPU transforms to perform, e.g. center cropping / resizing, by default None
-    gpu_transform : callable, optional
-        GPU augmentations. For inference, should just be conversion to float and z-scoring, by default None
-    num_workers : int, optional
-        Number of workers to read the video in parallel, by default 8
-    batch_size : int, optional
-        Batch size for inference. Values above 1 will be much faster. by default 16
+    cpu_transform: callable
+        CPU transforms for inference
+    gpu_transform: callable
+        GPU augmentations for inference
+    num_workers: int, default 8
+        Number of workers to read the video in parallel
+    batch_size: int, default 16
+        Batch size for inference.
 
     Returns
     -------
@@ -113,7 +114,6 @@ def predict_single_video(
         flow_features = flow_features.detach().cpu()
 
         if i == 0:
-            # print(f'~~~ N: {N} ~~~')
             buffer['probabilities'] = torch.zeros((video_frame_num, probabilities.shape[1]), dtype=probabilities.dtype)
             buffer['logits'] = torch.zeros((video_frame_num, logits.shape[1]), dtype=logits.dtype)
             buffer['spatial_features'] = torch.zeros((video_frame_num, spatial_features.shape[1]),

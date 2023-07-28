@@ -1,3 +1,9 @@
+"""
+Reconstructor for optic flow.
+
+Taken from: https://github.com/jbohnslav/deepethogram/blob/master/deepethogram/flow_generator/utils.py
+"""
+
 import torch
 from typing import *
 from ..utils import Normalizer

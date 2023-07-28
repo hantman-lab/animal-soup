@@ -1,4 +1,8 @@
-"""File for calculating the normalization augmentations based on the data in the current dataframe."""
+"""
+File for calculating the normalization augmentations based on the data in the current dataframe.
+
+Adopted from: https://github.com/jbohnslav/deepethogram/blob/master/deepethogram/zscore.py
+"""
 
 from typing import *
 from pathlib import Path
