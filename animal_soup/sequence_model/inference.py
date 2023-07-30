@@ -13,6 +13,28 @@ def predict_single_video(
     sequence_length: int = 60,
 
 ):
+    """
+    Predict sequence probabilities and logits for a single video.
+
+    Parameters
+    ----------
+    vid_path: Path
+        Path to current video trial.
+    sequence_model: TGMJ
+        Sequence model being used for inference
+    features: dict
+        Dictionary output of sequence inference.
+    nonoverlapping: bool, default True
+        Indicates whether sequences should overlap or not.
+    sequence_length: int, default 60
+        Sequence length.
+
+    Returns
+    -------
+        dictionary of probabilities and logits that can be used for post-processing and
+        finalizing ethograms
+
+    """
     torch.backends.cudnn.benchmark = True
     device = torch.device("cpu")
 
