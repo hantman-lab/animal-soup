@@ -16,6 +16,7 @@ DATAFRAME_COLUMNS = [
     "trial_id",
     "vid_path",
     "ethograms",
+    "features",
     "exp_type",
     "model_params",
     "notes",

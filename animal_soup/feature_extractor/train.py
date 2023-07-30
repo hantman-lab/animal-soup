@@ -234,7 +234,7 @@ def get_feature_trainer(
         profiler: str = None,
 ):
     """
-    Returns a Pytorch Lightning trainer to be used in training the flow generator.
+    Returns a Pytorch Lightning trainer to be used in training the feature extractor.
 
     Parameters
     ----------

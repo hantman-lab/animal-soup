@@ -42,4 +42,12 @@ FEATURE_EXTRACTOR_MODEL_PATHS = {
     }
 }
 
+SEQUENCE_MODEL_PATHS = {
+    "table":
+        pretrained_path.joinpath(
+            "table", "sequence_model", "sequence_model"
+        ).with_name('sequence.ckpt')
+
+}
+
 

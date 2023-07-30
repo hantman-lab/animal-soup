@@ -85,6 +85,15 @@ class FeatureExtractorDataframeExtension:
         """
         Train feature extractor model.
 
+        The flow generator will be reconstructed based on the ``mode`` in order to build the feature extractor.
+
+        You can specify your own model paths to the flow generator if you have already trained
+        them and want to use those model weights instead. However, you will need to specify the
+        ``flow_mode`` to match the correct model that the checkpoint path at ``flow_model_in``
+        is for so that the proper model can be reconstructed. See the table below for details on the correct mode/model
+        pairings. If `None`, then the flow generator reconstructed from the pre-trained models
+        will be default "fast".
+
         Parameters
         ----------
         mode: str, default 'slow'
@@ -127,7 +136,9 @@ class FeatureExtractorDataframeExtension:
             If you want to train the model using different model weights than the default. User can
             provide a location to a different model checkpoint. For example, if you had retrained the feature extractor
             previously and wanted to use those weights instead. This should be a path to a hidden_two_stream model
-            checkpoint that can be used to reconstruct the spatial and flow classifier.
+            checkpoint that can be used to reconstruct the spatial and flow classifier. The model being
+            reconstructed should align with the ``mode`` argument. See the table above for correct model/mode
+            pairings.
         model_out: str or Path, default None
             User provided location of where to store model output such as model checkpoint with updated weights,
             hdf5 file with model results/metrics, etc. Should be a directory. By default, the model output will get
@@ -143,7 +154,7 @@ class FeatureExtractorDataframeExtension:
             # if flow_mode is None raise, need to know what model to reconstruct
             if flow_mode is None:
                 raise ValueError("If you are using a non-default flow generator model checkpoint, you must"
-                                 "also specify the corresponding mode for the model you are reconstructing."
+                                 "also specify the corresponding 'flow_mode' for the model you are reconstructing."
                                  "See below for mode/model correspondence: \n "
                                  "{'slow': 'TinyMotionNet3D', 'medium': 'MotionNet', 'fast': 'TinyMotionNet}")
             # validate flow mode
@@ -157,7 +168,7 @@ class FeatureExtractorDataframeExtension:
         # check if model_out is valid
         if model_out is not None:
             # validate path
-            validate_path(model_out)
+            model_out = validate_path(model_out)
             # if model_out is not a directory, raise
             if not model_out.is_dir():
                 raise ValueError(f"path to store model output should be a directory")
@@ -366,7 +377,7 @@ class FeatureExtractorDataframeExtension:
                 value=[dict() for i in range(len(self._df.index))],
             )
 
-        # add flow gen model params to df
+        # add feature extr model params to df
         for ix in range(len(self._df.index)):
             self._df.loc[ix]["model_params"].update(
                 {"feature_extr_train": f"{model_params}"}
@@ -544,7 +555,7 @@ class FeatureExtractorSeriesExtensions:
             gpu_transform=get_gpu_inference_transforms(AUGS, conv_mode=conv_mode)
         )
 
-        return prediction_info
+        self._series["features"] = prediction_info
 
 
 def _build_classifier(

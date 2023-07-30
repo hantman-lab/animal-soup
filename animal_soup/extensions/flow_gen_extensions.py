@@ -106,7 +106,7 @@ class FlowGeneratorDataframeExtension:
         # check if model_out is valid
         if model_out is not None:
             # validate path
-            validate_path(model_out)
+            model_out = validate_path(model_out)
             # if model_out is not a directory, raise
             if not model_out.is_dir():
                 raise ValueError(f"path to store model output should be a directory")
@@ -326,6 +326,6 @@ def _load_pretrained_flow_model(
     model_dict.update(pretrained_dict)
     model.load_state_dict(model_dict, strict=True)
 
-    print("Successfully loaded model from checkpoint!")
+    print("Successfully loaded flow generator model from checkpoint!")
 
     return model, weight_path
