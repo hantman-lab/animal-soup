@@ -109,16 +109,19 @@ class SingleSequenceDataset(data.Dataset):
 
         self.feature = dict(features=sequence, logits=logits)
 
-        # after transpose, label will be of shape N_behaviors x T
-        self.label = prepare_label(label).T
-        self.class_counts = (self.label == 1).sum(axis=1)
-        self.num_pos = (self.label == 1).sum(axis=1)
-        self.num_neg = np.logical_not((self.label == 1)).sum(axis=1)
+        if label is not None:
+            # after transpose, label will be of shape N_behaviors x T
+            self.label = prepare_label(label).T
+            self.class_counts = (self.label == 1).sum(axis=1)
+            self.num_pos = (self.label == 1).sum(axis=1)
+            self.num_neg = np.logical_not((self.label == 1)).sum(axis=1)
 
-        self.metadata["vid_path"] = self.vid_path
-        self.metadata["class_counts"] = self.class_counts
-        self.metadata["num_pos"] = self.num_pos
-        self.metadata["num_neg"] = self.num_neg
+            self.metadata["vid_path"] = self.vid_path
+            self.metadata["class_counts"] = self.class_counts
+            self.metadata["num_pos"] = self.num_pos
+            self.metadata["num_neg"] = self.num_neg
+        else:
+            self.label = None
 
         self.sequence_length = sequence_length
         self.nonoverlapping = nonoverlapping
@@ -213,16 +216,17 @@ class SingleSequenceDataset(data.Dataset):
 
         pad_left, pad_right = label_pad
 
-        labels = self.label[:, label_indices].astype(np.int64)
-        if labels.ndim == 1:
-            labels = labels[:, np.newaxis]
-        labels = np.pad(labels, ((0, 0), (pad_left, pad_right)), mode='constant', constant_values=-1)
-        labels = labels.squeeze()
-        labels = torch.from_numpy(labels).to(torch.long)
-        output['labels'] = labels
+        if self.label is not None:
+            labels = self.label[:, label_indices].astype(np.int64)
+            if labels.ndim == 1:
+                labels = labels[:, np.newaxis]
+            labels = np.pad(labels, ((0, 0), (pad_left, pad_right)), mode='constant', constant_values=-1)
+            labels = labels.squeeze()
+            labels = torch.from_numpy(labels).to(torch.long)
+            output['labels'] = labels
 
-        if labels.ndim > 1 and labels.shape[1] != output['features'].shape[1]:
-            import pdb
-            pdb.set_trace()
+            if labels.ndim > 1 and labels.shape[1] != output['features'].shape[1]:
+                import pdb
+                pdb.set_trace()
 
         return output

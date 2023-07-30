@@ -36,6 +36,10 @@ MAX_EPOCHS = 1000
 MIN_BATCH_SIZE = 8
 MAX_BATCH_SIZE = 512
 
+DEFAULT_THRESHOLDS = np.array([0.46236533, 0.7990151, 0.8844337, 0.85931057, 0.59803015, 0.49251306, 0.7688673],
+                              dtype=np.float32)
+MIN_BOUT_LENGTH = 3
+
 
 @pd.api.extensions.register_dataframe_accessor("sequence")
 class SequenceModelDataframeExtension:
@@ -82,6 +86,7 @@ class SequenceModelDataframeExtension:
             | learning_rate | Stop training when learning rate drops below a given threshold, means loss |
             |               | has stopped improving                                                      |
             | num_epochs    | Stop training after a given number of epochs                               |
+
         model_in: str or Path, default None
             If you want to retrain the model using different model weights than the default. User can
             provide a location to a different model checkpoint. For example, if you had retrained the sequence model
@@ -266,8 +271,58 @@ class SequenceModelSeriesExtensions:
     def __init__(self, s: pd.Series):
         self._series = s
 
-    def infer(self):
-        pass
+    def infer(
+            self,
+            model_in: Union[str, Path] = None
+    ):
+        """
+
+        Parameters
+        ----------
+        model_in: str or Path, default None
+            If you want to retrain the model using different model weights than the default. User can
+            provide a location to a different model checkpoint. For example, if you had retrained the sequence model
+            previously and wanted to use those weights for inference instead.
+
+        """
+        # check valid model_in if not None
+        if model_in is not None:
+            model_in = validate_checkpoint_path(model_in)
+
+        # in order to run sequence inference, you need to have previously done feature extractor inference
+        extracted_features = self._series["features"]
+        if extracted_features is None:
+            raise ValueError("In order to run sequence inference. You must first have run feature extraction"
+                             "inference. Please extract the features for this trial before trying to run sequence"
+                             "inference again.")
+
+        # set experiment type
+        exp_type = self._series["exp_type"]
+
+        # reload model
+        num_classes = len(BEHAVIOR_CLASSES) + 1
+
+        model, model_in = _load_pretrained_sequence_model(
+            weight_path=model_in,
+            exp_type=exp_type,
+            num_classes=num_classes,
+            num_pos=None,
+            num_neg=None
+        )
+
+        prediction_info = predict_single_video(
+            vid_path=resolve_path(self._series["vid_path"]),
+            sequence_model=model,
+            nonoverlapping=DEFAULT_DATA_PARAMS["nonoverlapping"],
+            sequence_length=DEFAULT_DATA_PARAMS["sequence_length"],
+            features=self._series["features"]
+        )
+
+        #post processing
+        final_ethogram = min_bout_post_process(prediction_info, DEFAULT_THRESHOLDS, MIN_BOUT_LENGTH)
+
+
+        self._series["ethograms"] = final_ethogram
 
 
 def _load_pretrained_sequence_model(
