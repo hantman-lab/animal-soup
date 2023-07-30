@@ -31,7 +31,7 @@ os.makedirs(ground_truth_dir, exist_ok=True)
 
 def _download_ground_truth():
     print(f"Downloading ground truth data")
-    url = 'https://zenodo.org/record/8178778/files/ground_truth.zip'
+    url = 'https://zenodo.org/record/8197672/files/ground_truth.zip'
 
     # basically from https://stackoverflow.com/questions/37573483/progress-bar-while-download-file-over-http-with-requests/37573701
     response = requests.get(url, stream=True)
@@ -50,7 +50,7 @@ def _download_ground_truth():
 
 def _download_sample_data():
     print(f"Downloading sample data")
-    url = 'https://zenodo.org/record/8178778/files/sample_data.zip'
+    url = 'https://zenodo.org/record/8197672/files/sample_data.zip'
 
     # basically from https://stackoverflow.com/questions/37573483/progress-bar-while-download-file-over-http-with-requests/37573701
     response = requests.get(url, stream=True)
