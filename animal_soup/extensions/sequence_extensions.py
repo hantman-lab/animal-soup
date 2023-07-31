@@ -38,7 +38,7 @@ MAX_BATCH_SIZE = 512
 
 DEFAULT_THRESHOLDS = np.array([0.46236533, 0.7990151, 0.8844337, 0.85931057, 0.59803015, 0.49251306, 0.7688673],
                               dtype=np.float32)
-MIN_BOUT_LENGTH = 3
+MIN_BOUT_LENGTH = 2
 
 
 @pd.api.extensions.register_dataframe_accessor("sequence")
@@ -311,8 +311,9 @@ class SequenceModelSeriesExtensions:
         #post processing
         final_ethogram = min_bout_post_process(prediction_info, DEFAULT_THRESHOLDS, MIN_BOUT_LENGTH)
 
-
         self._series["ethograms"] = final_ethogram
+
+        return prediction_info
 
 
 def _load_pretrained_sequence_model(

@@ -14,6 +14,29 @@ from ..data import VideoIterable
 from .utils import *
 
 
+def print_debug_statement(images, logits, spatial_features, flow_features, probabilities):
+    print('images shape: {}'.format(images.shape))
+    print('logits shape: {}'.format(logits.shape))
+    print('spatial_features shape: {}'.format(spatial_features.shape))
+    print('flow_features shape: {}'.format(flow_features.shape))
+    print('spatial: min {} mean {} max {} shape {}'.format(spatial_features.min(), spatial_features.mean(),
+                                                              spatial_features.max(), spatial_features.shape))
+    print('flow   : min {} mean {} max {} shape {}'.format(flow_features.min(), flow_features.mean(),
+                                                              flow_features.max(), flow_features.shape))
+    # a common issue I've had is not properly z-scoring input channels. this will check for that
+    if len(images.shape) == 4:
+        N, C, H, W = images.shape
+    elif images.ndim == 5:
+        N, C, T, H, W = images.shape
+    else:
+        raise ValueError('images of unknown shape: {}'.format(images.shape))
+
+    print('channel min:  {}'.format(images[0].reshape(C, -1).min(dim=1).values))
+    print('channel mean: {}'.format(images[0].reshape(C, -1).mean(dim=1)))
+    print('channel max : {}'.format(images[0].reshape(C, -1).max(dim=1).values))
+    print('channel std : {}'.format(images[0].reshape(C, -1).std(dim=1)))
+
+
 def predict_single_video(
         vid_path: Path,
         hidden_two_stream: HiddenTwoStream,
@@ -86,6 +109,8 @@ def predict_single_video(
 
     buffer = {}
 
+    has_printed = False
+
     for i, batch in enumerate(tqdm(dataloader, leave=False)):
         if isinstance(batch, dict):
             images = batch['images']
@@ -102,7 +127,8 @@ def predict_single_video(
             logits = hidden_two_stream(images)
             spatial_features = activation['spatial']
             flow_features = activation['flow']
-        
+
+
         # because we are using iterable datasets, each batch will be a consecutive chunk of frames from one worker
         # but they might be from totally different chunks of the video. therefore, we return the frame numbers,
         # and use this to store into our buffer in the right location

@@ -196,7 +196,7 @@ class SingleVideoDataset(data.Dataset):
         # images are now numpy arrays of shape 3, H, W
         # stacking in the first dimension changes to 3, T, H, W, compatible with Conv3D
         images = np.stack(images, axis=1)
-        images = images.transpose(2, 1, 0, 3)
+        images = images.transpose(2, 1, 3, 0)
 
         outputs = {"images": images}
 
@@ -377,7 +377,7 @@ class VideoIterable(data.IterableDataset):
         for i in range(start, end):
             self.buffer.append(self.get_current_item())
 
-            yield {'images': np.stack(self.buffer, axis=1).transpose(2, 1, 0, 3), 'framenum': self.cnt - 1 - self.sequence_length // 2}
+            yield {'images': np.stack(self.buffer, axis=1).transpose(2, 1, 3, 0), 'framenum': self.cnt - 1 - self.sequence_length // 2}
 
     def get_current_item(self):
         worker_info = data.get_worker_info()
@@ -395,6 +395,7 @@ class VideoIterable(data.IterableDataset):
                 print(f'problem reading frame {self.cnt}')
                 raise
             im = self.transform(im)
+
         self.cnt += 1
         return im
 

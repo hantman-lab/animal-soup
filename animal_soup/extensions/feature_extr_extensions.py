@@ -526,6 +526,7 @@ class FeatureExtractorSeriesExtensions:
         # calculate norm augmentation values for given videos in dataframe
         print("Calculating vid normalization statistics")
         normalization = get_normalization([resolve_path(self._series["vid_path"])])
+
         # update AUGS
         AUGS = DEFAULT_AUGS.copy()
         AUGS["normalization"] = normalization
