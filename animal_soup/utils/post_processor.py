@@ -50,7 +50,7 @@ def min_bout_post_process(
     predictions: dict
         Dictionary containing the probabilities and logits from sequence inference.
     min_bout_length: int, default 1
-        The minimum default bout length a behavior must occur across consecutive time-points to be
+        The minimum bout length a given behavior must occur across consecutive time-points to be
         classified as occurring.
 
     Returns

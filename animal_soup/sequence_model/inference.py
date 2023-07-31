@@ -9,6 +9,7 @@ def predict_single_video(
     vid_path: Path,
     sequence_model: TGMJ,
     features: dict,
+    gpu_id: int = 0,
     nonoverlapping: bool = True,
     sequence_length: int = 60,
 
@@ -18,6 +19,8 @@ def predict_single_video(
 
     Parameters
     ----------
+    gpu_id: int, default 0
+        Integer of GPU id to be used for inference, assumes only one GPU available.
     vid_path: Path
         Path to current video trial.
     sequence_model: TGMJ
@@ -36,7 +39,7 @@ def predict_single_video(
 
     """
     torch.backends.cudnn.benchmark = True
-    device = torch.device("cpu")
+    device = torch.device(gpu_id)
 
     activation_function = torch.nn.Sigmoid()
 

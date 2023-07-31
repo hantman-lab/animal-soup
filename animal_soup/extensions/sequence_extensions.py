@@ -116,16 +116,8 @@ class SequenceModelDataframeExtension:
         if os.listdir(model_out):
             raise ValueError(f"directory to store model output should be empty")
 
-        # validate only one experiment type being used in training
-        if len(set(self._df["exp_type"].values)) > 1:
-            raise ValueError("Training can only be completed with experiments of same type. "
-                             f"The current experiments in your dataframe are: {set(list(self._df['exp_type']))} "
-                             "Take a subset of your dataframe to train with one kind of experiment.")
-            # validate that an exp_type has been set
-        if None in set(self._df["exp_type"].values):
-            raise ValueError("The experiment type for trials in your dataframe has not been set. Please"
-                             "set the `exp_type` column in your dataframe before attempting training.")
-        exp_type = list(self._df["exp_type"])[0]
+        # validate experiment type
+        exp_type = validate_exp_type(self._df)
 
         # check gpu_id
         gpu_options = get_gpu_options()
@@ -276,14 +268,12 @@ class SequenceModelSeriesExtensions:
             model_in: Union[str, Path] = None
     ):
         """
-
         Parameters
         ----------
         model_in: str or Path, default None
-            If you want to retrain the model using different model weights than the default. User can
-            provide a location to a different model checkpoint. For example, if you had retrained the sequence model
-            previously and wanted to use those weights for inference instead.
-
+            If you want to use your own model instead of the default you can provide a location to a different model
+            checkpoint. For example, if you retrained the sequence model for a new behavioral task or setup and want to
+            use those weights for inference instead of the default models.
         """
         # check valid model_in if not None
         if model_in is not None:
@@ -291,10 +281,10 @@ class SequenceModelSeriesExtensions:
 
         # in order to run sequence inference, you need to have previously done feature extractor inference
         extracted_features = self._series["features"]
-        if extracted_features is None:
-            raise ValueError("In order to run sequence inference. You must first have run feature extraction"
-                             "inference. Please extract the features for this trial before trying to run sequence"
-                             "inference again.")
+        if not extracted_features:
+            print("Feature extraction has not been run for this trial yet. Will extract features using default "
+                  "mode: 'fast'.")
+            self._series.feature_extractor.infer(mode="fast")
 
         # set experiment type
         exp_type = self._series["exp_type"]
