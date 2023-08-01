@@ -82,11 +82,13 @@ class SequenceModelDataframeExtension:
         stop_method: str, default learning_rate
             Method for stopping training. Argument must be one of ["learning_rate", "num_epochs"]
 
-            | stop method   | description                                                                |
-            |---------------|----------------------------------------------------------------------------|
-            | learning_rate | Stop training when learning rate drops below a given threshold, means loss |
-            |               | has stopped improving                                                      |
-            | num_epochs    | Stop training after a given number of epochs                               |
+            +---------------+----------------------------------------------------------------------------------------------------+
+            | stop method   | description                                                                                        |
+            +===============+====================================================================================================+
+            | learning_rate | Stop training when learning rate drops below a given threshold, means loss has stopped improving   |
+            +---------------+----------------------------------------------------------------------------------------------------+
+            | num_epochs    | Stop training after a given number of epochs                                                       |
+            +---------------+----------------------------------------------------------------------------------------------------+
 
         model_in: str or Path, default None
             If you want to retrain the model using different model weights than the default. User can

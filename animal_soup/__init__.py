@@ -22,4 +22,9 @@ __all__ = [
     "EthogramVizContainer",
     "EthogramCleanerVizContainer",
     "EthogramComparisonVizContainer",
+    "FeatureExtractorSeriesExtensions",
+    "FeatureExtractorDataframeExtension",
+    "FlowGeneratorDataframeExtension",
+    "SequenceModelSeriesExtensions",
+    "SequenceModelDataframeExtension"
 ]
