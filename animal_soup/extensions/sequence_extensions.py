@@ -1,10 +1,11 @@
+import h5py
+
 from ..utils import *
 import os
 from ..data import SequenceDataset
 from .feature_extr_extensions import BEHAVIOR_CLASSES
 import pprint
 from ..sequence_model import *
-
 
 # default parameters for sequence
 DEFAULT_DATA_PARAMS = {
@@ -183,17 +184,17 @@ class SequenceModelDataframeExtension:
 
         # create sequence datasets for training
         datasets = SequenceDataset(
-                            vid_paths=training_vids,
-                            labels=ethograms,
-                            features=extracted_features,
-                            nonoverlapping=DEFAULT_DATA_PARAMS["nonoverlapping"],
-                            sequence_length=DEFAULT_DATA_PARAMS["sequence_length"]
-                            )
+            vid_paths=training_vids,
+            labels=ethograms,
+            features=extracted_features,
+            nonoverlapping=DEFAULT_DATA_PARAMS["nonoverlapping"],
+            sequence_length=DEFAULT_DATA_PARAMS["sequence_length"]
+        )
 
         dataset_metadata = datasets.dataset_info
 
         # create TGMJ model, no pre-trained weights needed
-        num_classes = len(BEHAVIOR_CLASSES) + 1 # account for background
+        num_classes = len(BEHAVIOR_CLASSES) + 1  # account for background
 
         # reload weights from file, want to use pretrained weights
         model, model_in = _load_pretrained_sequence_model(
@@ -265,7 +266,8 @@ class SequenceModelSeriesExtensions:
 
     def infer(
             self,
-            model_in: Union[str, Path] = None
+            model_in: Union[str, Path] = None,
+            gpu_id: int = 0
     ):
         """
         Parameters
@@ -274,17 +276,41 @@ class SequenceModelSeriesExtensions:
             If you want to use your own model instead of the default you can provide a location to a different model
             checkpoint. For example, if you retrained the sequence model for a new behavioral task or setup and want to
             use those weights for inference instead of the default models.
+        gpu_id: int, default 0
+            Specify which gpu to use for training the model.
         """
         # check valid model_in if not None
         if model_in is not None:
             model_in = validate_checkpoint_path(model_in)
 
         # in order to run sequence inference, you need to have previously done feature extractor inference
-        extracted_features = self._series["features"]
-        if not extracted_features:
-            print("Feature extraction has not been run for this trial yet. Will extract features using default "
-                  "mode: 'fast'.")
-            self._series.feature_extractor.infer(mode="fast")
+        output_path = get_parent_raw_data_path().joinpath(self._series["output_path"])
+        # checking for output path to retrieve features
+        if not os.path.exists(output_path):
+            print("No outputs from feature extraction found. Running feature extraction now with default "
+                  "mode = 'fast'.")
+
+            self._series.feature_extractor.infer(mode='fast', gpu_id=gpu_id)
+        else:
+            # check if trial in keys
+            with h5py.File(output_path, "r+") as f:
+
+                # not in keys, feature extraction has not been run
+                if self._series["trial_id"] not in f.keys():
+
+                    print("Feature extraction has not been run for this trial yet. Running feature extraction now"
+                          " with default mode = 'fast'")
+                    self._series.feature_extractor.infer(mode='fast', gpu_id=gpu_id)
+
+                # load in features to pass to sequence model
+                features = dict()
+
+                features["logits"] = f[self._series["trial_id"]]["features"]["logits"][:]
+                features["probabilities"] = f[self._series["trial_id"]]["features"]["probabilities"][:]
+                features["spatial_features"] = f[self._series["trial_id"]]["features"]["spatial_features"][:]
+                features["flow_features"] = f[self._series["trial_id"]]["features"]["flow_features"][:]
+
+                f.close()
 
         # set experiment type
         exp_type = self._series["exp_type"]
@@ -301,27 +327,70 @@ class SequenceModelSeriesExtensions:
         )
 
         prediction_info = predict_single_video(
+            gpu_id=gpu_id,
             vid_path=resolve_path(self._series["vid_path"]),
             sequence_model=model,
             nonoverlapping=DEFAULT_DATA_PARAMS["nonoverlapping"],
             sequence_length=DEFAULT_DATA_PARAMS["sequence_length"],
-            features=self._series["features"]
+            features=features
         )
 
-        #post processing
+        # post processing
         final_ethogram = min_bout_post_process(prediction_info, DEFAULT_THRESHOLDS, MIN_BOUT_LENGTH)
 
-        self._series["ethograms"] = final_ethogram
+        # update h5 file with final_ethogram and pred_info
+        with h5py.File(output_path, "r+") as f:
 
-        return prediction_info
+            if "sequence" not in f[self._series["trial_id"]].keys():
+                sequence_group = f[self._series["trial_id"]].create_group("sequence")
+
+                sequence_group.create_dataset("logits",
+                                              data=prediction_info["logits"],
+                                              dtype=np.float32)
+                sequence_group.create_dataset("probabilities",
+                                              data=prediction_info["probabilities"],
+                                              dtype=np.float32)
+            else:
+
+                del f[self._series["trial_id"]]["sequence"]
+
+                sequence_group = f[self._series["trial_id"]].create_group("sequence")
+
+                sequence_group.create_dataset("logits",
+                                              data=prediction_info["logits"],
+                                              dtype=np.float32)
+                sequence_group.create_dataset("probabilities",
+                                              data=prediction_info["probabilities"],
+                                              dtype=np.float32)
+
+            if "ethogram" not in f[self._series["trial_id"]].keys():
+
+                ethogram_group = f[self._series["trial_id"]].create_group("ethogram")
+
+                ethogram_group.create_dataset("ethogram",
+                                              data=final_ethogram,
+                                              dtype=np.int32)
+
+            else:
+                del f[self._series["trial_id"]]["ethogram"]
+
+                ethogram_group = f[self._series["trial_id"]].create_group("ethogram")
+
+                ethogram_group.create_dataset("ethogram",
+                                              data=final_ethogram,
+                                              dtype=np.int32)
+
+            f.close()
+
+        print("Successfully saved sequence outputs to disk!")
 
 
 def _load_pretrained_sequence_model(
-            weight_path: Path,
-            exp_type: str,
-            num_classes: int,
-            num_pos: np.ndarray,
-            num_neg: np.ndarray
+        weight_path: Path,
+        exp_type: str,
+        num_classes: int,
+        num_pos: np.ndarray,
+        num_neg: np.ndarray
 ):
     """
 
@@ -405,5 +474,3 @@ def _load_pretrained_sequence_model(
     print("Successfully loaded sequence model from checkpoint!")
 
     return model, weight_path
-
-

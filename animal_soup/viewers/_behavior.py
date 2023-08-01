@@ -38,7 +38,8 @@ class BehaviorVizContainer:
             "exp_type",
             "deg_preds",
             "model_params",
-            "vid_paths",
+            "vid_path",
+            "output_path"
         ]
 
         columns = dataframe.columns

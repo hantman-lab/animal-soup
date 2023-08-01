@@ -7,7 +7,7 @@ FLOW_GEN_MODEL_PATHS = {
     "table": {
         "TinyMotionNet3D": pretrained_path.joinpath(
             "table", "flow_generator", "flow_generator",
-        ).with_name("TinyMotionNet3D.ckpt"),
+        ).with_name("TinyMotionNet3D.pt"),
         "TinyMotionNet": pretrained_path.joinpath(
             "table", "flow_generator", "flow_generator",
         ).with_name("TinyMotionNet.ckpt"),
@@ -29,7 +29,7 @@ FEATURE_EXTRACTOR_MODEL_PATHS = {
     "table": {
         "fast": pretrained_path.joinpath(
             "table", "feature_extractor", "feature_extractor"
-        ).with_name("hidden_two_stream_fast.ckpt"),
+        ).with_name("hidden_two_stream_fast.pt"),
         "medium": pretrained_path.joinpath(
             "table", "feature_extractor", "feature_extractor"
         ).with_name("hidden_two_stream_medium.ckpt"),

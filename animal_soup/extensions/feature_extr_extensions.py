@@ -1,3 +1,5 @@
+import h5py
+
 from ..utils import *
 from ..data import VideoDataset
 import pprint
@@ -77,7 +79,6 @@ class FeatureExtractorDataframeExtension:
             initial_lr: float = 0.0001,
             stop_method: str = "learning_rate",
             flow_model_in: Union[str, Path] = None,
-            flow_mode: str = None,
             flow_window: int = 11,
             feature_model_in: Union[str, Path] = None,
             model_out: Union[str, Path] = None,
@@ -86,12 +87,20 @@ class FeatureExtractorDataframeExtension:
         Train feature extractor model.
 
         The flow generator used to reconstruct the feature extractor will be reconstructed based on the ``mode`` (
-        default 'fast') by default unless a user-specified flow generator model checkpoint is passed to
+        default 'fast') by default unless a user-specified flow generator model checkpoint can be passed to
         ``flow_model_in``. If you specify your own model paths to the flow generator (perhaps you have re-trained
         it previously and want to use those model weights instead), in order to have the correct flow generator model
-        reconstructed, you must specify the correct ``flow_mode``. For example, if the flow generator model
-        checkpoint is for a TinyMotionNet model, then you should specify ``flow_mode`` as 'fast'. See the table below
-        for details on the correct mode/model pairings.
+        reconstructed, the ``mode`` argument must match the flow generator model type you are trying to instantiate.
+        For example, if the flow generator model checkpoint is for a TinyMotionNet model, then you should specify
+        ``mode`` as 'slow`.
+
+        Additionally, a user may also specify a ``feature_model_in`` which can be used to reconstruct the feature model
+        being used for training. For example, you have already re-trained the feature extractor and want to use
+        those model weights instead. However, if you are passing in both a ``flow_model_in`` and ``feature_model_in``,
+        the specified ``mode`` must match the type of flow generator and feature extractor you are trying to
+        instantiate.
+
+        See the table below for details on the correct mode/model pairings.
 
         Parameters
         ----------
@@ -123,12 +132,6 @@ class FeatureExtractorDataframeExtension:
         flow_model_in: str or Path, default None
             Location of checkpoint used for flow generator. If None, then will use default checkpoint of flow
             generator based on the mode.
-        flow_mode: str, default None
-            One of ["slow", "medium", "fast"]. If you are using a different flow generator checkpoint than the
-            default, you need to specify the mode so the correct flow generator can be
-            reconstructed. If None, then the flow generator reconstructed will be based on the ``mode``
-            argument. See the table above for more details on which flow generator will be reconstructed based on
-            the ``mode``.
         flow_window: int, default 11
             Flow window size. Used to infer optic flow features to pass to the feature extractor.
         feature_model_in: str or Path, default None
@@ -150,19 +153,6 @@ class FeatureExtractorDataframeExtension:
         # validate flow_model_in and flow_mode
         if flow_model_in is not None:
             flow_model_in = validate_checkpoint_path(flow_model_in)
-            # if flow_mode is None raise, need to know what model to reconstruct
-            if flow_mode is None:
-                raise ValueError("If you are using a non-default flow generator model checkpoint, you must"
-                                 "also specify the corresponding 'flow_mode' for the model you are reconstructing."
-                                 "See below for mode/model correspondence: \n "
-                                 "{'slow': 'TinyMotionNet3D', 'medium': 'MotionNet', 'fast': 'TinyMotionNet}")
-            # validate flow mode
-            if flow_mode not in ["slow", "medium", "fast"]:
-                raise ValueError(f'flow_mode: {flow_mode} must be one of ["slow", "medium", "fast"]')
-
-        # if using default pre-trained checkpoints, will construct models of same speed for flow and feature
-        if flow_model_in is None:
-            flow_mode = mode
 
         # check if model_out is valid
         if model_out is not None:
@@ -266,7 +256,7 @@ class FeatureExtractorDataframeExtension:
 
         # reload flow generator model
         flow_model, flow_model_in = _load_pretrained_flow_model(
-            weight_path=flow_model_in, mode=flow_mode, flow_window=flow_window, exp_type=exp_type
+            weight_path=flow_model_in, mode=mode, flow_window=flow_window, exp_type=exp_type
         )
 
         num_classes = len(BEHAVIOR_CLASSES) + 1  # account for background
@@ -391,7 +381,6 @@ class FeatureExtractorSeriesExtensions:
             gpu_id: int = 0,
             feature_model_in: Union[str, Path] = None,
             flow_model_in: Union[str, Path] = None,
-            flow_mode: str = None,
             flow_window: int = 11
     ):
         """
@@ -413,21 +402,18 @@ class FeatureExtractorSeriesExtensions:
             Specify which gpu to use for training the model.
         flow_model_in: str or Path, default None
             Location of checkpoint used for flow generator. If None, then will use default checkpoint of flow
-            generator based on the mode.
-        flow_mode: str, default None
-            One of ["slow", "medium", "fast"]. If you are using a different flow generator checkpoint than the
-            default, you need to specify the mode so the correct flow generator and flow classifier can be
-            reconstructed.
+            generator based on the mode. Note: If using a non-default flow generator checkpoint, the flow
+            generator instantiated must match the ``mode`` argument. For example, if the ``flow_model_in``
+            checkpoint is to a TinyMotionNet model, then the ``mode`` argument should be 'fast'.
         flow_window: int, default 11
             Flow window size. Used to infer optic flow features to pass to the feature extractor.
         feature_model_in: str or Path, default None
             If you want to train the model using different model weights than the default. User can
             provide a location to a different model checkpoint. For example, if you had retrained the feature extractor
             previously and wanted to use those weights instead. This should be a path to a hidden_two_stream model
-            checkpoint that can be used to reconstruct the spatial and flow classifier.
-
-        Returns
-        -------
+            checkpoint that can be used to reconstruct the spatial and flow classifier. Note: if also passing in
+            a non-default checkpoint to reconstruct a re-trained flow generator, ``flow_model_in`` is not None, then
+            the model checkpoints must be for the same ``mode``. See table above for mode/model pairings.
 
         """
         # validate feature_model_in
@@ -437,19 +423,6 @@ class FeatureExtractorSeriesExtensions:
         # validate flow_model_in and flow_mode
         if flow_model_in is not None:
             flow_model_in = validate_checkpoint_path(flow_model_in)
-            # if flow_mode is None raise, need to know what model to reconstruct
-            if flow_mode is None:
-                raise ValueError("If you are using a non-default flow generator model checkpoint, you must"
-                                 "also specify the corresponding mode for the model you are reconstructing."
-                                 "See below for mode/model correspondence: \n "
-                                 "{'slow': 'TinyMotionNet3D', 'medium': 'MotionNet', 'fast': 'TinyMotionNet}")
-            # validate flow mode
-            if flow_mode not in ["slow", "medium", "fast"]:
-                raise ValueError(f'flow_mode: {flow_mode} must be one of ["slow", "medium", "fast"]')
-
-        # if using default pre-trained checkpoints, will construct models of same speed for flow and feature
-        if flow_model_in is None:
-            flow_mode = mode
 
         # check valid mode
         if mode not in TRAINING_OPTIONS.keys():
@@ -468,7 +441,7 @@ class FeatureExtractorSeriesExtensions:
         # reconstruct hidden two stream
         # reload flow generator model
         flow_model, flow_model_in = _load_pretrained_flow_model(
-            weight_path=flow_model_in, mode=flow_mode, flow_window=flow_window, exp_type=exp_type
+            weight_path=flow_model_in, mode=mode, flow_window=flow_window, exp_type=exp_type
         )
 
         num_classes = len(BEHAVIOR_CLASSES) + 1  # account for background
@@ -546,7 +519,76 @@ class FeatureExtractorSeriesExtensions:
             gpu_transform=get_gpu_inference_transforms(AUGS, conv_mode=conv_mode)
         )
 
-        self._series["features"] = prediction_info
+        output_path = get_parent_raw_data_path().joinpath(self._series["output_path"])
+        # write output to hdf5 file per session
+
+        # if file does not exist, write mode
+        if not output_path.is_file():
+            with h5py.File(output_path, "w") as f:
+                # create group for trial
+                trial = f.create_group(self._series["trial_id"])
+                # create feature group and add relevant datasets
+                feature_group = trial.create_group("features")
+                feature_group.create_dataset("spatial_features",
+                                             prediction_info["spatial_features"].numpy(),
+                                             dtype=np.float32)
+                feature_group.create_dataset("flow_features",
+                                             prediction_info["flow_features"].numpy(),
+                                             dtype=np.float32)
+                feature_group.create_dataset("logits",
+                                             prediction_info["logits"].numpy(),
+                                             dtype=np.float32)
+                feature_group.create_dataset("probabilities",
+                                             prediction_info["probabilities"].numpy(),
+                                             dtype=np.float32)
+                f.close()
+        else:
+            # file already exists, del group and recreate if exists otherwise just create
+            with h5py.File(output_path, "r+") as f:
+
+                if self._series["trial_id"] not in f.keys():
+                    # create group for trial
+                    trial = f.create_group(self._series["trial_id"])
+                    # create feature group and add relevant datasets
+                    feature_group = trial.create_group("features")
+                    feature_group.create_dataset("spatial_features",
+                                                 data=prediction_info["spatial_features"].numpy(),
+                                                 dtype=np.float32)
+                    feature_group.create_dataset("flow_features",
+                                                 data=prediction_info["flow_features"].numpy(),
+                                                 dtype=np.float32)
+                    feature_group.create_dataset("logits",
+                                                 data=prediction_info["logits"].numpy(),
+                                                 dtype=np.float32)
+                    feature_group.create_dataset("probabilities",
+                                                 data=prediction_info["probabilities"].numpy(),
+                                                 dtype=np.float32)
+
+                    f.close()
+
+                else:
+                    # delete group and remake
+                    del f[self._series["trial_id"]]
+
+                    trial = f.create_group(self._series["trial_id"])
+                    # create feature group and add relevant datasets
+                    feature_group = trial.create_group("features")
+                    feature_group.create_dataset("spatial_features",
+                                                 data=prediction_info["spatial_features"].numpy(),
+                                                 dtype=np.float32)
+                    feature_group.create_dataset("flow_features",
+                                                 data=prediction_info["flow_features"].numpy(),
+                                                 dtype=np.float32)
+                    feature_group.create_dataset("logits",
+                                                 data=prediction_info["logits"].numpy(),
+                                                 dtype=np.float32)
+                    feature_group.create_dataset("probabilities",
+                                                 data=prediction_info["probabilities"].numpy(),
+                                                 dtype=np.float32)
+
+                    f.close()
+
+        print("Successfully saved feature extraction output to disk!")
 
 
 def _build_classifier(
