@@ -48,5 +48,6 @@ html_theme = 'pydata_sphinx_theme'
 autoclass_content = "both"
 
 html_static_path = ['_static']
+html_logo = "_static/logo.png"
 
 autodoc_member_order = 'bysource'

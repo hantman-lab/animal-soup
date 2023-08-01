@@ -29,7 +29,7 @@ It is a collection of "pandas extensions", which are functions that operate on p
 ``animal-soup`` essentially creates a user-friendly "psuedo-database" of your behavioral data, interfacing with
 with `fastplotlib <https://github.com/fastplotlib/fastplotlib>`_ for fast visualization and editing of
 predicted behavioral labels. Behavioral classification training and inference has been adopted from
-`DeepEthogram <https://github.com/jbohnslav/deepethogram>`_
+`DeepEthogram <https://github.com/jbohnslav/deepethogram>`_.
 
 Installation
 ============

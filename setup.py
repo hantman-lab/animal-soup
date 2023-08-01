@@ -24,7 +24,10 @@ install_requires = [
     "tensorflow",
     "matplotlib",
     "torchvision",
-    "h5py"
+    "h5py",
+    "sphinx",
+    "sphinx-design",
+    "pydata-sphinx-theme"
 ]
 
 with open(Path(__file__).parent.joinpath("README.md")) as f:
