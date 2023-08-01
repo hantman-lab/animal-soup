@@ -230,7 +230,7 @@ class ToFloat(torch.nn.Module):
         super().__init__()
 
     def forward(self, tensor: torch.Tensor) -> torch.Tensor:
-        return tensor.float().div(255)
+        return tensor.float()
 
     def __repr__(self):
         return self.__class__.__name__ + "()"
@@ -275,7 +275,7 @@ def get_cpu_transforms(augs: Dict[str, Any]) -> torchvision.transforms:
 
     if "crop_size" in augs.keys() and augs["crop_size"] is not None:
         transforms.append(
-            torchvision.transforms.RandomCrop(augs["cro_size"], antialias=True)
+            torchvision.transforms.RandomCrop(augs["crop_size"], antialias=True)
         )
     if "resize" in augs.keys() and augs["resize"] is not None:
         transforms.append(torchvision.transforms.Resize(augs["resize"], antialias=True))

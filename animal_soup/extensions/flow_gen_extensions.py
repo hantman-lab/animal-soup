@@ -106,7 +106,7 @@ class FlowGeneratorDataframeExtension:
         # check if model_out is valid
         if model_out is not None:
             # validate path
-            validate_path(model_out)
+            model_out = validate_path(model_out)
             # if model_out is not a directory, raise
             if not model_out.is_dir():
                 raise ValueError(f"path to store model output should be a directory")
@@ -118,17 +118,8 @@ class FlowGeneratorDataframeExtension:
         if os.listdir(model_out):
             raise ValueError(f"directory to store model output should be empty")
 
-        # validate only one experiment type being used in training
-        if len(set(self._df["exp_type"].values)) > 1:
-            raise ValueError("Training can only be completed with experiments of same type. "
-                             f"The current experiments in your dataframe are: {set(list(self._df['exp_type']))} "
-                             "Take a subset of your dataframe to train with one kind of experiment.")
-            # validate that an exp_type has been set
-        if None in set(self._df["exp_type"].values):
-            raise ValueError("The experiment type for trials in your dataframe has not been set. Please"
-                             "set the `exp_type` column in your dataframe before attempting training.")
-        # set the experiment type
-        exp_type = list(self._df["exp_type"])[0]
+        # validate experiment type
+        exp_type = validate_exp_type(self._df)
 
         # check valid mode
         if mode not in TRAINING_OPTIONS.keys():
@@ -326,6 +317,6 @@ def _load_pretrained_flow_model(
     model_dict.update(pretrained_dict)
     model.load_state_dict(model_dict, strict=True)
 
-    print("Successfully loaded model from checkpoint!")
+    print("Successfully loaded flow generator model from checkpoint!")
 
     return model, weight_path

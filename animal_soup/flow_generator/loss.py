@@ -1,4 +1,8 @@
-"""File for MotionNet loss used in training the flow generator."""
+"""
+File for MotionNet loss used in training the flow generator.
+
+Taken from: https://github.com/jbohnslav/deepethogram/blob/master/deepethogram/flow_generator/losses.py
+"""
 
 import torch
 import torch.nn.functional as F

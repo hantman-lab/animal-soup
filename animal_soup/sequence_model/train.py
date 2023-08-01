@@ -1,119 +1,84 @@
 import pytorch_lightning as pl
 import torch.nn
-from ..utils import get_gpu_transforms
 import numpy as np
-from .models import HiddenTwoStream
-from .loss import *
-from ..utils import L2, L2_SP
-from typing import *
-from ..utils import (
-    PrintCallback,
-    PlotLossCallback,
-    CheckpointCallback,
-    CheckStopCallback,
-)
+from ..feature_extractor import BinaryFocalLoss, ClassificationLoss
+from ..utils import L2, L2_SP, PlotLossCallback, PrintCallback, CheckpointCallback, CheckStopCallback
 from pathlib import Path
+from typing import *
+
+from .models import TGMJ
 
 DEFAULT_TRAINING_PARAMS = {
     "min_lr": 5e-07,
-    "num_epochs": 20,
-    "patience": 3,
+    "num_epochs": 100,
+    "patience": 5,
     "reduction_factor": 0.1,
     "steps_per_epoch": 1000,
-    "regularization": {"alpha": 1.0e-05, "beta": 0.001, "style": "l2_sp"},
+    "regularization": {"alpha": 1.0e-05, "beta": 0.001, "style": "l2"},
     "label_smoothing": 0.05,
     "loss_gamma": 1.0
 }
 
 
-class HiddenTwoStreamLightningModule(pl.LightningModule):
+class SequenceLightningModule(pl.LightningModule):
     def __init__(
             self,
-            hidden_two_stream: HiddenTwoStream,
+            sequence_model: TGMJ,
             model_in: Union[str, Path],
-            gpu_id: int,
             datasets: dict,
-            classifier_name: str,
+            gpu_id: int = 0,
             initial_lr: float = 0.0001,
             batch_size: int = 32,
-            augs: dict = None,
     ):
         """
-        Class for training hidden two stream model for feature extractor using a lightning module.
+        PyTorch Lightning module for sequence model training.
 
         Parameters
         ----------
-        hidden_two_stream: HiddenTwoStream
-            Hidden two stream model for feature extraction.
-        model_in: str or Path
-            Location of model weights used to reload the model previously. Needed for L2_SP regularization.
-        gpu_id: int
-            GPU to be used for training.
+        sequence_model: TGMJ
+            Sequence model.
         datasets: dict
-            Dictionary of datasets created from available trials in the dataframe.
-        classifier_name: str
-            One of ['resnet18', 'resnet50', 'resnet34_3d'].
+            Datasets for training based on the current trials in the dataframe.
+        gpu_id: int, default 0
+            Integer id of gpu to be used for training, assumes only 1 option.
         initial_lr: float, default 0.0001
-            Learning rate to begin training with/
+            Initial learning rate.
         batch_size: int, default 32
             Batch size.
-        augs: dict, default None
-            Dictionary of augmentations, used to get gpu augs.
+        model_in: Path or str
+            Used in L2_SP regularization. Location of weights used to load sequence model.
         """
         super().__init__()
 
-        self.model = hidden_two_stream
+        self.model = sequence_model
         self.datasets = datasets
         self.batch_size = batch_size
         self.lr = initial_lr
-        self.augs = augs
         self.gpu_id = gpu_id
-        self.model_in = Path(model_in)
+        self.model_in = model_in
 
         self.final_activation = torch.nn.Sigmoid()
 
-        if '3d' in classifier_name.lower():
-            self.gpu_transforms = get_gpu_transforms(augs=self.augs, conv_mode="3d")["train"]
-        else:
-            self.gpu_transforms = get_gpu_transforms(augs=self.augs)["train"]
-
-        # configure optimizer and criterion
         self.optimizer = None
         self.criterion = None
         self.configure_criterion()
         self.epoch_losses = list()
 
     def get_dataloader(self):
-        """Returns a dataloader."""
+        """Returns dataloader."""
         dataloader = torch.utils.data.DataLoader(
             dataset=self.datasets,
             batch_size=self.batch_size,
             shuffle=True,
             num_workers=8,
             pin_memory=torch.cuda.is_available(),
-            drop_last=True,
+            drop_last=False
         )
 
         return dataloader
 
-    def _validate_batch_size(self, batch: dict):
-        """Validate a batch size to make sure it has the right shape."""
-        if 'images' in batch.keys():
-            if batch['images'].ndim != 5:
-                batch['images'] = batch['images'].unsqueeze(0)
-        if 'labels' in batch.keys():
-            if self.final_activation == 'sigmoid' and batch['labels'].ndim == 1:
-                batch['labels'] = batch['labels'].unsqueeze(0)
-        return batch
-
-    def apply_gpu_transforms(self, images: torch.Tensor) -> torch.Tensor:
-        """Apply the flow generator GPU transformations to a video."""
-        with torch.no_grad():
-            images = self.gpu_transforms(images).detach()
-        return images
-
     def configure_optimizers(self):
-        """Configure the optimizer to be used in training the feature extractor."""
+        """Configure optimizer used in training the sequence model."""
 
         weight_decay = 0
 
@@ -140,7 +105,8 @@ class HiddenTwoStreamLightningModule(pl.LightningModule):
         }
 
     def configure_criterion(self):
-        """Configure loss function to be used in training the feature extractor"""
+        """Configure loss to be used in training the sequence model."""
+
         pos_weight = self.datasets.pos_weight
 
         if type(pos_weight) == np.ndarray:
@@ -167,47 +133,14 @@ class HiddenTwoStreamLightningModule(pl.LightningModule):
 
         self.criterion = criterion
 
-    def forward(self, batch: dict) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Forward pass through hidden two stream.
+    def forward(self, batch: dict) -> torch.Tensor:
+        """Forward pass of sequence model."""
+        outputs = self.model(batch['features'])
+        return outputs
 
-        Parameters
-        ----------
-        batch: dict
-            Images for the batch
-
-        Returns
-        -------
-        images: torch.Tensor
-            Input images after gpu augmentations have been applied
-        outputs: list
-            List of fused spatial and flow features
-        """
-        batch = self._validate_batch_size(batch)
-
-        images = batch['images']
-
-        images = self.apply_gpu_transforms(images)
-
-        outputs = self.model(images)
-
-        return images, outputs
-
-    def training_step(self, batch: dict) -> torch.Tensor:
-        """
-        Method for forward pass, loss calculation, backward pass, and parameter update.
-
-        Parameters
-        ----------
-        batch : dict
-            contains images and other information
-
-        Returns
-        -------
-        loss : torch.Tensor
-            mean loss for batch for Lightning's backward + update hooks
-        """
-        images, outputs = self.forward(batch)
+    def training_step(self, batch: dict):
+        """Completes forward pass, backward pass, updates model weights, and logs loss."""
+        outputs = self.forward(batch)
 
         probabilities = self.final_activation(outputs)
 
@@ -224,24 +157,27 @@ class HiddenTwoStreamLightningModule(pl.LightningModule):
         return loss
 
     def train_dataloader(self):
+        """Get train dataloader."""
         return self.get_dataloader()
 
 
-def get_feature_trainer(
+def get_sequence_trainer(
         gpu_id: int,
         model_out: Path,
         stop_method: str = "learning rate",
         profiler: str = None,
 ):
     """
-    Returns a Pytorch Lightning trainer to be used in training the feature extractor.
+    Return PyTorch Lightning trainer instance for training the sequence model.
 
     Parameters
     ----------
     gpu_id: int
-        Integer id of gpu to complete training on
-    stop_method: str, default learning_rate
-        Stop method for ending training, one of ["learning_rate", "num_epochs"]
+        Integer id of GPU to use for training.
+    model_out: Path
+        Location to store model output.
+    stop_method: str, default 'learning_rate'
+        Early stopping method used for training. One of ['num_epochs', 'learning_rate'].
     profiler: str, default None
         Can be a string (ex: "simple", "advanced") or a Pytorch Lightning Profiler instance. Gives metrics
         during training.
@@ -252,14 +188,14 @@ def get_feature_trainer(
         A trainer to be used to manage training the feature extractor.
     """
     tensorboard_logger = pl.loggers.tensorboard.TensorBoardLogger(
-        save_dir=model_out, name="feature_extr_train_logs"
+        save_dir=model_out, name="sequence_train_logs"
     )
 
     callbacks = list()
     callbacks.append(PrintCallback())
     callbacks.append(PlotLossCallback())
     callbacks.append(pl.callbacks.LearningRateMonitor())
-    callbacks.append(CheckpointCallback(model_out=model_out, train_type="feature_extractor"))
+    callbacks.append(CheckpointCallback(model_out=model_out, train_type="sequence"))
     callbacks.append(CheckStopCallback(model_out=model_out, stop_method=stop_method))
 
     # tuning messes with the callbacks

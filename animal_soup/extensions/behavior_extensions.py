@@ -16,10 +16,31 @@ class BehaviorDataFrameExtension:
         self,
         start_index: int = 0,
         ethogram_view: bool = True,
+        ethogram_mode: str = "inference"
     ):
+        """
+        View behavior with or without ethograms.
+
+        Parameters
+        ----------
+        start_index: int, default 0
+            Row index to start visualization from.
+        ethogram_view: bool, default True
+            Indicates if ethograms should be viewed along with behavior or not. Set to false if you just want to
+            view your behavior videos in the current dataframe.
+        ethogram_mode: str, default 'inference'
+            One of ['ground', 'inference']. Indicates where you want to load ethograms from. In 'ground' mode,
+             ethograms will be looked for in the current dataframe. In 'inference' mode, ethograms will be
+             looked for in output files saved on disk.
+        Returns
+        -------
+        container
+            Object that contains the datagrid of trials in the dataframe as well as behavior viewer and, if applicable,
+            an ethogram viewer plot.
+        """
         if ethogram_view:
             container = EthogramVizContainer(
-                dataframe=self._df, start_index=start_index
+                dataframe=self._df, start_index=start_index, mode=ethogram_mode
             )
         else:
             container = BehaviorVizContainer(
@@ -32,20 +53,40 @@ class BehaviorDataFrameExtension:
     def clean_ethograms(
         self,
         start_index: int = 0,
+        ethogram_mode: str = "inference"
     ):
+        """
+        Clean ethograms.
+
+        Parameters
+        ----------
+        start_index: int, default 0
+            Row index to start visualization from.
+        ethogram_mode: str, default 'inference'
+            One of ['ground', 'inference']. Indicates where you want to load ethograms from. In 'ground' mode,
+             ethograms will be looked for in the current dataframe. In 'inference' mode, ethograms will be
+             looked for in output files saved on disk.
+
+        Returns
+        -------
+        container
+            Object that contains the datagrid of trials in the dataframe as well as behavior viewer and ethogram
+            cleaner plot.
+        """
         container = EthogramCleanerVizContainer(
             dataframe=self._df,
             start_index=start_index,
+            mode=ethogram_mode
         )
 
         return container
 
-    def compare_ethograms(self, start_index: int = 0):
-        container = EthogramComparisonVizContainer(
-            dataframe=self._df, start_index=start_index
-        )
-
-        return container
+    # def compare_ethograms(self, start_index: int = 0):
+    #     container = EthogramComparisonVizContainer(
+    #         dataframe=self._df, start_index=start_index
+    #     )
+    #
+    #     return container
 
     def add_item(
         self,
@@ -84,6 +125,12 @@ class BehaviorDataFrameExtension:
         animal_dir = PARENT_DATA_PATH.joinpath(animal_id)
 
         validate_path(animal_dir)
+
+        # validate exp_type
+        if exp_type is not None:
+            if exp_type not in ["table", "pez"]:
+                raise ValueError(f"{exp_type} is not currently supported. Please pass in a valid exp_type "
+                                 f"such as 'table' or 'pez'.")
 
         if not os.path.exists(animal_dir):
             raise ValueError(f"animal_id path does not exist at: {animal_dir}")
@@ -132,6 +179,9 @@ class BehaviorDataFrameExtension:
                     full_vid_path = sorted(session_dir.glob(f"{trial.stem}*"))[0]
                     parent_path, relative_vid_path = split_path(full_vid_path)
 
+                    # get output path
+                    output_path = Path(f'{animal_id}/{session_dir.stem}/').joinpath(session_dir.stem).with_name(f'outputs.h5')
+
                     # add item to dataframe
                     s = pd.Series(
                         {
@@ -139,7 +189,7 @@ class BehaviorDataFrameExtension:
                             "session_id": session_dir.stem,
                             "trial_id": trial.stem,
                             "vid_path": relative_vid_path,
-                            "ethograms": None,
+                            "output_path": output_path,
                             "exp_type": exp_type,
                             "model_params": dict(),
                             "notes": None,
@@ -184,6 +234,9 @@ class BehaviorDataFrameExtension:
                     )[0]
                     parent_path, relative_vid_path = split_path(full_vid_path)
 
+                    # get output path
+                    output_path = Path(f'{animal_id}/{session_id}/').joinpath(session_id).with_name(f'outputs.h5')
+
                     # add item to dataframe
                     s = pd.Series(
                         {
@@ -191,7 +244,7 @@ class BehaviorDataFrameExtension:
                             "session_id": session_id,
                             "trial_id": trial.stem,
                             "vid_path": relative_vid_path,
-                            "ethograms": None,
+                            "output_path": output_path,
                             "exp_type": exp_type,
                             "model_params": dict(),
                             "notes": None,
@@ -226,6 +279,9 @@ class BehaviorDataFrameExtension:
                 )[0]
                 parent_path, relative_vid_path = split_path(full_vid_path)
 
+                # get output path
+                output_path = Path(f'{animal_id}/{session_id}/').joinpath(session_id).with_name(f'outputs.h5')
+
                 # add item to dataframe
                 s = pd.Series(
                     {
@@ -233,7 +289,7 @@ class BehaviorDataFrameExtension:
                         "session_id": session_id,
                         "trial_id": trial_id,
                         "vid_path": relative_vid_path,
-                        "ethograms": None,
+                        "output_path": output_path,
                         "exp_type": exp_type,
                         "model_params": dict(),
                         "notes": None,

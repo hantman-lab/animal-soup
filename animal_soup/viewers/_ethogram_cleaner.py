@@ -3,6 +3,7 @@ from fastplotlib import Plot
 from fastplotlib.graphics.selectors import LinearRegionSelector
 import numpy as np
 from ._ethogram import EthogramVizContainer, ETHOGRAM_COLORS
+from .ethogram_utils import get_ethogram_from_disk, save_ethogram_to_disk
 
 BEHAVIORS = ["lift", "handopen", "grab", "sup", "atmouth", "chew"]
 
@@ -12,22 +13,26 @@ class EthogramCleanerVizContainer(EthogramVizContainer):
         self,
         dataframe: pd.DataFrame,
         start_index: int = 0,
+        mode: str = "inference"
     ):
         """
         Creates container for editing ethograms and saving them to a new dataframe.
 
         Parameters
         ----------
-        dataframe: ``pandas.Dataframe``
+        dataframe: pandas.Dataframe
             Dataframe to create ipydatagrid viewer from.
-        start_index: ``int``, default 0
+        start_index: int, default 0
             Row of the dataframe that will initially be selected to view videos and corresponding ethograms.
+        mode: str, default 'inference'
+            One of ['ground', 'inference']. Indicates the location in which to load ethograms for cleaning from
+            as well as where to save cleaned ethograms.
         """
         super(EthogramCleanerVizContainer, self).__init__(
-            dataframe=dataframe, start_index=start_index
+            dataframe=dataframe, start_index=start_index, mode=mode
         )
         # add column for cleaned ethograms to df if not exists
-        if "cleaned_ethograms" not in self._dataframe.columns:
+        if self.mode == "ground" and "cleaned_ethograms" not in self._dataframe.columns:
             self._dataframe.insert(loc=5, column="cleaned_ethograms", value=None)
 
         self._dataframe.behavior.save_to_disk()
@@ -68,11 +73,14 @@ class EthogramCleanerVizContainer(EthogramVizContainer):
                 self.ethogram_key_event_handler, "key_down"
             )
 
-        # if an ethogram has been cleaned, want to make sure to show it
-        if self._check_for_cleaned_array(row=row):
-            self.ethogram_array = row["cleaned_ethograms"]
-        else:
-            self.ethogram_array = row["ethograms"]
+        if self.mode == "ground":
+            # if an ethogram has been cleaned, want to make sure to show it
+            if self._check_for_cleaned_array(row=row):
+                self.ethogram_array = row["cleaned_ethograms"]
+            else:
+                self.ethogram_array = row["ethograms"]
+        else: # mode is inference look for cleaned ethogram to show and if not show predicted
+            self.ethogram_array = get_ethogram_from_disk(row)
 
         y_bottom = 0
         for i, b in enumerate(ETHOGRAM_COLORS.keys()):
@@ -185,15 +193,19 @@ class EthogramCleanerVizContainer(EthogramVizContainer):
         """Saves an ethogram to the clean dataframe."""
         # create new ethogram based off of indices that are not black
         row = self._dataframe.iloc[self.current_row_ix]
-        trial_length = row["ethograms"][0].shape[0]
+        trial_length = self.ethogram_array[0].shape[0]
         new_ethogram = np.zeros(shape=(6, trial_length))
         for i, g in enumerate(ETHOGRAM_COLORS.keys()):
             non_zero_ixs = np.where(self.plot[g].colors[:] != np.array([0, 0, 0, 1]))[0]
             new_ethogram[i][non_zero_ixs] = 1
-        # save new ethogram to cleaned_ethograms column
-        row["cleaned_ethograms"] = new_ethogram
-        # save clean_df to disk
-        self._dataframe.behavior._unsafe_save()
+
+        if self.mode == "ground":
+            # save new ethogram to cleaned_ethograms column
+            row["cleaned_ethograms"] = new_ethogram
+            # save df to disk
+            self._dataframe.behavior._unsafe_save()
+        else: # save ethogram to disk
+            save_ethogram_to_disk(row, new_ethogram)
 
     def reset_ethogram(self, current_behavior: bool = False):
         """Will reset the current behavior selected or the entire cleaned ethogram back to the original ethogram."""
