@@ -39,7 +39,7 @@ MAX_BATCH_SIZE = 512
 
 DEFAULT_THRESHOLDS = np.array([0.46236533, 0.7990151, 0.8844337, 0.85931057, 0.59803015, 0.49251306, 0.7688673],
                               dtype=np.float32)
-MIN_BOUT_LENGTH = 2
+MIN_BOUT_LENGTH = 1
 
 
 @pd.api.extensions.register_dataframe_accessor("sequence")
@@ -307,10 +307,8 @@ class SequenceModelSeriesExtensions:
 
                 features["logits"] = f[self._series["trial_id"]]["features"]["logits"][:]
                 features["probabilities"] = f[self._series["trial_id"]]["features"]["probabilities"][:]
-                features["spatial_features"] = f[self._series["trial_id"]]["features"]["spatial_features"][:]
-                features["flow_features"] = f[self._series["trial_id"]]["features"]["flow_features"][:]
-
-                f.close()
+                features["spatial_features"] = f[self._series["trial_id"]]["features"]["spatial"][:]
+                features["flow_features"] = f[self._series["trial_id"]]["features"]["flow"][:]
 
         # set experiment type
         exp_type = self._series["exp_type"]
@@ -341,46 +339,27 @@ class SequenceModelSeriesExtensions:
         # update h5 file with final_ethogram and pred_info
         with h5py.File(output_path, "r+") as f:
 
-            if "sequence" not in f[self._series["trial_id"]].keys():
-                sequence_group = f[self._series["trial_id"]].create_group("sequence")
-
-                sequence_group.create_dataset("logits",
-                                              data=prediction_info["logits"],
-                                              dtype=np.float32)
-                sequence_group.create_dataset("probabilities",
-                                              data=prediction_info["probabilities"],
-                                              dtype=np.float32)
-            else:
+            # if exists, delete and regenerate, else just create
+            if "sequence" in f[self._series["trial_id"]].keys():
 
                 del f[self._series["trial_id"]]["sequence"]
 
-                sequence_group = f[self._series["trial_id"]].create_group("sequence")
+            sequence_group = f[self._series["trial_id"]].create_group("sequence")
 
-                sequence_group.create_dataset("logits",
-                                              data=prediction_info["logits"],
-                                              dtype=np.float32)
-                sequence_group.create_dataset("probabilities",
-                                              data=prediction_info["probabilities"],
-                                              dtype=np.float32)
+            sequence_group.create_dataset("logits",
+                                          data=prediction_info["logits"])
+            sequence_group.create_dataset("probabilities",
+                                          data=prediction_info["probabilities"])
 
-            if "ethogram" not in f[self._series["trial_id"]].keys():
+            # if exists, delete and regenerate, else just create
+            if "ethogram" in f[self._series["trial_id"]].keys():
 
-                ethogram_group = f[self._series["trial_id"]].create_group("ethogram")
-
-                ethogram_group.create_dataset("ethogram",
-                                              data=final_ethogram,
-                                              dtype=np.int32)
-
-            else:
                 del f[self._series["trial_id"]]["ethogram"]
 
-                ethogram_group = f[self._series["trial_id"]].create_group("ethogram")
+            ethogram_group = f[self._series["trial_id"]].create_group("ethogram")
 
-                ethogram_group.create_dataset("ethogram",
-                                              data=final_ethogram,
-                                              dtype=np.int32)
-
-            f.close()
+            ethogram_group.create_dataset("ethogram",
+                                          data=final_ethogram)
 
         print("Successfully saved sequence outputs to disk!")
 

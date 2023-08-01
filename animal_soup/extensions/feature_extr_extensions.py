@@ -404,7 +404,7 @@ class FeatureExtractorSeriesExtensions:
             Location of checkpoint used for flow generator. If None, then will use default checkpoint of flow
             generator based on the mode. Note: If using a non-default flow generator checkpoint, the flow
             generator instantiated must match the ``mode`` argument. For example, if the ``flow_model_in``
-            checkpoint is to a TinyMotionNet model, then the ``mode`` argument should be 'fast'.
+            checkpoint is to a TinyMotionNet model, then the ``mode`` argument MUST be 'fast'.
         flow_window: int, default 11
             Flow window size. Used to infer optic flow features to pass to the feature extractor.
         feature_model_in: str or Path, default None
@@ -530,63 +530,33 @@ class FeatureExtractorSeriesExtensions:
                 # create feature group and add relevant datasets
                 feature_group = trial.create_group("features")
                 feature_group.create_dataset("spatial_features",
-                                             prediction_info["spatial_features"].numpy(),
-                                             dtype=np.float32)
+                                             prediction_info["spatial"].numpy())
                 feature_group.create_dataset("flow_features",
-                                             prediction_info["flow_features"].numpy(),
-                                             dtype=np.float32)
+                                             prediction_info["flow"].numpy())
                 feature_group.create_dataset("logits",
-                                             prediction_info["logits"].numpy(),
-                                             dtype=np.float32)
+                                             prediction_info["logits"].numpy())
                 feature_group.create_dataset("probabilities",
-                                             prediction_info["probabilities"].numpy(),
-                                             dtype=np.float32)
-                f.close()
+                                             prediction_info["probabilities"].numpy())
         else:
             # file already exists, del group and recreate if exists otherwise just create
             with h5py.File(output_path, "r+") as f:
 
-                if self._series["trial_id"] not in f.keys():
-                    # create group for trial
-                    trial = f.create_group(self._series["trial_id"])
-                    # create feature group and add relevant datasets
-                    feature_group = trial.create_group("features")
-                    feature_group.create_dataset("spatial_features",
-                                                 data=prediction_info["spatial_features"].numpy(),
-                                                 dtype=np.float32)
-                    feature_group.create_dataset("flow_features",
-                                                 data=prediction_info["flow_features"].numpy(),
-                                                 dtype=np.float32)
-                    feature_group.create_dataset("logits",
-                                                 data=prediction_info["logits"].numpy(),
-                                                 dtype=np.float32)
-                    feature_group.create_dataset("probabilities",
-                                                 data=prediction_info["probabilities"].numpy(),
-                                                 dtype=np.float32)
-
-                    f.close()
-
-                else:
-                    # delete group and remake
+                if self._series["trial_id"] in f.keys():
+                    # delete and remake
                     del f[self._series["trial_id"]]
 
-                    trial = f.create_group(self._series["trial_id"])
-                    # create feature group and add relevant datasets
-                    feature_group = trial.create_group("features")
-                    feature_group.create_dataset("spatial_features",
-                                                 data=prediction_info["spatial_features"].numpy(),
-                                                 dtype=np.float32)
-                    feature_group.create_dataset("flow_features",
-                                                 data=prediction_info["flow_features"].numpy(),
-                                                 dtype=np.float32)
-                    feature_group.create_dataset("logits",
-                                                 data=prediction_info["logits"].numpy(),
-                                                 dtype=np.float32)
-                    feature_group.create_dataset("probabilities",
-                                                 data=prediction_info["probabilities"].numpy(),
-                                                 dtype=np.float32)
+                trial = f.create_group(self._series["trial_id"])
 
-                    f.close()
+                # create feature group and add relevant datasets
+                feature_group = trial.create_group("features")
+                feature_group.create_dataset("spatial",
+                                             data=prediction_info["spatial_features"].numpy())
+                feature_group.create_dataset("flow",
+                                             data=prediction_info["flow_features"].numpy())
+                feature_group.create_dataset("logits",
+                                             data=prediction_info["logits"].numpy())
+                feature_group.create_dataset("probabilities",
+                                             data=prediction_info["probabilities"].numpy())
 
         print("Successfully saved feature extraction output to disk!")
 
