@@ -108,11 +108,16 @@ class FeatureExtractorDataframeExtension:
             Argument must be one of ["slow", "medium", "fast"]. Determines the model used for training the feature
             extractor.
 
-            | mode   | flow model      | feature model   |
-            |--------|-----------------|-----------------|
-            | fast   | TinyMotionNet   | ResNet18        |
-            | medium | MotionNet       | ResNet50        |
-            | slow   | TinyMotionNet3D | ResNet3D-34     |
+            +--------+-----------------+---------------+
+            | mode   | flow model      | feature model |
+            +========+=================+===============+
+            | slow   | TinyMotionNet   | ResNet3D-34   |
+            +--------+-----------------+---------------+
+            | medium | MotionNet       | ResNet50      |
+            +--------+-----------------+---------------+
+            | fast   | TinyMotionNet3D | ResNet18      |
+            +--------+-----------------+---------------+
+
 
         batch_size: int, default 32
             Batch size.
@@ -123,11 +128,13 @@ class FeatureExtractorDataframeExtension:
         stop_method: str, default learning_rate
             Method for stopping training. Argument must be one of ["learning_rate", "num_epochs"]
 
-            | stop method   | description                                                                |
-            |---------------|----------------------------------------------------------------------------|
-            | learning_rate | Stop training when learning rate drops below a given threshold, means loss |
-            |               | has stopped improving                                                      |
-            | num_epochs    | Stop training after a given number of epochs                               |
+            +---------------+----------------------------------------------------------------------------------------------------+
+            | stop method   | description                                                                                        |
+            +===============+====================================================================================================+
+            | learning_rate | Stop training when learning rate drops below a given threshold, means loss has stopped improving   |
+            +---------------+----------------------------------------------------------------------------------------------------+
+            | num_epochs    | Stop training after a given number of epochs                                                       |
+            +---------------+----------------------------------------------------------------------------------------------------+
 
         flow_model_in: str or Path, default None
             Location of checkpoint used for flow generator. If None, then will use default checkpoint of flow
@@ -392,11 +399,16 @@ class FeatureExtractorSeriesExtensions:
             One of ["slow", "medium", "fast"]. Indicates what feature extractor to use for
             inference.
 
-            | mode   | flow model      | feature model   | inference speed |
-            |--------|-----------------|-----------------|-----------------|
-            | fast   | TinyMotionNet   | ResNet18        | ~150 fps        |
-            | medium | MotionNet       | ResNet50        | ~80 fps         |
-            | slow   | TinyMotionNet3D | ResNet3D-34     | ~13 fps         |
+            +--------+-----------------+---------------+-----------------+
+            | mode   | flow model      | feature model | inference speed |
+            +========+=================+===============+=================+
+            | slow   | TinyMotionNet   | ResNet3D-34   | ~13 fps         |
+            +--------+-----------------+---------------+-----------------+
+            | medium | MotionNet       | ResNet50      | ~80 fps         |
+            +--------+-----------------+---------------+-----------------+
+            | fast   | TinyMotionNet3D | ResNet18      | ~150 fps        |
+            +--------+-----------------+---------------+-----------------+
+
 
         gpu_id: int, default 0
             Specify which gpu to use for training the model.
