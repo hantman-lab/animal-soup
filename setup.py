@@ -23,7 +23,8 @@ install_requires = [
     "lightning",
     "tensorflow",
     "matplotlib",
-    "torchvision"
+    "torchvision",
+    "h5py"
 ]
 
 with open(Path(__file__).parent.joinpath("README.md")) as f:
