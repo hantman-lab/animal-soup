@@ -180,7 +180,7 @@ class BehaviorDataFrameExtension:
                     parent_path, relative_vid_path = split_path(full_vid_path)
 
                     # get output path
-                    output_path = Path(f'{animal_id}/{session_id}/').joinpath(session_id).with_name(f'outputs.h5')
+                    output_path = Path(f'{animal_id}/{session_dir.stem}/').joinpath(session_dir.stem).with_name(f'outputs.h5')
 
                     # add item to dataframe
                     s = pd.Series(
