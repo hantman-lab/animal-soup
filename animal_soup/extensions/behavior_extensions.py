@@ -18,6 +18,26 @@ class BehaviorDataFrameExtension:
         ethogram_view: bool = True,
         ethogram_mode: str = "inference"
     ):
+        """
+        View behavior with or without ethograms.
+
+        Parameters
+        ----------
+        start_index: int, default 0
+            Row index to start visualization from.
+        ethogram_view: bool, default True
+            Indicates if ethograms should be viewed along with behavior or not. Set to false if you just want to
+            view your behavior videos in the current dataframe.
+        ethogram_mode: str, default 'inference'
+            One of ['ground', 'inference']. Indicates where you want to load ethograms from. In 'ground' mode,
+             ethograms will be looked for in the current dataframe. In 'inference' mode, ethograms will be
+             looked for in output files saved on disk.
+        Returns
+        -------
+        container
+            Object that contains the datagrid of trials in the dataframe as well as behavior viewer and, if applicable,
+            an ethogram viewer plot.
+        """
         if ethogram_view:
             container = EthogramVizContainer(
                 dataframe=self._df, start_index=start_index, mode=ethogram_mode
@@ -35,6 +55,24 @@ class BehaviorDataFrameExtension:
         start_index: int = 0,
         ethogram_mode: str = "inference"
     ):
+        """
+        Clean ethograms.
+
+        Parameters
+        ----------
+        start_index: int, default 0
+            Row index to start visualization from.
+        ethogram_mode: str, default 'inference'
+            One of ['ground', 'inference']. Indicates where you want to load ethograms from. In 'ground' mode,
+             ethograms will be looked for in the current dataframe. In 'inference' mode, ethograms will be
+             looked for in output files saved on disk.
+
+        Returns
+        -------
+        container
+            Object that contains the datagrid of trials in the dataframe as well as behavior viewer and ethogram
+            cleaner plot.
+        """
         container = EthogramCleanerVizContainer(
             dataframe=self._df,
             start_index=start_index,
