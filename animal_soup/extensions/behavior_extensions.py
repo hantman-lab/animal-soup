@@ -16,10 +16,11 @@ class BehaviorDataFrameExtension:
         self,
         start_index: int = 0,
         ethogram_view: bool = True,
+        ethogram_mode: str = "inference"
     ):
         if ethogram_view:
             container = EthogramVizContainer(
-                dataframe=self._df, start_index=start_index
+                dataframe=self._df, start_index=start_index, mode=ethogram_mode
             )
         else:
             container = BehaviorVizContainer(
@@ -32,20 +33,22 @@ class BehaviorDataFrameExtension:
     def clean_ethograms(
         self,
         start_index: int = 0,
+        ethogram_mode: str = "inference"
     ):
         container = EthogramCleanerVizContainer(
             dataframe=self._df,
             start_index=start_index,
+            mode=ethogram_mode
         )
 
         return container
 
-    def compare_ethograms(self, start_index: int = 0):
-        container = EthogramComparisonVizContainer(
-            dataframe=self._df, start_index=start_index
-        )
-
-        return container
+    # def compare_ethograms(self, start_index: int = 0):
+    #     container = EthogramComparisonVizContainer(
+    #         dataframe=self._df, start_index=start_index
+    #     )
+    #
+    #     return container
 
     def add_item(
         self,

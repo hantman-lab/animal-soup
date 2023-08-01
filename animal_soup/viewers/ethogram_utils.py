@@ -1,8 +1,64 @@
-#### DEPRECATED, NO LONGER BEING USED
-### STILL STORING HERE FOR NOW
+"""Ethogram utility functions."""
+
+from typing import *
+from pathlib import Path
+import os
+import h5py
+import numpy as np
+import pandas as pd
+from ..utils import get_parent_raw_data_path
+
 
 # from scipy.io import loadmat
 # import numpy as np
+
+
+def get_ethogram_from_disk(row: pd.Series):
+    """Returns whether ethogram exists for trial at given output_path."""
+
+    output_path = get_parent_raw_data_path().joinpath(row["output_path"])
+
+    if not os.path.exists(Path(output_path)):
+        raise ValueError("No output path exists for this session. Please run inference for "
+                         "trials in the current dataframe to generate ethograms for viewing.")
+
+    with h5py.File(output_path, "r") as f:
+        # check if trial in keys
+        if row["trial_id"] not in f.keys():
+            raise ValueError("Inference has not been run for this trial yet. Please run "
+                             "inference on ALL trials in the dataframe before trying to "
+                             "view them.")
+
+        # check if sequence inference has been run
+        elif "sequence" not in f[row["trial_id"]].keys():
+            raise ValueError("Sequence inference has not been run for this trial yet. Please "
+                             "make sure that feature extraction and sequence inference has been "
+                             "completed for ALL trials in the dataframe before trying to view generated "
+                             "ethograms.")
+
+        # ethogram exists! want to return cleaned ethogram if possible
+        if "cleaned_ethogram" in f[row["trial_id"]]["ethograms"].keys():
+            return f[row["trial_id"]]["ethograms"]["cleaned_ethogram"][:]
+        else:
+            return f[row["trial_id"]]["ethograms"]["ethogram"][:]
+
+
+def save_ethogram_to_disk(row: pd.Series, cleaned_ethogram: np.ndarray):
+    """Saves a cleaned ethogram to disk in session output file."""
+
+    output_path = get_parent_raw_data_path().joinpath(row["output_path"])
+
+    # update h5 file with cleaned_ethogram
+    with h5py.File(output_path, "r+") as f:
+        # if exists, delete and regenerate, else just create
+        if "cleaned_ethogram" in f[row["trial_id"]]["ethograms"].keys():
+            del f[row["trial_id"]]["ethograms"]["cleaned_ethogram"]
+
+        ethogram_group = f[row["trial_id"]]["ethograms"]
+
+        ethogram_group.create_dataset("cleaned_ethogram",
+                                      data=cleaned_ethogram)
+
 
 # for now, a place to stor the method for getting a jaaba ethogram (hand_label or jaaba pred)
 

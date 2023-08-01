@@ -4,6 +4,7 @@ from fastplotlib import Plot
 from fastplotlib.graphics.selectors import LinearSelector
 import numpy as np
 from ._behavior import BehaviorVizContainer
+from .ethogram_utils import get_ethogram_from_disk
 
 ETHOGRAM_COLORS = {
     "lift": "b",
@@ -29,6 +30,7 @@ class EthogramVizContainer(BehaviorVizContainer):
         self,
         dataframe: pd.DataFrame,
         start_index: int = 0,
+        mode: str = "inference"
     ):
         """
         Wraps BehaviorVizContainer, in addition to showing behavior videos, will also show corresponding ethograms.
@@ -40,6 +42,10 @@ class EthogramVizContainer(BehaviorVizContainer):
             dataframe.
         start_index: int, default 0
             Row index in datagrid that will start out as being selected initially. Default is first row.
+        mode: str, default 'inference'
+            One of ['ground', 'inference']. The locations of ethograms can either be stored on disk if they
+            have been inferred or in the dataframe if they are hand-labels. Mode argument can be passed to the
+            ethogram viewer to set where to look for available ethograms.
         """
         super(EthogramVizContainer, self).__init__(
             dataframe=dataframe, start_index=start_index
@@ -47,6 +53,11 @@ class EthogramVizContainer(BehaviorVizContainer):
 
         self.plot = None
         self.behavior_count = None
+
+        if mode not in ["inference", "ground"]:
+            raise ValueError("'mode' argument must be one of ['inference', 'ground']")
+
+        self.mode = mode
 
         self._make_ethogram_plot()
         self._set_behavior_frame_count()
@@ -60,10 +71,14 @@ class EthogramVizContainer(BehaviorVizContainer):
         if self.plot is None:
             self.plot = Plot(size=(700, 300))
 
-        if self._check_for_cleaned_array(row=row):
-            self.ethogram_array = row["cleaned_ethograms"]
-        else:
-            self.ethogram_array = row["ethograms"]
+        # if mode is ground
+        if self.mode == "ground":
+            if self._check_for_cleaned_array(row=row):
+                self.ethogram_array = row["cleaned_ethograms"]
+            else:
+                self.ethogram_array = row["ethograms"]
+        else: # mode must be inference
+            self.ethogram_array = get_ethogram_from_disk(row)
 
         y_bottom = 0
         for i, b in enumerate(ETHOGRAM_COLORS.keys()):

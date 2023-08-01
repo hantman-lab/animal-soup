@@ -39,7 +39,7 @@ MAX_BATCH_SIZE = 512
 
 DEFAULT_THRESHOLDS = np.array([0.46236533, 0.7990151, 0.8844337, 0.85931057, 0.59803015, 0.49251306, 0.7688673],
                               dtype=np.float32)
-MIN_BOUT_LENGTH = 1
+MIN_BOUT_LENGTH = 3
 
 
 @pd.api.extensions.register_dataframe_accessor("sequence")
@@ -356,7 +356,7 @@ class SequenceModelSeriesExtensions:
 
                 del f[self._series["trial_id"]]["ethogram"]
 
-            ethogram_group = f[self._series["trial_id"]].create_group("ethogram")
+            ethogram_group = f[self._series["trial_id"]].create_group("ethograms")
 
             ethogram_group.create_dataset("ethogram",
                                           data=final_ethogram)
