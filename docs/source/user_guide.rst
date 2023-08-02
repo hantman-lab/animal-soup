@@ -131,6 +131,12 @@ Data Management
         ...
     ...
 
+
+In order for ``animal_soup`` to find your data you must set the parent data path using ``set_parent_raw_data_path()``.
+
+This function (modeled from ``mesmerize_core``) sets the top level raw data directory. This should be set to the top level directory where your behavioral data is stored.
+This allows you to move your behavioral data directory structure between computers, as long as you keep everything under the parent path the same.
+
 Trials in a given session can then be added to the dataframe in a multitude of ways.
 
 1.) Add all sessions for a given animal:
@@ -139,6 +145,8 @@ Trials in a given session can then be added to the dataframe in a multitude of w
 
     # imports
     from animal_soup import *
+
+    set_parent_raw_data_path('/path/to/folder/above/behavior/data')
 
     # create a new dataframe
     df = create_df("/path/to/behavior_dataframe.hdf5")
@@ -149,7 +157,7 @@ Trials in a given session can then be added to the dataframe in a multitude of w
     # the level of the DataFrame
 
     # for example, ``add_item()`` works at the level of a DataFrame
-    df.behavior.add_item(animal_id=<animal_id>)
+    df.behavior.add_item(animal_id='my_animal_id')
 
 This will attempt to add all trials in all sessions for the specified animal.
 
@@ -158,7 +166,7 @@ This will attempt to add all trials in all sessions for the specified animal.
 .. code-block:: python
 
     # assuming use of same dataframe from above
-    df.behavior.add_item(animal_id=<animal_id>, session_id=<session_id>)
+    df.behavior.add_item(animal_id='my_animal_id', session_id='my_session_id')
 
 
 This will add all trials for the specified session to the dataframe.
@@ -168,7 +176,7 @@ This will add all trials for the specified session to the dataframe.
 .. code-block:: python
 
     # assuming use of same dataframe from above
-    df.behavior.add_item(animal_id=<animal_id>, session_id=<session_id>, trial_id=<trial_id>)
+    df.behavior.add_item(animal_id='my_animal_id', session_id='my_session_id', trial_id='my_trial_id')
 
 This will add a singular trial to the dataframe.
 
@@ -176,7 +184,7 @@ This will add a singular trial to the dataframe.
     It is not required to specify an experiment type ("table" or "pez") when adding items to the dataframe.
     However, in order to run feature extraction or sequence inference, you must have the experiment type specified so
     that the correct pre-trained model paths can be used. You can always add the experiment type for a given
-    trial later, but it is recommended to just pass the experiment type (``exp_type``=<experiment_type>)
+    trial later, but it is recommended to just pass the experiment type (``exp_type='table'``)
     when adding items to the dataframe.
 
 Inference

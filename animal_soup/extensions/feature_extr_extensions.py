@@ -540,14 +540,14 @@ class FeatureExtractorSeriesExtensions:
                 trial = f.create_group(self._series["trial_id"])
                 # create feature group and add relevant datasets
                 feature_group = trial.create_group("features")
-                feature_group.create_dataset("spatial_features",
-                                             prediction_info["spatial"].numpy())
-                feature_group.create_dataset("flow_features",
-                                             prediction_info["flow"].numpy())
+                feature_group.create_dataset("spatial",
+                                             data=prediction_info["spatial_features"].numpy())
+                feature_group.create_dataset("flow",
+                                             data=prediction_info["flow_features"].numpy())
                 feature_group.create_dataset("logits",
-                                             prediction_info["logits"].numpy())
+                                             data=prediction_info["logits"].numpy())
                 feature_group.create_dataset("probabilities",
-                                             prediction_info["probabilities"].numpy())
+                                             data=prediction_info["probabilities"].numpy())
         else:
             # file already exists, del group and recreate if exists otherwise just create
             with h5py.File(output_path, "r+") as f:

@@ -6,6 +6,8 @@ from pathlib import Path
 import shutil
 import warnings
 
+ACCEPTED_CODECS = ['.avi', '.mp4', '.mov', '.mpeg']
+
 
 @pd.api.extensions.register_dataframe_accessor("behavior")
 class BehaviorDataFrameExtension:
@@ -156,6 +158,11 @@ class BehaviorDataFrameExtension:
                 if len(trials) == 0:
                     raise ValueError(f"no trials found in this session: {session_dir}")
 
+                # remove invalid files
+                for t in trials:
+                    if t.suffix not in ACCEPTED_CODECS:
+                        trials.remove(t)
+
                 # add trials to dataframe
                 for trial in trials:
                     # check if trial already in dataframe
@@ -207,6 +214,11 @@ class BehaviorDataFrameExtension:
 
                 if len(trials) == 0:
                     raise ValueError(f"no trials found in this session: {session_dir}")
+
+                # remove invalid files
+                for t in trials:
+                    if t.suffix not in ACCEPTED_CODECS:
+                        trials.remove(t)
 
                 for trial in trials:
                     # check if trial already in dataframe
