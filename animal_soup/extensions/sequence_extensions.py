@@ -37,8 +37,15 @@ MAX_EPOCHS = 1000
 MIN_BATCH_SIZE = 8
 MAX_BATCH_SIZE = 512
 
-DEFAULT_THRESHOLDS = np.array([0.46236533, 0.7990151, 0.8844337, 0.85931057, 0.59803015, 0.49251306, 0.7688673],
-                              dtype=np.float32)
+# default classifier thresholds
+DEFAULT_THRESHOLDS = {
+    "fast": np.array([0.5628578, 0.8090643, 0.5678824, 0.5327101, 0.4121191,
+                      0.42216834, 0.63822716], dtype=np.float32),
+    "medium": np.array([0.5226608, 0.71359646, 0.7387196, 0.71862113, 0.5327101,
+                        0.4121191, 0.5327101], dtype=np.float32),
+    "slow": None
+}
+
 MIN_BOUT_LENGTH = 3
 
 
@@ -268,12 +275,31 @@ class SequenceModelSeriesExtensions:
 
     def infer(
             self,
+            mode: str = "fast",
             model_in: Union[str, Path] = None,
             gpu_id: int = 0
     ):
         """
+        Note: Every sequence model is a TGMJ model. However, depending on the architecture used for training
+        the flow generator and feature extractor model the sequence model can have highly variable results. You
+        should specify the ``mode`` to match the ``mode`` you used for inference with the feature extractor.
+
         Parameters
         ----------
+        mode: str, default 'fast'
+            One of ["slow", "medium", "fast"]. Indicates what sequence model and thresholds to use.
+            Should match the ``mode`` that was used when doing feature extraction.
+
+            +--------+-----------------+---------------+-----------------+
+            | mode   | flow model      | feature model | sequence model  |
+            +========+=================+===============+=================+
+            | slow   | TinyMotionNet   | ResNet3D-34   | TGMJ            |
+            +--------+-----------------+---------------+-----------------+
+            | medium | MotionNet       | ResNet50      | TGMJ            |
+            +--------+-----------------+---------------+-----------------+
+            | fast   | TinyMotionNet3D | ResNet18      | TGMJ            |
+            +--------+-----------------+---------------+-----------------+
+
         model_in: str or Path, default None
             If you want to use your own model instead of the default you can provide a location to a different model
             checkpoint. For example, if you retrained the sequence model for a new behavioral task or setup and want to
@@ -284,6 +310,10 @@ class SequenceModelSeriesExtensions:
         # check valid model_in if not None
         if model_in is not None:
             model_in = validate_checkpoint_path(model_in)
+
+        # validate mode
+        if mode not in ["slow", "medium", "fast"]:
+            raise ValueError("'mode' must be one of ['slow', 'medium', 'fast']")
 
         # in order to run sequence inference, you need to have previously done feature extractor inference
         output_path = get_parent_raw_data_path().joinpath(self._series["output_path"])
@@ -299,10 +329,9 @@ class SequenceModelSeriesExtensions:
 
                 # not in keys, feature extraction has not been run
                 if self._series["trial_id"] not in f.keys():
-
-                    print("Feature extraction has not been run for this trial yet. Running feature extraction now"
-                          " with default mode = 'fast'")
-                    self._series.feature_extractor.infer(mode='fast', gpu_id=gpu_id)
+                    print(f"Feature extraction has not been run for this trial yet. Running feature extraction now"
+                          f" with default mode = {mode}")
+                    self._series.feature_extractor.infer(mode=mode, gpu_id=gpu_id)
 
                 # load in features to pass to sequence model
                 features = dict()
@@ -323,7 +352,8 @@ class SequenceModelSeriesExtensions:
             exp_type=exp_type,
             num_classes=num_classes,
             num_pos=None,
-            num_neg=None
+            num_neg=None,
+            mode=mode
         )
 
         prediction_info = predict_single_video(
@@ -336,14 +366,13 @@ class SequenceModelSeriesExtensions:
         )
 
         # post processing
-        final_ethogram = min_bout_post_process(prediction_info, DEFAULT_THRESHOLDS, MIN_BOUT_LENGTH)
+        final_ethogram = min_bout_post_process(prediction_info, DEFAULT_THRESHOLDS[mode], MIN_BOUT_LENGTH)
 
         # update h5 file with final_ethogram and pred_info
         with h5py.File(output_path, "r+") as f:
 
             # if exists, delete and regenerate, else just create
             if "sequence" in f[self._series["trial_id"]].keys():
-
                 del f[self._series["trial_id"]]["sequence"]
 
             sequence_group = f[self._series["trial_id"]].create_group("sequence")
@@ -355,7 +384,6 @@ class SequenceModelSeriesExtensions:
 
             # if exists, delete and regenerate, else just create
             if "ethogram" in f[self._series["trial_id"]].keys():
-
                 del f[self._series["trial_id"]]["ethogram"]
 
             ethogram_group = f[self._series["trial_id"]].create_group("ethograms")
@@ -371,12 +399,16 @@ def _load_pretrained_sequence_model(
         exp_type: str,
         num_classes: int,
         num_pos: np.ndarray,
-        num_neg: np.ndarray
+        num_neg: np.ndarray,
+        mode: str
 ):
     """
 
     Parameters
     ----------
+    mode: str
+        One of ["slow", "medium", "fast"]. Indicates which pre-trained sequence model checkpoint to use if
+        weight_path is None.
     weight_path: str or Path object
         Location of model checkpoint to use for reloading weights. If `None`, will use default pre-trained model
         provided for given mode.
@@ -417,7 +449,7 @@ def _load_pretrained_sequence_model(
 
     # using default weight path
     if weight_path is None:
-        weight_path = SEQUENCE_MODEL_PATHS[exp_type]
+        weight_path = SEQUENCE_MODEL_PATHS[exp_type][mode]
 
     # load model weights from checkpoint
     pretrained_model_state = torch.load(weight_path)["state_dict"]
