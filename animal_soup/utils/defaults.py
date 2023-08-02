@@ -44,10 +44,15 @@ FEATURE_EXTRACTOR_MODEL_PATHS = {
 
 SEQUENCE_MODEL_PATHS = {
     "table":
-        pretrained_path.joinpath(
-            "table", "sequence_model", "sequence_model"
-        ).with_name('sequence.pt')
+        {
+            "fast": pretrained_path.joinpath(
+                "table", "sequence_model", "sequence_model"
+            ).with_name('tgmj_fast.pt'),
+            "medium": pretrained_path.joinpath(
+                "table", "sequence_model", "sequence_model"
+            ).with_name('tgmj_medium.pt')
+        },
+    "pez": {
 
+        }
 }
-
-

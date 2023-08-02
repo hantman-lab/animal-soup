@@ -118,7 +118,6 @@ class FeatureExtractorDataframeExtension:
             | fast   | TinyMotionNet3D | ResNet18      |
             +--------+-----------------+---------------+
 
-
         batch_size: int, default 32
             Batch size.
         gpu_id: int, default 0
