@@ -1,5 +1,5 @@
 # animal-soup
-[![Documentation Status](https://readthedocs.org/projects/animal-soup/badge/?version=latest)](https://animal-soup.readthedocs.io/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/animal-soup/badge/?version=latest)](https://animal-soup.readthedocs.io/en/latest/?badge=latest) [![CI](https://github.com/hantman-lab/animal-soup/actions/workflows/ci.yml/badge.svg)](https://github.com/hantman-lab/animal-soup/actions/workflows/ci.yml)
 
 The Hantman lab investigates skilled motor control through a head-fixed reach-to-grab task in mice. Over the last few years, a large ground truth dataset has been developed for classifying prominent features of the behavior (`lift`, `handopen`, `grab`, `supinate`, `atmouth`, `chew`). 
 ![task](https://github.com/hantman-lab/animal-soup/assets/69729525/1aa59e8f-49ea-4d0e-8363-43c483734a95)
