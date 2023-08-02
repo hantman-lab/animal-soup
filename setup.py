@@ -16,8 +16,8 @@ install_requires = [
     "jupyter-rfb",
     "jupyterlab",
     "kornia",
-    "omegaconf", # needed because of how models are loaded from checkpoint
-    "jupyterlab-widgets==3.0.7",
+    "omegaconf",  # needed because of how models are loaded from checkpoint
+    "jupyterlab-widgets==3.0.7", # pinned bc of ipydatagrid
     "nbmake",
     "vidio",
     "lightning",
@@ -25,10 +25,17 @@ install_requires = [
     "matplotlib",
     "torchvision",
     "h5py",
-    "sphinx",
-    "sphinx-design",
-    "pydata-sphinx-theme"
 ]
+
+extras_require = {
+
+    "docs": [
+        "sphinx",
+        "sphinx-design",
+        "pydata-sphinx-theme"
+    ],
+
+}
 
 with open(Path(__file__).parent.joinpath("README.md")) as f:
     readme = f.read()
@@ -48,6 +55,7 @@ setup(
     author_email='',
     python_requires='>=3.8',
     install_requires=install_requires,
+    extras_require=extras_require,
     include_package_data=True,
     description='Hantman lab automated behavioral classification tool'
 )
