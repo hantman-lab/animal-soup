@@ -43,7 +43,8 @@ DEFAULT_THRESHOLDS = {
                       0.42216834, 0.63822716], dtype=np.float32),
     "medium": np.array([0.5226608, 0.71359646, 0.7387196, 0.71862113, 0.5327101,
                         0.4121191, 0.5327101], dtype=np.float32),
-    "slow": None
+    "slow": np.array([0.44729146, 0.8090643, 0.81408894, 0.7889658, 0.6332025,
+                      0.5528085, 0.72364575], dtype=np.float32)
 }
 
 MIN_BOUT_LENGTH = 3

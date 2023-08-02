@@ -405,3 +405,49 @@ class BehaviorDataFrameExtension:
         path = self._df.paths.get_df_path()
 
         self._df.to_hdf(path, key="df")
+
+
+@pd.api.extensions.register_series_accessor("behavior")
+class BehaviorSeriesExtensions:
+    """Pandas series extensions for inference."""
+
+    def __init__(self, s: pd.Series):
+        self._series = s
+
+    def infer(
+            self,
+            mode: str = "fast",
+            gpu_id: int = 0,
+    ):
+        """
+        Run feature extractor inference and sequence inference together for a given ``mode``. This
+        method will use all default model parameters. If you would like to specify other model weight
+        paths for the flow generator, feature extractor, or sequence model than the pre-trained ones,
+        please call feature extraction and sequence inference separately.
+
+        See the User Guide for more details on model customization.
+
+        Parameters
+        ----------
+        mode: str, default 'fast'
+            One of ['slow', 'medium', 'fast']. Determines which pairing of models to use for the
+            feature extractor and sequence model reconstruction. See table below for model details.
+
+            +--------+-----------------+---------------+-----------------+
+            | mode   | flow model      | feature model | sequence model  |
+            +========+=================+===============+=================+
+            | slow   | TinyMotionNet   | ResNet3D-34   | TGMJ            |
+            +--------+-----------------+---------------+-----------------+
+            | medium | MotionNet       | ResNet50      | TGMJ            |
+            +--------+-----------------+---------------+-----------------+
+            | fast   | TinyMotionNet3D | ResNet18      | TGMJ            |
+            +--------+-----------------+---------------+-----------------+
+
+        gpu_id: int, default 0
+            Integer id of GPU to be used for inference. By default, assumes only one available GPU.
+        """
+
+        self._series.feature_extractor.infer(mode=mode, gpu_id=gpu_id)
+        self._series.sequence.infer(mode=mode, gpu_id=gpu_id)
+
+        print("Successfully ran feature extraction and sequence inference.")

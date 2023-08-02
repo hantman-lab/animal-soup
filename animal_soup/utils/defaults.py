@@ -50,7 +50,10 @@ SEQUENCE_MODEL_PATHS = {
             ).with_name('tgmj_fast.pt'),
             "medium": pretrained_path.joinpath(
                 "table", "sequence_model", "sequence_model"
-            ).with_name('tgmj_medium.pt')
+            ).with_name('tgmj_medium.pt'),
+            "slow": pretrained_path.joinpath(
+                "table", "sequence_model", "sequence_model"
+            ).with_name('tgmj_slow.pt')
         },
     "pez": {
 

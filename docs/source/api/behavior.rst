@@ -9,3 +9,6 @@ Extensions that are used for basic interaction and viewing of the dataframe.
 
 .. autoclass:: animal_soup.BehaviorDataFrameExtension
     :members:
+
+.. autoclass:: animal_soup.BehaviorSeriesExtensions
+    :members:
