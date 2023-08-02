@@ -274,11 +274,6 @@ This will allow you to edit predicted ethograms in the current dataframe. See th
     press the 'Y' key in the event that you manually change values in the ethogram
     and want them to be saved.
 
-Customization/Expansion
-=======================
 
-For the most part, it is assumed that you will not need to re-train any of the models being used for inference.
-However, it is possible to do so. This section will talk about how to train your own models and then run
-inference using the weights from the models you have trained.
 
 
