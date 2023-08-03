@@ -94,7 +94,7 @@ class BehaviorDataFrameExtension:
         self,
         animal_id: str,
         session_id: str = None,
-        trial_id: str = None,
+        trial_id: int = None,
         exp_type: str = None,
     ):
         """
@@ -107,8 +107,9 @@ class BehaviorDataFrameExtension:
             Animal to add to the dataframe.
         session_id: str, default None
             Session to be added for a given animal. If `None`, will attempt to add all sessions for the given animal.
-        trial_id: str, default None
+        trial_id: int, default None
             Trial to be added for given animal/session. If `None`, will add all trials for the given session.
+            Should be an integer representing the trial #.
         exp_type: str, default None
             Type of experiment, either 'table' or 'pez'. Default as None, can be set later.
 
@@ -158,33 +159,52 @@ class BehaviorDataFrameExtension:
                 if len(trials) == 0:
                     raise ValueError(f"no trials found in this session: {session_dir}")
 
-                # remove invalid files
+                # remove invalid files and add trial_id to list
+                trial_ids = list()
                 for t in trials:
                     if t.suffix not in ACCEPTED_CODECS:
                         trials.remove(t)
+                    elif 'front' in t.stem:
+                        trial_ids.append(t.stem.replace('_front', ''))
+                    elif 'side' in t.stem:
+                        trial_ids.append(t.stem.replace('_side', ''))
+
+                trial_ids = sorted(set(trial_ids))
 
                 # add trials to dataframe
-                for trial in trials:
+                for trial in trial_ids:
                     # check if trial already in dataframe
                     if (
                         len(
                             self._df[
                                 (self._df["animal_id"] == animal_id)
                                 & (self._df["session_id"] == session_dir.stem)
-                                & (self._df["trial_id"] == trial.stem)
+                                & (self._df["trial_id"] == int(trial[-3:]))
                             ].index
                         )
                         > 0
                     ):
                         raise ValueError(
                             f"Item already exists with animal_id={animal_id}, "
-                            f"session_id={session_dir.stem}, and trial_id={trial.stem}. "
+                            f"session_id={session_dir.stem}, and trial_id={int(trial[-3:])}. "
                             f"Please remove the item before attempting to add again."
                         )
 
                     # get vid path regardless of codec
-                    full_vid_path = sorted(session_dir.glob(f"{trial.stem}*"))[0]
-                    parent_path, relative_vid_path = split_path(full_vid_path)
+                    front_vid_path = sorted(session_dir.glob(f"*front*{trial[-3:]}*"))
+                    if len(front_vid_path) == 0:
+                        raise ValueError(f"front vid path does not exist for trial: {trial}")
+                    side_vid_path = sorted(session_dir.glob(f"*side*{trial[-3:]}*"))
+                    if len(side_vid_path) == 0:
+                        raise ValueError(f"side vid path does not exist for trial: {trial}")
+
+                    parent_path, relative_vid_path_front = split_path(front_vid_path[0])
+                    parent_path, relative_vid_path_side = split_path(side_vid_path[0])
+
+                    vid_paths = {
+                        "front": relative_vid_path_front,
+                        "side": relative_vid_path_side
+                    }
 
                     # get output path
                     output_path = Path(f'{animal_id}/{session_dir.stem}/').joinpath(session_dir.stem).with_name(f'outputs.h5')
@@ -194,8 +214,8 @@ class BehaviorDataFrameExtension:
                         {
                             "animal_id": animal_id,
                             "session_id": session_dir.stem,
-                            "trial_id": trial.stem,
-                            "vid_path": relative_vid_path,
+                            "trial_id": int(trial[-3:]),
+                            "vid_paths": vid_paths,
                             "output_path": output_path,
                             "exp_type": exp_type,
                             "model_params": dict(),
@@ -220,31 +240,51 @@ class BehaviorDataFrameExtension:
                     if t.suffix not in ACCEPTED_CODECS:
                         trials.remove(t)
 
-                for trial in trials:
+                # remove invalid files and add trial_id to list
+                trial_ids = list()
+                for t in trials:
+                    if t.suffix not in ACCEPTED_CODECS:
+                        trials.remove(t)
+                    elif 'front' in t.stem:
+                        trial_ids.append(t.stem.replace('_front', ''))
+                    elif 'side' in t.stem:
+                        trial_ids.append(t.stem.replace('_side', ''))
+
+                trial_ids = sorted(set(trial_ids))
+
+                for trial in trial_ids:
                     # check if trial already in dataframe
                     if (
                         len(
                             self._df[
                                 (self._df["animal_id"] == animal_id)
                                 & (self._df["session_id"] == session_id)
-                                & (self._df["trial_id"] == trial.stem)
+                                & (self._df["trial_id"] == int(trial[-3:]))
                             ].index
                         )
                         > 0
                     ):
                         raise ValueError(
                             f"Item already exists with animal_id={animal_id}, "
-                            f"session_id={session_id}, and trial_id={trial.stem}. "
+                            f"session_id={session_id}, and trial_id={int(trial[-3:])}. "
                             f"Please remove the item before attempting to add again."
                         )
 
                     # get vid path regardless of codec
-                    full_vid_path = sorted(
-                        get_parent_raw_data_path()
-                        .joinpath(animal_id, session_id)
-                        .glob(f"{trial.stem}*")
-                    )[0]
-                    parent_path, relative_vid_path = split_path(full_vid_path)
+                    front_vid_path = sorted(session_dir.glob(f"*front*{trial[-3:]}*"))
+                    if len(front_vid_path) == 0:
+                        raise ValueError(f"front vid path does not exist for trial: {trial}")
+                    side_vid_path = sorted(session_dir.glob(f"*side*{trial[-3:]}*"))
+                    if len(side_vid_path) == 0:
+                        raise ValueError(f"side vid path does not exist for trial: {trial}")
+
+                    parent_path, relative_vid_path_front = split_path(front_vid_path[0])
+                    parent_path, relative_vid_path_side = split_path(side_vid_path[0])
+
+                    vid_paths = {
+                        "front": relative_vid_path_front,
+                        "side": relative_vid_path_side
+                    }
 
                     # get output path
                     output_path = Path(f'{animal_id}/{session_id}/').joinpath(session_id).with_name(f'outputs.h5')
@@ -254,8 +294,8 @@ class BehaviorDataFrameExtension:
                         {
                             "animal_id": animal_id,
                             "session_id": session_id,
-                            "trial_id": trial.stem,
-                            "vid_path": relative_vid_path,
+                            "trial_id": int(trial[-3:]),
+                            "vid_paths": vid_paths,
                             "output_path": output_path,
                             "exp_type": exp_type,
                             "model_params": dict(),
@@ -279,17 +319,25 @@ class BehaviorDataFrameExtension:
                 ):
                     raise ValueError(
                         f"Item already exists with animal_id={animal_id}, "
-                        f"session_id={session_id}, and trial_id={trial_id}. "
+                        f"session_id={session_id}, and trial_id={trial_id} "
                         f"Please remove the item before attempting to add again."
                     )
 
                 # get vid path regardless of codec
-                full_vid_path = sorted(
-                    get_parent_raw_data_path()
-                    .joinpath(animal_id, session_id)
-                    .glob(f"{trial_id}*")
-                )[0]
-                parent_path, relative_vid_path = split_path(full_vid_path)
+                front_vid_path = sorted(session_dir.glob(f"*front*{trial_id}*"))
+                if len(front_vid_path) == 0:
+                    raise ValueError(f"front vid path does not exist for trial: {trial_id}")
+                side_vid_path = sorted(session_dir.glob(f"*side*{trial_id}*"))
+                if len(side_vid_path) == 0:
+                    raise ValueError(f"side vid path does not exist for trial: {trial_id}")
+
+                parent_path, relative_vid_path_front = split_path(front_vid_path[0])
+                parent_path, relative_vid_path_side = split_path(side_vid_path[0])
+
+                vid_paths = {
+                    "front": relative_vid_path_front,
+                    "side": relative_vid_path_side
+                }
 
                 # get output path
                 output_path = Path(f'{animal_id}/{session_id}/').joinpath(session_id).with_name(f'outputs.h5')
@@ -300,7 +348,7 @@ class BehaviorDataFrameExtension:
                         "animal_id": animal_id,
                         "session_id": session_id,
                         "trial_id": trial_id,
-                        "vid_path": relative_vid_path,
+                        "vid_paths": vid_paths,
                         "output_path": output_path,
                         "exp_type": exp_type,
                         "model_params": dict(),
