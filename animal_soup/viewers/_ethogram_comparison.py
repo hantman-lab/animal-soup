@@ -26,8 +26,12 @@ class EthogramComparisonVizContainer(EthogramVizContainer):
             Row of the dataframe that will initially be selected to view videos and corresponding ethograms.
         """
         super(EthogramComparisonVizContainer, self).__init__(
-            dataframe=dataframe, start_index=start_index
+            dataframe=dataframe, start_index=start_index, mode="inference"
         )
+
+        if "ethograms" not in self._dataframe.columns:
+            raise ValueError("In order to compare ground truth ethograms and predicted ethograms, "
+                             "there must be hand-labeled ethograms in the dataframe.")
 
         self.comparison_plot = None
 
@@ -57,7 +61,7 @@ class EthogramComparisonVizContainer(EthogramVizContainer):
                 size=(500, 100), controller=self.plot.controller
             )
 
-        self.ethogram_array = row["deg_preds"]
+        self.ethogram_array = row["ethograms"]
 
         y_bottom = 0
         for i, b in enumerate(ETHOGRAM_COLORS.keys()):

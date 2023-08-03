@@ -83,12 +83,12 @@ class BehaviorDataFrameExtension:
 
         return container
 
-    # def compare_ethograms(self, start_index: int = 0):
-    #     container = EthogramComparisonVizContainer(
-    #         dataframe=self._df, start_index=start_index
-    #     )
-    #
-    #     return container
+    def compare_ethograms(self, start_index: int = 0):
+        container = EthogramComparisonVizContainer(
+            dataframe=self._df, start_index=start_index
+        )
+
+        return container
 
     def add_item(
         self,
