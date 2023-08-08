@@ -7,6 +7,7 @@ from vidio import VideoReader
 import random
 from .utils import *
 from collections import deque
+from ..utils import resolve_path
 
 
 class SingleVideoDataset(data.Dataset):
@@ -14,7 +15,7 @@ class SingleVideoDataset(data.Dataset):
 
     def __init__(
         self,
-        vid_path: Path,
+        vid_path: Dict[str, Path],
         label: np.ndarray = None,
         mean_by_channels: Union[list, np.ndarray] = [0, 0, 0],
         transform: torchvision.transforms = None,
@@ -27,9 +28,9 @@ class SingleVideoDataset(data.Dataset):
 
         Parameters
         ----------
-        vid_path: Path
-            Path object to video being read in.
-        labels: np.ndarray, default None
+        vid_path: Dict[str, Path]
+            Dictionary containing the relative front and side video paths for a single trial.
+        label: np.ndarray, default None
             If supervised training, ethogram labels of associated video.
         mean_by_channels: Union[list, np.ndarray], default [0, 0, 0]
             Mean for each channel input. Will either be the channel means given by the normalization augmentation
@@ -42,7 +43,8 @@ class SingleVideoDataset(data.Dataset):
             How many sequential frames in a clip
         """
 
-        self.vid_path = vid_path
+        self.front_path = resolve_path(vid_path["front"])
+        self.side_path = resolve_path(vid_path["side"])
 
         if isinstance(mean_by_channels[0], (float, np.floating)):
             self.mean_by_channels = np.clip(
@@ -59,20 +61,43 @@ class SingleVideoDataset(data.Dataset):
         self.conv_mode = conv_mode
 
         # validate path
-        if not Path.is_file(vid_path):
-            raise ValueError(f"No video found at this path: {vid_path}")
+        if not Path.is_file(self.front_path):
+            raise ValueError(f"No front video found at this path: {vid_path}")
+        if not Path.is_file(self.side_path):
+            raise ValueError(f"No side video found at this path: {vid_path}")
 
         self.metadata = dict()
-        with VideoReader(str(self.vid_path)) as reader:
-            data_metadata = dict()
 
-            data_metadata["vid_path"] = vid_path
-            data_metadata["width"] = reader.next().shape[1]
-            data_metadata["height"] = reader.next().shape[0]
-            data_metadata["framecount"] = reader.nframes
-            data_metadata["fps"] = reader.fps
+        left_reader = VideoReader(str(self.side_path))
+        right_reader = VideoReader(str(self.front_path))
+
+        data_metadata = dict()
+
+        data_metadata["vid_path"] = vid_path
+        # check to make sure front and side videos are same side
+        side_width = left_reader.next().shape[1]
+        front_width = right_reader.next().shape[1]
+        if side_width != front_width:
+            raise ValueError(f"side video width: {side_width} and "
+                             f"front video width: {front_width} do not match")
+        else:
+            data_metadata["width"] = side_width
+
+        side_height = left_reader.next().shape[0]
+        front_height = right_reader.next().shape[0]
+        if side_height != front_height:
+            raise ValueError(f"side video width: {side_height} and "
+                             f"front video width: {front_height} do not match")
+        else:
+            data_metadata["width"] = side_height
+
+        data_metadata["framecount"] = min(left_reader.nframes, right_reader.nframes)
+        data_metadata["fps"] = left_reader.fps
 
         self.metadata["data_metadata"] = data_metadata
+
+        left_reader.close()
+        right_reader.close()
 
         if label is not None:
             label_metadata = dict()
@@ -179,16 +204,22 @@ class SingleVideoDataset(data.Dataset):
 
         seed = np.random.randint(2147483647)
 
-        with VideoReader(str(self.vid_path)) as reader:
-            for i in range(real_frames):
-                try:
-                    image = reader[i + start_frame]
-                except Exception as e:
-                    image = self._zeros_image.copy().transpose(1, 2, 0)
-                if self.transform:
-                    random.seed(seed)
-                    image = self.transform(image)
-                    images.append(image)
+        left_reader = VideoReader(str(self.side_path))
+        right_reader = VideoReader(str(self.front_path))
+
+        for i in range(real_frames):
+            try:
+                left_image = left_reader[i + start_frame]
+                right_image = right_reader[i + start_frame]
+                image = np.hstack((left_image, right_image))
+            except Exception as e:
+                left_image = self._zeros_image.copy().transpose(1, 2, 0)
+                right_image = self._zeros_image.copy().transpose(1, 2, 0)
+                image = np.hstack((left_image, right_image))
+            if self.transform:
+                random.seed(seed)
+                image = self.transform(image)
+                images.append(image)
 
         images = self._prepend_with_zeros(images, blank_start_frames)
         images = self._append_with_zeros(images, blank_end_frames)
@@ -203,7 +234,8 @@ class SingleVideoDataset(data.Dataset):
         if self.label is not None:
             outputs["labels"] = self.label[index]
 
-        reader.close()
+        left_reader.close()
+        right_reader.close()
 
         return outputs
 
@@ -213,7 +245,7 @@ class VideoDataset(data.Dataset):
 
     def __init__(
         self,
-        vid_paths: List[Path],
+        vid_paths: List[Dict[str, Path]],
         transform: torchvision.transforms = None,
         conv_mode: str = "2d",
         mean_by_channels: Union[list, np.ndarray] = [0, 0, 0],
@@ -223,8 +255,9 @@ class VideoDataset(data.Dataset):
         """
         Parameters
         ----------
-        vid_paths: List[Path]
-            List of video paths from current dataframe.
+        vid_paths: List[Dict[str, Path]]
+            List of dictionaries containing the relative front and side video paths for trials in the
+            current dataframe.
         transform: TorchVision transform object
             CPU transforms to be applied to the frames of videos as they are loaded in.
         conv_mode: str, default '2d'

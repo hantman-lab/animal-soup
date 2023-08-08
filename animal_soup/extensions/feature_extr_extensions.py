@@ -219,12 +219,7 @@ class FeatureExtractorDataframeExtension:
                 )
 
         # create available dataset from items in df
-        training_vids = list()
-        parent_data_path = get_parent_raw_data_path()
-        for ix, row in self._df.iterrows():
-            training_vids.append(
-                parent_data_path.joinpath(row["vid_path"])
-            )
+        training_vids = list(self._df["vid_paths"].values)
 
         # validate number of videos in training set
         if len(training_vids) < 3:
