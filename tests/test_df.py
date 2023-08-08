@@ -31,7 +31,7 @@ os.makedirs(ground_truth_dir, exist_ok=True)
 
 def _download_ground_truth():
     print(f"Downloading ground truth data")
-    url = 'https://zenodo.org/record/8205718/files/ground_truth.zip'
+    url = 'https://zenodo.org/record/8225385/files/ground_truth.zip'
 
     # basically from https://stackoverflow.com/questions/37573483/progress-bar-while-download-file-over-http-with-requests/37573701
     response = requests.get(url, stream=True)
@@ -50,7 +50,7 @@ def _download_ground_truth():
 
 def _download_sample_data():
     print(f"Downloading sample data")
-    url = 'https://zenodo.org/record/8205718/files/sample_data.zip'
+    url = 'https://zenodo.org/record/8225385/files/sample_data.zip'
 
     # basically from https://stackoverflow.com/questions/37573483/progress-bar-while-download-file-over-http-with-requests/37573701
     response = requests.get(url, stream=True)
@@ -82,8 +82,11 @@ elif "DOWNLOAD_GROUND_TRUTH" in os.environ.keys():
         _download_ground_truth()
 
 
-def get_tmp_filename():
-    return os.path.join(tmp_dir, f"test_df.hdf")
+def get_tmp_filename(df_type: str):
+    if df_type == "test":
+        return os.path.join(tmp_dir, f"test_df.hdf")
+    else:
+        return os.path.join(tmp_dir, "soup_df.hdf")
 
 
 def clear_tmp():
@@ -91,14 +94,14 @@ def clear_tmp():
 
 
 def _create_tmp_df() -> Tuple[pd.DataFrame, str]:
-    fname = get_tmp_filename()
+    fname = get_tmp_filename("test")
     df = create_df(fname)
 
     return df, fname
 
 
 def test_create_df() -> Tuple[pd.DataFrame, str]:
-    fname = get_tmp_filename()
+    fname = get_tmp_filename("test")
     if os.path.exists(fname):
         # assert attempting to create df with remove_existing=True
         df = create_df(fname, remove_existing=True)
@@ -141,7 +144,7 @@ def test_add_item():
     assert (get_parent_raw_data_path(), sample_data_dir)
 
     # create empty dataframe, remove existing if True
-    fname = get_tmp_filename()
+    fname = get_tmp_filename("test")
     df = create_df(fname, remove_existing=True)
 
     # get animal_ids in sample data
@@ -166,8 +169,16 @@ def test_add_item():
 
     # add a single trial for a given animal/session
     trials = sorted(session_dirs[1].glob('*'))
+    trial_ids = list()
+    for t in trials:
+        if 'front' in t.stem:
+            trial_ids.append(t.stem.replace('_front', ''))
+        elif 'side' in t.stem:
+            trial_ids.append(t.stem.replace('_side', ''))
+    trials = sorted(set(trial_ids))
+
     for trial in trials:
-        df.behavior.add_item(animal_id=animal_id2, session_id=session_dirs[1].stem, trial_id=trial.stem)
+        df.behavior.add_item(animal_id=animal_id2, session_id=session_dirs[1].stem, trial_id=int(trial[-3:]))
 
     # assert df is as expected
     ground_df = pd.read_hdf(ground_truth_dir.joinpath('add_trials.hdf'))
@@ -182,7 +193,7 @@ def test_remove_item():
     assert (get_parent_raw_data_path(), sample_data_dir)
 
     # create empty dataframe, remove existing if True
-    fname = get_tmp_filename()
+    fname = get_tmp_filename("test")
     df = create_df(fname, remove_existing=True)
 
     # get animal_ids in sample data
@@ -221,7 +232,14 @@ def test_remove_item():
 
     # remove a single trial
     trials = sorted(sessions[1].glob('*.avi'))
-    df.behavior.remove_item(animal_id=animal_dirs[1].stem, session_id=sessions[1].stem, trial_id=trials[0].stem)
+    trial_ids = list()
+    for t in trials:
+        if 'front' in t.stem:
+            trial_ids.append(t.stem.replace('_front', ''))
+        elif 'side' in t.stem:
+            trial_ids.append(t.stem.replace('_side', ''))
+    trials = sorted(set(trial_ids))
+    df.behavior.remove_item(animal_id=animal_dirs[1].stem, session_id=sessions[1].stem, trial_id=int(trials[0][-3:]))
 
     # assert dataframe as expected
     ground_df = pd.read_hdf(ground_truth_dir.joinpath('remove_single_trial.hdf'))
@@ -233,7 +251,7 @@ def test_load_df():
     test_add_item()
 
     # load the df and assert it is as expected
-    df = load_df(get_tmp_filename())
+    df = load_df(get_tmp_filename("test"))
 
     ground_df = pd.read_hdf(ground_truth_dir.joinpath('ground_df.hdf'))
     pd.testing.assert_frame_equal(ground_df, df)

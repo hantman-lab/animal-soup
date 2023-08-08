@@ -169,6 +169,7 @@ class BehaviorDataFrameExtension:
                     elif 'side' in t.stem:
                         trial_ids.append(t.stem.replace('_side', ''))
 
+                # removes duplicate front/side trials
                 trial_ids = sorted(set(trial_ids))
 
                 # add trials to dataframe
@@ -234,11 +235,6 @@ class BehaviorDataFrameExtension:
 
                 if len(trials) == 0:
                     raise ValueError(f"no trials found in this session: {session_dir}")
-
-                # remove invalid files
-                for t in trials:
-                    if t.suffix not in ACCEPTED_CODECS:
-                        trials.remove(t)
 
                 # remove invalid files and add trial_id to list
                 trial_ids = list()
@@ -366,7 +362,7 @@ class BehaviorDataFrameExtension:
         row_ix: int = None,
         animal_id: str = None,
         session_id: str = None,
-        trial_id: str = None,
+        trial_id: int = None,
     ):
         """
         Remove item(s) from dataframe.
@@ -380,7 +376,7 @@ class BehaviorDataFrameExtension:
         session_id: str, default None
             Session to remove from dataframe. If `None`, will remove all sessions for the provided
             animal.
-        trial_id: str, default None
+        trial_id: int, default None
             Trial to remove from dataframe
         """
         # simple fix for now to supress PerformanceWarning when saving dataframe

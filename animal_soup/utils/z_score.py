@@ -10,6 +10,7 @@ import numpy as np
 import torch
 from tqdm import tqdm
 from vidio import VideoReader
+from .dataframe import resolve_path
 
 
 # https://notmatthancock.github.io/2017/03/23/simple-batch-stat-updates.html
@@ -114,16 +115,14 @@ class StatsRecorder:
         self.nobservations += n
 
 
-def get_video_statistics(
-    video_path: Path, stride: int = 10
-) -> Dict[str, Union[float, int]]:
+def get_video_statistics(video_path: Dict[str, Path], stride: int = 10) -> Dict[str, Union[float, int]]:
     """
     Calculates the channel-wise mean and standard deviation for a given input video.
 
     Parameters
     ----------
-    video_path: Path
-        Path object to video to calculate statistics for.
+    video_path: Dict[str, Path]
+        Dictionary of Path objects to front and side video of a given trial for calculating the normalization.
     stride: int, default 10
         Will only calculate statistics for every stride so that entire videos do not have to be loaded into memory.
         If you want to calculate image statistics for every frame, use stride=1.
@@ -136,16 +135,26 @@ def get_video_statistics(
     """
     # use stats recorder to easily keep track of and update mean, std, and N across a single video
     image_stats = StatsRecorder()
-    with VideoReader(str(video_path)) as reader:
-        for i in tqdm(range(0, len(reader), stride)):
-            try:
-                image = reader[i]
-            except Exception as e:
-                continue
-            image = image.astype(float) / 255
-            image = image.transpose(2, 1, 0)
-            image = image.reshape(3, -1).transpose(1, 0)
-            image_stats.update(image)
+
+    # get full path of side and front videos based on current parent data path
+    side_path = resolve_path(video_path["side"])
+    front_path = resolve_path(video_path["front"])
+
+    # separate readers for left video and right video, concat on the fly
+    left_reader = VideoReader(str(side_path))
+    right_reader = VideoReader(str(front_path))
+
+    for i in tqdm(range(0, min(len(left_reader), len(right_reader)), stride)):
+        try:
+            side_image = left_reader[i]
+            front_image = right_reader[i]
+            image = np.hstack((side_image, front_image))
+        except Exception as e:
+            continue
+        image = image.astype(float) / 255
+        image = image.transpose(2, 1, 0)
+        image = image.reshape(3, -1).transpose(1, 0)
+        image_stats.update(image)
 
     imdata = {
         "mean": image_stats.mean,
@@ -159,7 +168,8 @@ def get_video_statistics(
             v = v.tolist()
         imdata[k] = v
 
-    reader.close()
+    left_reader.close()
+    right_reader.close()
 
     return imdata
 
@@ -170,8 +180,9 @@ def get_normalization(vid_paths: List[Path]) -> Dict[str, Union[float, int]]:
 
     Parameters
     ----------
-    vid_paths: List[Path]
-        List of video paths to calculate normalization augmentation.
+    vid_paths: List[Dict[str, Path]]
+        List of dictionaries containing front and side video paths to calculate normalization augmentation.
+        Calculates a normalization based on the concatenation of front and side together.
 
     Returns
     -------
