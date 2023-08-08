@@ -24,23 +24,23 @@ def get_ethogram_from_disk(row: pd.Series):
 
     with h5py.File(output_path, "r") as f:
         # check if trial in keys
-        if row["trial_id"] not in f.keys():
+        if str(row["trial_id"]) not in f.keys():
             raise ValueError("Inference has not been run for this trial yet. Please run "
                              "inference on ALL trials in the dataframe before trying to "
                              "view them.")
 
         # check if sequence inference has been run
-        elif "sequence" not in f[row["trial_id"]].keys():
+        elif "sequence" not in f[str(row["trial_id"])].keys():
             raise ValueError("Sequence inference has not been run for this trial yet. Please "
                              "make sure that feature extraction and sequence inference has been "
                              "completed for ALL trials in the dataframe before trying to view generated "
                              "ethograms.")
 
         # ethogram exists! want to return cleaned ethogram if possible
-        if "cleaned_ethogram" in f[row["trial_id"]]["ethograms"].keys():
-            return f[row["trial_id"]]["ethograms"]["cleaned_ethogram"][:]
+        if "cleaned_ethogram" in f[str(row["trial_id"])]["ethograms"].keys():
+            return f[str(row["trial_id"])]["ethograms"]["cleaned_ethogram"][:]
         else:
-            return f[row["trial_id"]]["ethograms"]["ethogram"][:]
+            return f[str(row["trial_id"])]["ethograms"]["ethogram"][:]
 
 
 def save_ethogram_to_disk(row: pd.Series, cleaned_ethogram: np.ndarray):
@@ -51,10 +51,10 @@ def save_ethogram_to_disk(row: pd.Series, cleaned_ethogram: np.ndarray):
     # update h5 file with cleaned_ethogram
     with h5py.File(output_path, "r+") as f:
         # if exists, delete and regenerate, else just create
-        if "cleaned_ethogram" in f[row["trial_id"]]["ethograms"].keys():
-            del f[row["trial_id"]]["ethograms"]["cleaned_ethogram"]
+        if "cleaned_ethogram" in f[str(row["trial_id"])]["ethograms"].keys():
+            del f[str(row["trial_id"])]["ethograms"]["cleaned_ethogram"]
 
-        ethogram_group = f[row["trial_id"]]["ethograms"]
+        ethogram_group = f[str(row["trial_id"])]["ethograms"]
 
         ethogram_group.create_dataset("cleaned_ethogram",
                                       data=cleaned_ethogram)

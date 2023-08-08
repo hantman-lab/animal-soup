@@ -321,7 +321,6 @@ class VideoDataset(data.Dataset):
         return self.dataset[index]
 
 
-# https://pytorch.org/docs/stable/data.html
 class VideoIterable(data.IterableDataset):
     """Highly optimized Dataset for running inference on videos.
 
@@ -332,38 +331,48 @@ class VideoIterable(data.IterableDataset):
         - Each clip is read with stride = 1. If sequence_length==3, the first clips would be frames [0, 1, 2],
             [1, 2, 3], [2, 3, 4], ... etc
     """
-
     def __init__(self,
-                 vid_path: str,
+                 vid_path: Dict[str, Path],
                  cpu_transform,
                  sequence_length: int = 11,
-                 num_workers: int = 8,
+                 num_workers: int = 0,
                  mean_by_channels: Union[list, np.ndarray] = [0, 0, 0]):
         """
         Parameters
         ----------
-        vid_path: str
-            Path to video file
+        vid_path: Dict[str, Path]
+            Dictionary of relative path to front and side video of a trial.
         cpu_transform:
             CPU transforms (cropping, resizing)
         sequence_length: int, optional
             Number of images in one clip, by default 11
-        num_workers: int, default 8
+        num_workers: int, default 0
             num_workers for parallelized reading of frames
         mean_by_channels : Union[list, np.ndarray], optional
             [description], by default [0, 0, 0]
         """
         super().__init__()
 
-        self.readers = {i: 0 for i in range(num_workers)}
-        self.vid_path = vid_path
+        if num_workers % 2 != 0:
+            raise ValueError("Number of workers must be an even number so that parallel reading of front and side "
+                             "frames can be done.")
+
+        self.side_readers = {i: 0 for i in range(num_workers)}
+        self.front_readers = {i: 0 for i in range(num_workers)}
+        self.side_path = resolve_path(vid_path["side"])
+        self.front_path = resolve_path(vid_path["front"])
         self.transform = cpu_transform
 
         self.start = 0
         self.sequence_length = sequence_length
 
-        with VideoReader(self.vid_path) as reader:
-            self.N = len(reader)
+        left_reader = VideoReader(str(self.side_path))
+        right_reader = VideoReader(str(self.front_path))
+
+        self.N = min(len(left_reader), len(right_reader))
+
+        left_reader.close()
+        right_reader.close()
 
         self.blank_start_frames = self.sequence_length // 2
         self.cnt = 0
@@ -372,7 +381,6 @@ class VideoIterable(data.IterableDataset):
         self.num_workers = num_workers
         self.buffer = deque([], maxlen=self.sequence_length)
 
-        self.reset_counter = self.num_workers
         self._zeros_image = None
         self._image_shape = None
         self.get_image_shape()
@@ -382,8 +390,14 @@ class VideoIterable(data.IterableDataset):
 
     def get_image_shape(self):
         """Get image shape after CPU augmentations applied"""
-        with VideoReader(self.vid_path) as reader:
-            im = reader[0]
+        left_reader = VideoReader(str(self.side_path))
+        right_reader = VideoReader(str(self.front_path))
+
+        side_im = left_reader[0]
+        front_im = right_reader[0]
+
+        im = np.hstack((side_im, front_im))
+
         im = self.transform(im)
         self._image_shape = im.shape
 
@@ -415,15 +429,16 @@ class VideoIterable(data.IterableDataset):
     def get_current_item(self):
         worker_info = data.get_worker_info()
         worker_id = worker_info.id if worker_info is not None else 0
-        # blank_start_frames =
-        # print(self.cnt)
+
         if self.cnt < 0:
             im = self.get_zeros_image()
         elif self.cnt >= self.N:
             im = self.get_zeros_image()
         else:
             try:
-                im = self.readers[worker_id][self.cnt]
+                side_im = self.side_readers[worker_id][self.cnt]
+                front_im = self.front_readers[worker_id][self.cnt]
+                im = np.hstack((side_im, front_im))
             except Exception as e:
                 print(f'problem reading frame {self.cnt}')
                 raise
@@ -440,11 +455,11 @@ class VideoIterable(data.IterableDataset):
 
     def __iter__(self):
         worker_info = data.get_worker_info()
-        # print(worker_info)
         iter_end = self.N - self.sequence_length // 2
         if worker_info is None:
             iter_start = -self.blank_start_frames
-            self.readers[0] = VideoReader(self.vid_path)
+            self.side_readers[0] = VideoReader(str(self.side_path))
+            self.front_readers[0] = VideoReader(str(self.front_path))
         else:
             per_worker = self.N // self.num_workers
             remaining = self.N % per_worker
@@ -457,27 +472,33 @@ class VideoIterable(data.IterableDataset):
             ends = starts[1:] + [iter_end]
             starts[0] = -self.blank_start_frames
 
-            # print(starts, ends)
+            #print(starts, ends)
 
             iter_start = starts[worker_info.id]
             iter_end = min(ends[worker_info.id], self.N)
             # print(f'worker: {worker_info.id}, start: {iter_start} end: {iter_end}')
-            self.readers[worker_info.id] = VideoReader(self.vid_path)
+            self.side_readers[worker_info.id] = VideoReader(str(self.side_path))
+            self.front_readers[worker_info.id] = VideoReader(str(self.front_path))
         # FILL THE BUFFER TO START
         # print('iter start: {}'.format(iter_start))
         self.fill_buffer_init(iter_start)
         return self.my_iter_func(iter_start, iter_end)
 
     def close(self):
-        for k, v in self.readers.items():
+        for k, v in self.side_readers.items():
             if isinstance(v, int):
                 continue
             try:
                 v.close()
             except Exception as e:
                 print(f'error destroying reader {k}')
-            else:
-                print(f'destroyed {k}')
+        for k, v in self.front_readers.items():
+            if isinstance(v, int):
+                continue
+            try:
+                v.close()
+            except Exception as e:
+                print(f'error destroying reader {k}')
 
     def __exit__(self, *args):
         self.close()

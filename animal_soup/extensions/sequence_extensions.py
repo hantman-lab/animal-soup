@@ -178,12 +178,7 @@ class SequenceModelDataframeExtension:
                 )
 
         # create available dataset from items in df
-        training_vids = list()
-        parent_data_path = get_parent_raw_data_path()
-        for ix, row in self._df.iterrows():
-            training_vids.append(
-                parent_data_path.joinpath(row["vid_path"])
-            )
+        training_vids = list(self._df["vid_paths"].values)
 
         # validate number of videos in training set
         if len(training_vids) < 3:
@@ -329,7 +324,7 @@ class SequenceModelSeriesExtensions:
             with h5py.File(output_path, "r+") as f:
 
                 # not in keys, feature extraction has not been run
-                if self._series["trial_id"] not in f.keys():
+                if str(self._series["trial_id"]) not in f.keys():
                     print(f"Feature extraction has not been run for this trial yet. Running feature extraction now"
                           f" with default mode = {mode}")
                     self._series.feature_extractor.infer(mode=mode, gpu_id=gpu_id)
@@ -337,10 +332,10 @@ class SequenceModelSeriesExtensions:
                 # load in features to pass to sequence model
                 features = dict()
 
-                features["logits"] = f[self._series["trial_id"]]["features"]["logits"][:]
-                features["probabilities"] = f[self._series["trial_id"]]["features"]["probabilities"][:]
-                features["spatial_features"] = f[self._series["trial_id"]]["features"]["spatial"][:]
-                features["flow_features"] = f[self._series["trial_id"]]["features"]["flow"][:]
+                features["logits"] = f[str(self._series["trial_id"])]["features"]["logits"][:]
+                features["probabilities"] = f[str(self._series["trial_id"])]["features"]["probabilities"][:]
+                features["spatial_features"] = f[str(self._series["trial_id"])]["features"]["spatial"][:]
+                features["flow_features"] = f[str(self._series["trial_id"])]["features"]["flow"][:]
 
         # set experiment type
         exp_type = self._series["exp_type"]
@@ -359,7 +354,7 @@ class SequenceModelSeriesExtensions:
 
         prediction_info = predict_single_video(
             gpu_id=gpu_id,
-            vid_path=resolve_path(self._series["vid_path"]),
+            vid_path=self._series["vid_paths"],
             sequence_model=model,
             nonoverlapping=DEFAULT_DATA_PARAMS["nonoverlapping"],
             sequence_length=DEFAULT_DATA_PARAMS["sequence_length"],
@@ -373,10 +368,10 @@ class SequenceModelSeriesExtensions:
         with h5py.File(output_path, "r+") as f:
 
             # if exists, delete and regenerate, else just create
-            if "sequence" in f[self._series["trial_id"]].keys():
-                del f[self._series["trial_id"]]["sequence"]
+            if "sequence" in f[str(self._series["trial_id"])].keys():
+                del f[str(self._series["trial_id"])]["sequence"]
 
-            sequence_group = f[self._series["trial_id"]].create_group("sequence")
+            sequence_group = f[str(self._series["trial_id"])].create_group("sequence")
 
             sequence_group.create_dataset("logits",
                                           data=prediction_info["logits"])
@@ -384,10 +379,10 @@ class SequenceModelSeriesExtensions:
                                           data=prediction_info["probabilities"])
 
             # if exists, delete and regenerate, else just create
-            if "ethogram" in f[self._series["trial_id"]].keys():
-                del f[self._series["trial_id"]]["ethogram"]
+            if "ethogram" in f[str(self._series["trial_id"])].keys():
+                del f[str(self._series["trial_id"])]["ethogram"]
 
-            ethogram_group = f[self._series["trial_id"]].create_group("ethograms")
+            ethogram_group = f[str(self._series["trial_id"])].create_group("ethograms")
 
             ethogram_group.create_dataset("ethogram",
                                           data=final_ethogram)
