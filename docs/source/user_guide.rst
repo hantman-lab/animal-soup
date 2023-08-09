@@ -140,7 +140,7 @@ This allows you to move your behavioral data directory structure between compute
 Trials in a given session can then be added to the dataframe in a multitude of ways.
 
 .. note::
-    For each trial, there should be a front and side video that will get concatenated together for you during inference
+    For each trial, there should be a front and side video that will get concatenated together for you on the fly during inference
     and for visualizations.
 
 1.) Add all sessions for a given animal:

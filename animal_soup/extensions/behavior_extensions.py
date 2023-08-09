@@ -168,6 +168,8 @@ class BehaviorDataFrameExtension:
                         trial_ids.append(t.stem.replace('_front', ''))
                     elif 'side' in t.stem:
                         trial_ids.append(t.stem.replace('_side', ''))
+                    else: # assume file should not be concluded
+                        trials.remove(t)
 
                 # removes duplicate front/side trials
                 trial_ids = sorted(set(trial_ids))
@@ -186,8 +188,8 @@ class BehaviorDataFrameExtension:
                         > 0
                     ):
                         raise ValueError(
-                            f"Item already exists with animal_id={animal_id}, "
-                            f"session_id={session_dir.stem}, and trial_id={int(trial[-3:])}. "
+                            f"Item already exists with animal_id:\n{animal_id}\n\n "
+                            f"session_id:\n{session_dir.stem}\n\n trial_id:\n {int(trial[-3:])}\n\n. "
                             f"Please remove the item before attempting to add again."
                         )
 
@@ -245,6 +247,8 @@ class BehaviorDataFrameExtension:
                         trial_ids.append(t.stem.replace('_front', ''))
                     elif 'side' in t.stem:
                         trial_ids.append(t.stem.replace('_side', ''))
+                    else: # assume file should not be concluded
+                        trials.remove(t)
 
                 trial_ids = sorted(set(trial_ids))
 
@@ -261,8 +265,8 @@ class BehaviorDataFrameExtension:
                         > 0
                     ):
                         raise ValueError(
-                            f"Item already exists with animal_id={animal_id}, "
-                            f"session_id={session_id}, and trial_id={int(trial[-3:])}. "
+                            f"Item already exists with animal_id:\n{animal_id}\n\n "
+                            f"session_id:\n{session_id}\n\n trial_id:\n {int(trial[-3:])}\n\n. "
                             f"Please remove the item before attempting to add again."
                         )
 
@@ -314,8 +318,8 @@ class BehaviorDataFrameExtension:
                     > 0
                 ):
                     raise ValueError(
-                        f"Item already exists with animal_id={animal_id}, "
-                        f"session_id={session_id}, and trial_id={trial_id} "
+                        f"Item already exists with animal_id:\n{animal_id}\n\n "
+                        f"session_id:\n{session_id}\n\n trial_id:\n {trial_id}\n\n. "
                         f"Please remove the item before attempting to add again."
                     )
 

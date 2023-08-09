@@ -77,22 +77,26 @@ class SingleVideoDataset(data.Dataset):
         # check to make sure front and side videos are same side
         side_width = left_reader.next().shape[1]
         front_width = right_reader.next().shape[1]
-        if side_width != front_width:
-            raise ValueError(f"side video width: {side_width} and "
-                             f"front video width: {front_width} do not match")
-        else:
-            data_metadata["width"] = side_width
+        data_metadata["width"] = min(side_width, front_width)
 
         side_height = left_reader.next().shape[0]
         front_height = right_reader.next().shape[0]
         if side_height != front_height:
-            raise ValueError(f"side video width: {side_height} and "
-                             f"front video width: {front_height} do not match")
+            raise ValueError(f"side video height: {side_height} and "
+                             f"front video height: {front_height} do not match")
         else:
-            data_metadata["width"] = side_height
+            data_metadata["height"] = side_height
 
         data_metadata["framecount"] = min(left_reader.nframes, right_reader.nframes)
-        data_metadata["fps"] = left_reader.fps
+
+        # check same fps
+        side_fps = left_reader.fps
+        front_fps = right_reader.fps
+        if side_fps != front_fps:
+            raise ValueError(f"side video fps: {side_fps} does not match "
+                             f"front video fps: {front_fps}")
+        else:
+            data_metadata["fps"] = side_fps
 
         self.metadata["data_metadata"] = data_metadata
 
@@ -322,20 +326,11 @@ class VideoDataset(data.Dataset):
 
 
 class VideoIterable(data.IterableDataset):
-    """Highly optimized Dataset for running inference on videos.
-
-    Features:
-        - Data is only read sequentially
-        - Each frame is only read once
-        - The input video is divided into NUM_WORKERS segments. Each worker reads its segment in parallel
-        - Each clip is read with stride = 1. If sequence_length==3, the first clips would be frames [0, 1, 2],
-            [1, 2, 3], [2, 3, 4], ... etc
-    """
+    """Highly optimized Dataset for running inference on videos."""
     def __init__(self,
                  vid_path: Dict[str, Path],
                  cpu_transform,
                  sequence_length: int = 11,
-                 num_workers: int = 0,
                  mean_by_channels: Union[list, np.ndarray] = [0, 0, 0]):
         """
         Parameters
@@ -346,16 +341,14 @@ class VideoIterable(data.IterableDataset):
             CPU transforms (cropping, resizing)
         sequence_length: int, optional
             Number of images in one clip, by default 11
-        num_workers: int, default 0
-            num_workers for parallelized reading of frames
         mean_by_channels : Union[list, np.ndarray], optional
             [description], by default [0, 0, 0]
         """
         super().__init__()
 
-        if num_workers % 2 != 0:
-            raise ValueError("Number of workers must be an even number so that parallel reading of front and side "
-                             "frames can be done.")
+        # currently not supporting parallelized reading
+        # until I figure it out
+        num_workers = 0
 
         self.side_readers = {i: 0 for i in range(num_workers)}
         self.front_readers = {i: 0 for i in range(num_workers)}
@@ -369,7 +362,7 @@ class VideoIterable(data.IterableDataset):
         left_reader = VideoReader(str(self.side_path))
         right_reader = VideoReader(str(self.front_path))
 
-        self.N = min(len(left_reader), len(right_reader))
+        self.n_frames = min(len(left_reader), len(right_reader))
 
         left_reader.close()
         right_reader.close()
@@ -386,7 +379,7 @@ class VideoIterable(data.IterableDataset):
         self.get_image_shape()
 
     def __len__(self):
-        return self.N
+        return self.n_frames
 
     def get_image_shape(self):
         """Get image shape after CPU augmentations applied"""
@@ -427,12 +420,16 @@ class VideoIterable(data.IterableDataset):
             yield {'images': np.stack(self.buffer, axis=1).transpose(2, 1, 3, 0), 'framenum': self.cnt - 1 - self.sequence_length // 2}
 
     def get_current_item(self):
+        """
+        Returns frames based on the frame number. Will return blank frames based on sequence size if frame count
+        is at beginning or end of video.
+        """
         worker_info = data.get_worker_info()
         worker_id = worker_info.id if worker_info is not None else 0
 
         if self.cnt < 0:
             im = self.get_zeros_image()
-        elif self.cnt >= self.N:
+        elif self.cnt >= self.n_frames:
             im = self.get_zeros_image()
         else:
             try:
@@ -454,15 +451,19 @@ class VideoIterable(data.IterableDataset):
             self.buffer.append(self.get_current_item())
 
     def __iter__(self):
+        """
+        Gets the current worker info and if reading frames has not started, initializes. Otherwise,
+        determines how much work is left.
+        """
         worker_info = data.get_worker_info()
-        iter_end = self.N - self.sequence_length // 2
+        iter_end = self.n_frames - self.sequence_length // 2
         if worker_info is None:
             iter_start = -self.blank_start_frames
             self.side_readers[0] = VideoReader(str(self.side_path))
             self.front_readers[0] = VideoReader(str(self.front_path))
         else:
-            per_worker = self.N // self.num_workers
-            remaining = self.N % per_worker
+            per_worker = self.n_frames // self.num_workers
+            remaining = self.n_frames % per_worker
             nums = [per_worker for i in range(self.num_workers)]
             nums = [nums[i] + 1 if i < remaining else nums[i] for i in range(self.num_workers)]
             # print(nums)
@@ -475,7 +476,7 @@ class VideoIterable(data.IterableDataset):
             #print(starts, ends)
 
             iter_start = starts[worker_info.id]
-            iter_end = min(ends[worker_info.id], self.N)
+            iter_end = min(ends[worker_info.id], self.n_frames)
             # print(f'worker: {worker_info.id}, start: {iter_start} end: {iter_end}')
             self.side_readers[worker_info.id] = VideoReader(str(self.side_path))
             self.front_readers[worker_info.id] = VideoReader(str(self.front_path))
@@ -485,16 +486,21 @@ class VideoIterable(data.IterableDataset):
         return self.my_iter_func(iter_start, iter_end)
 
     def close(self):
+        """Close front and side readers."""
+        # if value in reader dict is not a video reader instance continue
         for k, v in self.side_readers.items():
             if isinstance(v, int):
                 continue
+            # else value of key will be video reader, try to close
             try:
                 v.close()
             except Exception as e:
                 print(f'error destroying reader {k}')
+        # if value in reader dict is not a video reader instance continue
         for k, v in self.front_readers.items():
             if isinstance(v, int):
                 continue
+            # else value of key will be video reader, try to close
             try:
                 v.close()
             except Exception as e:

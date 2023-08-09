@@ -320,11 +320,12 @@ class SequenceModelSeriesExtensions:
 
             self._series.feature_extractor.infer(mode='fast', gpu_id=gpu_id)
         else:
+            curr_trial = str(self._series["trial_id"])
             # check if trial in keys
             with h5py.File(output_path, "r+") as f:
 
                 # not in keys, feature extraction has not been run
-                if str(self._series["trial_id"]) not in f.keys():
+                if curr_trial not in f.keys():
                     print(f"Feature extraction has not been run for this trial yet. Running feature extraction now"
                           f" with default mode = {mode}")
                     self._series.feature_extractor.infer(mode=mode, gpu_id=gpu_id)
@@ -332,10 +333,10 @@ class SequenceModelSeriesExtensions:
                 # load in features to pass to sequence model
                 features = dict()
 
-                features["logits"] = f[str(self._series["trial_id"])]["features"]["logits"][:]
-                features["probabilities"] = f[str(self._series["trial_id"])]["features"]["probabilities"][:]
-                features["spatial_features"] = f[str(self._series["trial_id"])]["features"]["spatial"][:]
-                features["flow_features"] = f[str(self._series["trial_id"])]["features"]["flow"][:]
+                features["logits"] = f[curr_trial]["features"]["logits"][:]
+                features["probabilities"] = f[curr_trial]["features"]["probabilities"][:]
+                features["spatial_features"] = f[curr_trial]["features"]["spatial"][:]
+                features["flow_features"] = f[curr_trial]["features"]["flow"][:]
 
         # set experiment type
         exp_type = self._series["exp_type"]
@@ -368,10 +369,10 @@ class SequenceModelSeriesExtensions:
         with h5py.File(output_path, "r+") as f:
 
             # if exists, delete and regenerate, else just create
-            if "sequence" in f[str(self._series["trial_id"])].keys():
-                del f[str(self._series["trial_id"])]["sequence"]
+            if "sequence" in f[curr_trial].keys():
+                del f[curr_trial]["sequence"]
 
-            sequence_group = f[str(self._series["trial_id"])].create_group("sequence")
+            sequence_group = f[curr_trial].create_group("sequence")
 
             sequence_group.create_dataset("logits",
                                           data=prediction_info["logits"])
@@ -379,10 +380,10 @@ class SequenceModelSeriesExtensions:
                                           data=prediction_info["probabilities"])
 
             # if exists, delete and regenerate, else just create
-            if "ethogram" in f[str(self._series["trial_id"])].keys():
-                del f[str(self._series["trial_id"])]["ethogram"]
+            if "ethogram" in f[curr_trial].keys():
+                del f[curr_trial]["ethogram"]
 
-            ethogram_group = f[str(self._series["trial_id"])].create_group("ethograms")
+            ethogram_group = f[curr_trial].create_group("ethograms")
 
             ethogram_group.create_dataset("ethogram",
                                           data=final_ethogram)

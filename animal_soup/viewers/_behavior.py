@@ -114,20 +114,16 @@ class BehaviorVizContainer:
         front_vid_path = row["vid_paths"]["front"]
         side_vid_path = row["vid_paths"]["side"]
 
-        data = [LazyVideo(resolve_path(side_vid_path)), LazyVideo(resolve_path(front_vid_path))]
+        if DECORD_CONTEXT == "gpu":
+            data = [LazyVideo(resolve_path(side_vid_path), ctx=gpu_context(0)),
+                    LazyVideo(resolve_path(front_vid_path), ctx=gpu_context(0))]
+        else:
+            data = [LazyVideo(resolve_path(side_vid_path)),
+                    LazyVideo(resolve_path(front_vid_path))]
 
         if self.image_widget is None:
-            if DECORD_CONTEXT == "gpu":
-                self.image_widget = ImageWidget(data=data, ctx=gpu_context(0),
-                                                grid_plot_kwargs={"size": (700, 300)},
-                                                )
-            else:
-                self.image_widget = ImageWidget(
-                    data=data,
-                    grid_plot_kwargs={"size": (700, 300)},
-                )
-        # most the time video is rendered upside down, default flip camera
-        self.image_widget.gridplot[0, 0].camera.world.scale_y *= -1
+            self.image_widget = ImageWidget(data=data,
+                                            grid_plot_kwargs={"size": (700, 300)})
 
     def _update_image_widget(self):
         """If row changes, update the data in the ImageWidget with the new row selected."""
@@ -136,16 +132,15 @@ class BehaviorVizContainer:
         front_vid_path = row["vid_paths"]["front"]
         side_vid_path = row["vid_paths"]["side"]
 
-        data = [LazyVideo(resolve_path(side_vid_path)), LazyVideo(resolve_path(front_vid_path))]
-
         if DECORD_CONTEXT == "gpu":
-            self.image_widget.set_data(data,
-                reset_vmin_vmax=True,
-            )
+            data = [LazyVideo(resolve_path(side_vid_path), ctx=gpu_context(0)),
+                    LazyVideo(resolve_path(front_vid_path), ctx=gpu_context(0))]
         else:
-            self.image_widget.set_data(
-                data, reset_vmin_vmax=True
-            )
+            data = [LazyVideo(resolve_path(side_vid_path)),
+                    LazyVideo(resolve_path(front_vid_path))]
+
+        self.image_widget.set_data(data,
+                                   reset_vmin_vmax=True)
 
     def show(self):
         """Shows the widget."""

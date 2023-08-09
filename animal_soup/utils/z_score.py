@@ -144,7 +144,9 @@ def get_video_statistics(video_path: Dict[str, Path], stride: int = 10) -> Dict[
     left_reader = VideoReader(str(side_path))
     right_reader = VideoReader(str(front_path))
 
-    for i in tqdm(range(0, min(len(left_reader), len(right_reader)), stride)):
+    n_frames = min(len(left_reader), len(right_reader))
+
+    for i in tqdm(range(0, n_frames, stride)):
         try:
             side_image = left_reader[i]
             front_image = right_reader[i]

@@ -528,11 +528,13 @@ class FeatureExtractorSeriesExtensions:
         output_path = get_parent_raw_data_path().joinpath(self._series["output_path"])
         # write output to hdf5 file per session
 
+        curr_trial = str(self._series["trial_id"])
+
         # if file does not exist, write mode
         if not output_path.is_file():
             with h5py.File(output_path, "w") as f:
                 # create group for trial
-                trial = f.create_group(str(self._series["trial_id"]))
+                trial = f.create_group(curr_trial)
                 # create feature group and add relevant datasets
                 feature_group = trial.create_group("features")
                 feature_group.create_dataset("spatial",
@@ -547,11 +549,11 @@ class FeatureExtractorSeriesExtensions:
             # file already exists, del group and recreate if exists otherwise just create
             with h5py.File(output_path, "r+") as f:
 
-                if str(self._series["trial_id"]) in f.keys():
+                if curr_trial in f.keys():
                     # delete and remake
-                    del f[str(self._series["trial_id"])]
+                    del f[curr_trial]
 
-                trial = f.create_group(str(self._series["trial_id"]))
+                trial = f.create_group(curr_trial)
 
                 # create feature group and add relevant datasets
                 feature_group = trial.create_group("features")
