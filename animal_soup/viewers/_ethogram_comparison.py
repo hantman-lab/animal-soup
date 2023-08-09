@@ -89,7 +89,7 @@ class EthogramComparisonVizContainer(EthogramVizContainer):
 
         self.comparison_plot.add_graphic(self.ethogram_selector)
         self.ethogram_selector.selection.add_event_handler(
-            self.ethogram_selection_event_handler
+            self._ethogram_selection_event_handler
         )
         self.comparison_plot.auto_scale()
 

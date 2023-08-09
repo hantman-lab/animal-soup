@@ -15,3 +15,9 @@ API Reference
    :caption: Functions
 
    functions
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Visualization
+
+   visualization

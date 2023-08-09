@@ -70,7 +70,7 @@ class EthogramCleanerVizContainer(EthogramVizContainer):
         if self.plot is None:
             self.plot = Plot(size=(700, 300))
             self.plot.renderer.add_event_handler(
-                self.ethogram_key_event_handler, "key_down"
+                self._ethogram_key_event_handler, "key_down"
             )
 
         if self.mode == "ground":
@@ -121,11 +121,11 @@ class EthogramCleanerVizContainer(EthogramVizContainer):
 
         self.plot.add_graphic(self.ethogram_region_selector)
         self.ethogram_region_selector.selection.add_event_handler(
-            self.ethogram_selection_event_handler
+            self._ethogram_selection_event_handler
         )
         self.plot.auto_scale()
 
-    def ethogram_selection_event_handler(self, ev):
+    def _ethogram_selection_event_handler(self, ev):
         """
         Event handler called for linear region to slide through video data using the left or right bound
         of the linear region selector.
@@ -138,7 +138,7 @@ class EthogramCleanerVizContainer(EthogramVizContainer):
         else:
             self.image_widget.sliders["t"].value = ev.pick_info["selected_indices"][0]
 
-    def ethogram_key_event_handler(self, obj):
+    def _ethogram_key_event_handler(self, obj):
         """Event handler for handling keyboard events to clean up ethograms."""
         # index of current highlight graphic
         current_ix = BEHAVIORS.index(self.current_behavior.name)
@@ -190,7 +190,10 @@ class EthogramCleanerVizContainer(EthogramVizContainer):
             self.save_ethogram()
 
     def save_ethogram(self):
-        """Saves an ethogram to the clean dataframe."""
+        """
+        Saves an ethogram to the clean dataframe or to disk depending on the
+        mode specified at instantiation.
+        """
         # create new ethogram based off of indices that are not black
         row = self._dataframe.iloc[self.current_row_ix]
         trial_length = self.ethogram_array[0].shape[0]

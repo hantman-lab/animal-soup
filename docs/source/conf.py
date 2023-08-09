@@ -29,13 +29,21 @@ release = animal_soup.__version__
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ["sphinx.ext.napoleon", 'sphinx.ext.autodoc']
+extensions = ["sphinx.ext.napoleon", 'sphinx.ext.autodoc', 'sphinx.ext.intersphinx']
 autodoc_typehints = "description"
 autodoc_mock_imports = ["torch"]
 
 # templates_path = ['_templates']
 exclude_patterns = []
 
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/3', None),
+    'numpy': ('https://numpy.org/doc/stable/', None),
+    'pytorch': ('https://pytorch.org/docs/stable/', None),
+    'lightning': ('https://lightning.ai/docs/pytorch/stable/', None),
+    'fastplotlib': ('https://fastplotlib.readthedocs.io/en/latest/', None),
+    'pandas': ('https://pandas.pydata.org/docs/', None)
+}
 
 # -- Options for HTML output -------------------------------------------------
 
