@@ -286,6 +286,38 @@ This will allow you to edit predicted ethograms in the current dataframe. See th
     press the 'Y' key in the event that you manually change values in the ethogram
     and want them to be saved.
 
+Customization/Extension
+=======================
+
+``animal-soup`` has been designed under the assumption that you will not need to re-train any of the default
+models that come with the package for the Hantman Lab reach-to-grab task (regardless of experiment type: table, pez, taz, etc.).
+
+However, in the event that you would like to further customize the models that you are using for inference,
+the information below will explain how to do so:
+
+.. note::
+    If you are unfamiliar with the model structure of ``animal-soup`` and the way in which behavioral inference is done,
+    please see the **Background** page of the docs before continuing!
+
+Using Your Own Model Checkpoints
+--------------------------------
+
+**Flow Generator**
+
+When training the flow generator, you must specify a ``mode`` (“slow”, “medium”, or “fast”). The ``mode`` argument indicates which type of flow generator model to construct (TinyMotionNet3D, MotionNet, or TinyMotionNet).
+
+For each ``mode``, there is a pre-trained model checkpoint that can be loaded. However, if you
+have already trained the flow generator previously, you can use the ``model_in`` kwarg to specify a path to a flow generator model checkpoint. This will allow you to start flow generator training from that checkpoint as opposed to a pre-trained model checkpoint.
+
+**If you are using a checkpoint specified by** ``model_in``
+**, the** ``mode`` **argument must match the type of model that the checkpoint is for.**
+
+For example, if you previously trained the flow generator with ``mode=’slow’``, then the checkpoint saved from training is for a TinyMotionNet3D model. Therefore, if you go to use that checkpoint for training in the future, then you will need to make sure the ``mode`` argument is “slow” otherwise you will get errors when trying to reconstruct the appropriate flow generator model training.
+
+**Feature Extractor**
+
+**Sequence Model**
+
 
 
 

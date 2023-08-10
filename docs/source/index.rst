@@ -10,15 +10,9 @@ Welcome to animal-soup's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   Background <background>
    User Guide <user_guide>
    API<api/index>
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
 
 Summary
 =======
@@ -44,3 +38,4 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
