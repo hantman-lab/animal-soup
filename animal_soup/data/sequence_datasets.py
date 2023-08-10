@@ -10,7 +10,7 @@ class SequenceDataset(data.Dataset):
     """ Simple wrapper around SingleSequenceDataset for smoothly loading multiple sequences """
 
     def __init__(self,
-                 vid_paths: List[Path],
+                 vid_paths: List[Dict[str, Path]],
                  labels: List[np.ndarray],
                  features: List[dict],
                  nonoverlapping: bool = True,
@@ -19,8 +19,9 @@ class SequenceDataset(data.Dataset):
         """
         Parameters
         ----------
-        vid_paths: List[Path]
-            List of video paths corresponding to trials in the current dataframe.
+        vid_paths: List[Dict[str, Path]]
+            List of dictionaries containing relative front and side video paths corresponding to trials in the current
+            dataframe.
         labels: List[np.ndarray]
             List of labels corresponding to each trial in the current dataframe.
         features: List[dict]
@@ -76,7 +77,7 @@ class SingleSequenceDataset(data.Dataset):
     """PyTorch Dataset for loading a set of saved 1d features and one-hot labels for Action Detection."""
 
     def __init__(self,
-                 vid_path: Path,
+                 vid_path: Dict[str, Path],
                  label: np.ndarray,
                  feature: dict,
                  sequence_length: int = 60,
@@ -86,8 +87,8 @@ class SingleSequenceDataset(data.Dataset):
 
         Parameters
         ----------
-        vid_path: Path
-            Location of trial video.
+        vid_path: Dict[str, Path]
+            Location of front and side videos for trial.
         label: np.ndarray
             Trial labels in shape [# time points, # behaviors]
         feature: dict

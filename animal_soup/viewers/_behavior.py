@@ -13,9 +13,9 @@ DECORD_CONTEXT = "cpu"
 
 class BehaviorVizContainer:
     def __init__(
-        self,
-        dataframe: pd.DataFrame,
-        start_index: int = 0,
+            self,
+            dataframe: pd.DataFrame,
+            start_index: int = 0,
     ):
         """
         Creates an ipydatagrid and `fastplotlib` ``ImageWidget`` viewer based on a dataframe.
@@ -36,9 +36,8 @@ class BehaviorVizContainer:
             "cleaned_ethograms",
             "notes",
             "exp_type",
-            "deg_preds",
             "model_params",
-            "vid_path",
+            "vid_paths",
             "output_path"
         ]
 
@@ -112,37 +111,36 @@ class BehaviorVizContainer:
         """Instantiates image widget to view behavior videos."""
         row = self._dataframe.iloc[self.current_row_ix]
 
-        vid_path = row["vid_path"]
+        front_vid_path = row["vid_paths"]["front"]
+        side_vid_path = row["vid_paths"]["side"]
+
+        if DECORD_CONTEXT == "gpu":
+            data = [LazyVideo(resolve_path(side_vid_path), ctx=gpu_context(0)),
+                    LazyVideo(resolve_path(front_vid_path), ctx=gpu_context(0))]
+        else:
+            data = [LazyVideo(resolve_path(side_vid_path)),
+                    LazyVideo(resolve_path(front_vid_path))]
 
         if self.image_widget is None:
-            if DECORD_CONTEXT == "gpu":
-                self.image_widget = ImageWidget(
-                    data=LazyVideo(resolve_path(vid_path), ctx=gpu_context(0)),
-                    grid_plot_kwargs={"size": (700, 300)},
-                )
-            else:
-                self.image_widget = ImageWidget(
-                    data=LazyVideo(resolve_path(vid_path)),
-                    grid_plot_kwargs={"size": (700, 300)},
-                )
-        # most the time video is rendered upside down, default flip camera
-        self.image_widget.gridplot[0, 0].camera.world.scale_y *= -1
+            self.image_widget = ImageWidget(data=data,
+                                            grid_plot_kwargs={"size": (700, 300)})
 
     def _update_image_widget(self):
         """If row changes, update the data in the ImageWidget with the new row selected."""
         row = self._dataframe.iloc[self.current_row_ix]
 
-        vid_path = row["vid_path"]
+        front_vid_path = row["vid_paths"]["front"]
+        side_vid_path = row["vid_paths"]["side"]
 
         if DECORD_CONTEXT == "gpu":
-            self.image_widget.set_data(
-                [LazyVideo(resolve_path(vid_path), ctx=gpu_context(0))],
-                reset_vmin_vmax=True,
-            )
+            data = [LazyVideo(resolve_path(side_vid_path), ctx=gpu_context(0)),
+                    LazyVideo(resolve_path(front_vid_path), ctx=gpu_context(0))]
         else:
-            self.image_widget.set_data(
-                [LazyVideo(resolve_path(vid_path))], reset_vmin_vmax=True
-            )
+            data = [LazyVideo(resolve_path(side_vid_path)),
+                    LazyVideo(resolve_path(front_vid_path))]
+
+        self.image_widget.set_data(data,
+                                   reset_vmin_vmax=True)
 
     def show(self):
         """Shows the widget."""

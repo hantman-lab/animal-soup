@@ -3,10 +3,11 @@ from .models import TGMJ
 from ..data import SingleSequenceDataset
 from pathlib import Path
 import numpy as np
+from typing import *
 
 
 def predict_single_video(
-    vid_path: Path,
+    vid_path: Dict[str, Path],
     sequence_model: TGMJ,
     features: dict,
     gpu_id: int = 0,
@@ -21,8 +22,8 @@ def predict_single_video(
     ----------
     gpu_id: int, default 0
         Integer of GPU id to be used for inference, assumes only one GPU available.
-    vid_path: Path
-        Path to current video trial.
+    vid_path: Dict[str, Path]
+        Ditionary of relative front and side paths for trial.
     sequence_model: TGMJ
         Sequence model being used for inference
     features: dict

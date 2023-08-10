@@ -219,12 +219,7 @@ class FeatureExtractorDataframeExtension:
                 )
 
         # create available dataset from items in df
-        training_vids = list()
-        parent_data_path = get_parent_raw_data_path()
-        for ix, row in self._df.iterrows():
-            training_vids.append(
-                parent_data_path.joinpath(row["vid_path"])
-            )
+        training_vids = list(self._df["vid_paths"].values)
 
         # validate number of videos in training set
         if len(training_vids) < 3:
@@ -509,7 +504,7 @@ class FeatureExtractorSeriesExtensions:
 
         # calculate norm augmentation values for given videos in dataframe
         print("Calculating vid normalization statistics")
-        normalization = get_normalization([resolve_path(self._series["vid_path"])])
+        normalization = get_normalization([self._series["vid_paths"]])
 
         # update AUGS
         AUGS = DEFAULT_AUGS.copy()
@@ -521,7 +516,7 @@ class FeatureExtractorSeriesExtensions:
             conv_mode = "3d"
 
         prediction_info = predict_single_video(
-            vid_path=resolve_path(self._series["vid_path"]),
+            vid_path=self._series["vid_paths"],
             hidden_two_stream=hidden_two_stream,
             mean_by_channels=AUGS["normalization"]["mean"],
             gpu_id=gpu_id,
@@ -533,11 +528,13 @@ class FeatureExtractorSeriesExtensions:
         output_path = get_parent_raw_data_path().joinpath(self._series["output_path"])
         # write output to hdf5 file per session
 
+        curr_trial = str(self._series["trial_id"])
+
         # if file does not exist, write mode
         if not output_path.is_file():
             with h5py.File(output_path, "w") as f:
                 # create group for trial
-                trial = f.create_group(self._series["trial_id"])
+                trial = f.create_group(curr_trial)
                 # create feature group and add relevant datasets
                 feature_group = trial.create_group("features")
                 feature_group.create_dataset("spatial",
@@ -552,11 +549,11 @@ class FeatureExtractorSeriesExtensions:
             # file already exists, del group and recreate if exists otherwise just create
             with h5py.File(output_path, "r+") as f:
 
-                if self._series["trial_id"] in f.keys():
+                if curr_trial in f.keys():
                     # delete and remake
-                    del f[self._series["trial_id"]]
+                    del f[curr_trial]
 
-                trial = f.create_group(self._series["trial_id"])
+                trial = f.create_group(curr_trial)
 
                 # create feature group and add relevant datasets
                 feature_group = trial.create_group("features")

@@ -14,7 +14,7 @@ DATAFRAME_COLUMNS = [
     "animal_id",
     "session_id",
     "trial_id",
-    "vid_path",
+    "vid_paths",
     "output_path",
     "exp_type",
     "model_params",

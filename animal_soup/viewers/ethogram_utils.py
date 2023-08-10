@@ -14,7 +14,7 @@ from ..utils import get_parent_raw_data_path
 
 
 def get_ethogram_from_disk(row: pd.Series):
-    """Returns whether ethogram exists for trial at given output_path."""
+    """Returns ethogram from disk for trial at given output_path."""
 
     output_path = get_parent_raw_data_path().joinpath(row["output_path"])
 
@@ -22,25 +22,27 @@ def get_ethogram_from_disk(row: pd.Series):
         raise ValueError("No output path exists for this session. Please run inference for "
                          "trials in the current dataframe to generate ethograms for viewing.")
 
+    curr_trial = str(row["trial_id"])
+
     with h5py.File(output_path, "r") as f:
         # check if trial in keys
-        if row["trial_id"] not in f.keys():
+        if curr_trial not in f.keys():
             raise ValueError("Inference has not been run for this trial yet. Please run "
                              "inference on ALL trials in the dataframe before trying to "
                              "view them.")
 
         # check if sequence inference has been run
-        elif "sequence" not in f[row["trial_id"]].keys():
+        elif "sequence" not in f[curr_trial].keys():
             raise ValueError("Sequence inference has not been run for this trial yet. Please "
                              "make sure that feature extraction and sequence inference has been "
                              "completed for ALL trials in the dataframe before trying to view generated "
                              "ethograms.")
 
         # ethogram exists! want to return cleaned ethogram if possible
-        if "cleaned_ethogram" in f[row["trial_id"]]["ethograms"].keys():
-            return f[row["trial_id"]]["ethograms"]["cleaned_ethogram"][:]
+        if "cleaned_ethogram" in f[curr_trial]["ethograms"].keys():
+            return f[curr_trial]["ethograms"]["cleaned_ethogram"][:]
         else:
-            return f[row["trial_id"]]["ethograms"]["ethogram"][:]
+            return f[curr_trial]["ethograms"]["ethogram"][:]
 
 
 def save_ethogram_to_disk(row: pd.Series, cleaned_ethogram: np.ndarray):
@@ -48,13 +50,15 @@ def save_ethogram_to_disk(row: pd.Series, cleaned_ethogram: np.ndarray):
 
     output_path = get_parent_raw_data_path().joinpath(row["output_path"])
 
+    curr_trial = str(row["trial_id"])
+
     # update h5 file with cleaned_ethogram
     with h5py.File(output_path, "r+") as f:
         # if exists, delete and regenerate, else just create
-        if "cleaned_ethogram" in f[row["trial_id"]]["ethograms"].keys():
-            del f[row["trial_id"]]["ethograms"]["cleaned_ethogram"]
+        if "cleaned_ethogram" in f[curr_trial]["ethograms"].keys():
+            del f[curr_trial]["ethograms"]["cleaned_ethogram"]
 
-        ethogram_group = f[row["trial_id"]]["ethograms"]
+        ethogram_group = f[curr_trial]["ethograms"]
 
         ethogram_group.create_dataset("cleaned_ethogram",
                                       data=cleaned_ethogram)

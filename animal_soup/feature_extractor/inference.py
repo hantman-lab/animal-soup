@@ -38,22 +38,22 @@ def print_debug_statement(images, logits, spatial_features, flow_features, proba
 
 
 def predict_single_video(
-        vid_path: Path,
+        vid_path: Dict[str, Path],
         hidden_two_stream: HiddenTwoStream,
         mean_by_channels: np.ndarray = [0, 0, 0],
         gpu_id: int = 0,
         flow_window: int = 11,
         cpu_transform=None,
         gpu_transform=None,
-        num_workers: int = 8,
+        num_workers: int = 0,
         batch_size: int = 16):
     """
     Runs inference on a single trial, caching the output probabilities and image and flow feature vectors.
 
     Parameters
     ----------
-    vid_path: Path
-        Path to input video
+    vid_path: Dict[str, Path]
+        Dictionary of relative path to front and side video of the trial for inference.
     hidden_two_stream: HiddenTwoStream
         Hidden two-stream model, feature extractor
     gpu_id: int, default 0
@@ -95,7 +95,7 @@ def predict_single_video(
    
     activation_function = nn.Sigmoid()
 
-    dataset = VideoIterable(str(vid_path),
+    dataset = VideoIterable(vid_path,
                             cpu_transform=cpu_transform,
                             num_workers=num_workers,
                             sequence_length=flow_window,
@@ -108,8 +108,6 @@ def predict_single_video(
     activation = unpack_penultimate_layer(hidden_two_stream)
 
     buffer = {}
-
-    has_printed = False
 
     for i, batch in enumerate(tqdm(dataloader, leave=False)):
         if isinstance(batch, dict):
