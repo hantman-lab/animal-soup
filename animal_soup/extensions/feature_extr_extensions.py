@@ -11,6 +11,7 @@ from ..feature_extractor import (get_cnn,
                                  HiddenTwoStreamLightningModule,
                                  get_feature_trainer,
                                  predict_single_video)
+from ..viewers.ethogram_utils import get_ethogram_from_disk
 
 # map the mode of training to the appropriate model
 TRAINING_OPTIONS = {
@@ -82,6 +83,7 @@ class FeatureExtractorDataframeExtension:
             flow_window: int = 11,
             feature_model_in: Union[str, Path] = None,
             model_out: Union[str, Path] = None,
+            ethogram_mode: str = "inference"
     ):
         """
         Train feature extractor model.
@@ -151,6 +153,10 @@ class FeatureExtractorDataframeExtension:
             User provided location of where to store model output such as model checkpoint with updated weights,
             hdf5 file with model results/metrics, etc. Should be a directory. By default, the model output will get
             stored in the same directory as the dataframe.
+        ethogram_mode: str, default 'inference'
+            One of ["inference", "ground"]. Specifies the location of where to look for ground truth ethograms
+            for training. If "inference", will try to use ethograms stored from running inference. If "ground",
+            will look for a column in the dataframe called "ethograms" to use for training.
         """
         # validate feature_model_in
         if feature_model_in is not None:
@@ -202,21 +208,41 @@ class FeatureExtractorDataframeExtension:
             )
 
         # to train feature extractor must have ethograms in columns
-        ethograms = list(self._df["ethograms"])
-        for e in ethograms:
-            if e is None:
-                raise ValueError(
-                    "In order to train the feature extractor you must have labels "
-                    f"in the ethograms column. Row {ethograms.index(e)} does not have an ethogram. "
-                    f"Either remove the row from the dataframe before attempting training or add "
-                    f"labels for this trial."
-                )
-            if e.shape[0] != len(BEHAVIOR_CLASSES):
-                raise ValueError(
-                    f"The ethogram in row {ethograms.index(e)} does not have the correct number of "
-                    f"behaviors. Each ethogram should have {len(BEHAVIOR_CLASSES)} rows. The current "
-                    f"behaviors are: {BEHAVIOR_CLASSES}"
-                )
+        # validate mode
+        if ethogram_mode not in ["ground", "inference"]:
+            raise ValueError("ethogram_mode must be one of ['inference', 'ground']")
+        # if ethogram mode is ground, look for ethograms in 'ethograms' column
+        if ethogram_mode == "ground":
+            if "ethograms" not in self._df.columns:
+                raise ValueError(f"If ethogram_mode is 'ground', the ethograms to be used for training the feature "
+                                 f"extractor must be stored in the current dataframe in a column called 'ethograms'")
+            ethograms = list(self._df["ethograms"])
+            for e in ethograms:
+                if e is None:
+                    raise ValueError(
+                        "In order to train the feature extractor you must have labels "
+                        f"in the ethograms column. Row {ethograms.index(e)} does not have an ethogram. "
+                        f"Either remove the row from the dataframe before attempting training or add "
+                        f"labels for this trial."
+                    )
+                if e.shape[0] != len(BEHAVIOR_CLASSES):
+                    raise ValueError(
+                        f"The ethogram in row {ethograms.index(e)} does not have the correct number of "
+                        f"behaviors. Each ethogram should have {len(BEHAVIOR_CLASSES)} rows. The current "
+                        f"behaviors are: {BEHAVIOR_CLASSES}"
+                    )
+        else: # ethogram_mode must be inference
+            ethograms = list()
+            for ix, row in self._df.iterrows():
+                # get a saved ethogram from disk and make sure it is the right shape
+                ground = get_ethogram_from_disk(row)
+                if ground.shape[0] != len(BEHAVIOR_CLASSES):
+                    raise ValueError(
+                        f"The ethogram in row {ix} does not have the correct number of "
+                        f"behaviors. Each ethogram should have {len(BEHAVIOR_CLASSES)} rows. The current "
+                        f"behaviors are: {BEHAVIOR_CLASSES}"
+                    )
+                ethograms.append(ground)
 
         # create available dataset from items in df
         training_vids = list(self._df["vid_paths"].values)

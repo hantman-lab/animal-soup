@@ -64,6 +64,34 @@ def save_ethogram_to_disk(row: pd.Series, cleaned_ethogram: np.ndarray):
                                       data=cleaned_ethogram)
 
 
+def get_features_from_disk(row: pd.Series):
+    """Gets extracted features from disk."""
+
+    output_path = get_parent_raw_data_path().joinpath(row["output_path"])
+    # checking for output path to retrieve features
+    if not os.path.exists(output_path):
+        raise ValueError(f"No output path found at: {output_path}. This means that feature "
+                         f"extraction has not been run yet. Please run feature extraction before "
+                         f"trying to train the feature extractor.")
+    else:
+        curr_trial = str(row["trial_id"])
+        # check if trial in keys
+        with h5py.File(output_path, "r+") as f:
+
+            # not in keys, feature extraction has not been run
+            if curr_trial not in f.keys():
+                return None
+
+            # get features
+            features = dict()
+
+            features["logits"] = f[curr_trial]["features"]["logits"][:]
+            features["probabilities"] = f[curr_trial]["features"]["probabilities"][:]
+            features["spatial_features"] = f[curr_trial]["features"]["spatial"][:]
+            features["flow_features"] = f[curr_trial]["features"]["flow"][:]
+
+            return features
+
 # for now, a place to stor the method for getting a jaaba ethogram (hand_label or jaaba pred)
 
 
