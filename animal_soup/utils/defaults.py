@@ -59,3 +59,7 @@ SEQUENCE_MODEL_PATHS = {
 
         }
 }
+
+
+def download_pretrained():
+    """Download the pre-trained default models from zenodo."""
