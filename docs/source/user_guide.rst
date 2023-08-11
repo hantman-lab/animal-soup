@@ -299,25 +299,172 @@ the information below will explain how to do so:
     If you are unfamiliar with the model structure of ``animal-soup`` and the way in which behavioral inference is done,
     please see the **Background** page of the docs before continuing!
 
-Using Your Own Model Checkpoints
---------------------------------
+Using Your Own Model Checkpoints - Training
+-------------------------------------------
 
 **Flow Generator**
 
-When training the flow generator, you must specify a ``mode`` (“slow”, “medium”, or “fast”). The ``mode`` argument indicates which type of flow generator model to construct (TinyMotionNet3D, MotionNet, or TinyMotionNet).
+When training the flow generator, you must specify a ``mode`` (“slow”, “medium”, or “fast”).
+The ``mode`` argument indicates which type of flow generator model to construct (TinyMotionNet3D, MotionNet, or TinyMotionNet).
+
++--------+-----------------+
+| mode  | model            |
++========+=================+
+| fast   | TinyMotionNet   |
++--------+-----------------+
+| medium | MotionNet       |
++--------+-----------------+
+| slow   | TinyMotionNet3D |
++--------+-----------------+
 
 For each ``mode``, there is a pre-trained model checkpoint that can be loaded. However, if you
-have already trained the flow generator previously, you can use the ``model_in`` kwarg to specify a path to a flow generator model checkpoint. This will allow you to start flow generator training from that checkpoint as opposed to a pre-trained model checkpoint.
+have already trained the flow generator previously, you can use the ``model_in`` kwarg to specify a path
+to a flow generator model checkpoint. This will allow you to start flow generator training from that checkpoint as opposed
+to a pre-trained model checkpoint.
 
 **If you are using a checkpoint specified by** ``model_in``
 **, the** ``mode`` **argument must match the type of model that the checkpoint is for.**
 
-For example, if you previously trained the flow generator with ``mode=’slow’``, then the checkpoint saved from training is for a TinyMotionNet3D model. Therefore, if you go to use that checkpoint for training in the future, then you will need to make sure the ``mode`` argument is “slow” otherwise you will get errors when trying to reconstruct the appropriate flow generator model training.
+For example, if you previously trained the flow generator with ``mode=’slow’``, then the checkpoint saved from training is for a TinyMotionNet3D model. Therefore, if you go to use that checkpoint for training in the future,
+then you will need to make sure the ``mode`` argument is “slow” otherwise you will get errors when trying to reconstruct the appropriate flow generator model training.
+
+.. code-block:: python
+
+    # model output path where you want to store training results
+    output_path = "/path/to/model/outputs"
+    # dateframe you want to use to train the flow generator
+    df.flow_generator.train(mode="slow", model_out=output_path)
+
+    # now say you have a second dateframe and you want to train the
+    # flow generator using the checkpoint generated from the previous training above
+    df2.flow_generator.train(mode="slow", model_in=output_path)
+
 
 **Feature Extractor**
 
+When training the feature extractor, you must also specify a ``mode`` ("slow", "medium", or "fast").
+The ``mode`` argument indicates which type of feature extractor generator model to construct (ResNet3D_34, ResNet50, or ResNet18)
+as well as which flow generator model to construct (TinyMotionNet3D, MotionNet, TinyMotionNet.
+
+For each ``mode``, there is a pre-trained model checkpoint that can be loaded for the feature extractor and flow generator. However, if you
+have already trained the flow generator or feature extractor previously, you can specify paths to those checkpoints.
+This will allow you to start feature extractor training from that checkpoint as opposed to a pre-trained model checkpoint.
+
+**If you are specifying checkpoint paths for the flow generator and feature extractor they must be to model checkpoints that match the same mode.**
+
++--------+-----------------+---------------+
+| mode   | flow model      | feature model |
++========+=================+===============+
+| slow   | TinyMotionNet   | ResNet3D-34   |
++--------+-----------------+---------------+
+| medium | MotionNet       | ResNet50      |
++--------+-----------------+---------------+
+| fast   | TinyMotionNet3D | ResNet18      |
++--------+-----------------+---------------+
+
+Due to the architectures of the models, you must retain the same ``mode`` through training/inference.
+
+To specify a flow generator model checkpoint you can specify a checkpoint path using the ``flow_model_in`` kwarg.
+You can specify a feature model checkpoint for reconstructing the feature extractor using the ``feature_model_in`` kwarg.
+
+If the ``mode`` arg provided does not match the model types that the checkpoints are for as stated in the above table, you will
+get errors trying to create the flow generator and feature extractor.
+
+.. code-block:: python
+
+    # paths to previous model checkpoints
+    # for example, assume these were previously trained with mode='slow'
+    flow_checkpoint = '/path/to/flow/generator/checkpoint.cpkt'
+    feature_checkpoint = '/path/to/feature/extractor/checkpoint.cpkt'
+
+    # dataframe for training the feature extractor
+    df.feature_extractor.train(mode="slow", flow_model_in=flow_checkpoint, feature_model_in=feature_checkpoint)
+
+    # could also train the feature extractor without having flow generator checkpoint
+    # will simply use default pre-trained flow generator checkpoint
+    df.feature_extractor.train(mode="slow", feature_model_in=feature_checkpoint)
+
 **Sequence Model**
 
+When training the sequence model, you must also specify a ``mode`` ("slow", "medium", or "fast").
+The ``mode`` argument indicates which type of sequence model to construct based on the ``mode`` that
+was used for feature extraction.
 
+.. note::
+    All sequence models are TGMJ models; however, if you have done feature extraction using ``mode='slow'`` then
+    you should specify ``mode='slow'`` for training the sequence model as well. This is because the default sequence model
+    checkpoints for each ``mode`` were trained with features extracted based on that ``mode``.
 
+You can also specify a checkpoint path for training the sequence model if you have previously trained the sequence model
+and want to start training from those weights instead. In this case, the ``mode`` argument will be ignored as a TGMJ model
+will be constructed regardless. At this point, it is up to you as the user to know that the features extracted prior
+to training were done with a given ``mode``.
 
+.. code-block:: python
+
+    # run feature extraction with mode='slow'
+    for ix, row in df.iterrows():
+        row.feature_extractor.infer(mode='slow')
+
+    # train sequence model from pre-trained checkpoint, mode='slow'
+    # save model checkpoint to certain output location
+    sequence_out = '/path/to/sequence/model/outputs/'
+
+    df.sequence.train(mode='slow', model_out=sequence_out)
+
+    # train second dataframe from sequence model checkpoint from prior training
+    # checkpoint will be located in previous specified output location from above
+    sequence_checkpoint = '/path/to/sequence/checkpoint.ckpt'
+
+    # mode argument will get ignored
+    df2.sequence.train(model_in=sequence_checkpoint)
+
+Using Your Own Model Checkpoints - Inference
+--------------------------------------------
+
+You can also run inference using non-default model checkpoints. The two main components of inferring behavior is
+feature extraction and sequence model inference.
+
+If you simply want to run inference using the default pre-trained model checkpoints you can use the following:
+
+.. code-block:: python
+
+    # run inference using mode='slow'
+    for ix, row in df.iterrows():
+        row.behavior.infer(mode='slow')
+
+This will run feature extraction and sequence inference both for you.
+
+If you want to use your own model checkpoints, you will need to run feature extraction and sequence inference separately.
+
+**Feature Extraction**
+
+.. code-block:: python
+
+    # feature extraction using certain flow generator and feature extractor checkpoint
+    feature_checkpoint = '/path/to/feature/extractor.ckpt'
+    flow_checkpoint = '/path/to/flow/generator.ckpt'
+
+    # run feature extraction for each row in the dataframe
+    for ix, row in df.iterrows():
+        row.feature_extractor.infer(flow_model_in=flow_checkpoint, feature_model_in=feature_checkpoint, mode=<mode>)
+
+.. note::
+    As mentioned in the section on training above, in order to properly reconstruct the models the model checkpoints
+    must be to models that correspond to the flow generator and feature extractor models for a given ``mode`` argument.
+
+**Sequence Inference**
+
+Once you have run feature extraction, you may want to also use your own sequence model checkpoint for inference to get
+the best results.
+
+.. code-block:: python
+
+    # sequence inference using a certain model checkpoint
+    sequence_checkpoint = '/path/to/sequence/checkpoint.ckpt'
+
+    # run sequence inference for each row in the dataframe
+    for ix, row in df.iterrows():
+        row.sequence.infer(model_in=sequence_checkpoint)
+
+Similar to training the sequence model, the ``mode`` argument will be ignored when using your own checkpoint.
