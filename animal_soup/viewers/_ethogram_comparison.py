@@ -110,10 +110,12 @@ class EthogramComparisonVizContainer(EthogramVizContainer):
 
     def show(self):
         """Shows the widget."""
+        trial_buttons = HBox([self.previous_button, self.next_button])
+
         return VBox(
             [
                 self.datagrid,
-                HBox([self.image_widget.show(), self.trial_selector]),
+                HBox([self.image_widget.show(), trial_buttons]),
                 self.plot.show(),
                 self.comparison_plot.show(),
             ]

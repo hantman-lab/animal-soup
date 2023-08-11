@@ -1,6 +1,6 @@
 import pandas as pd
 from ipydatagrid import DataGrid
-from ipywidgets import HBox, VBox, Select
+from ipywidgets import HBox, VBox, Button, Layout
 from fastplotlib import ImageWidget
 from warnings import warn
 from ..arrays import LazyVideo
@@ -63,9 +63,24 @@ class BehaviorVizContainer:
         self.datagrid.select(
             row1=start_index, column1=0, row2=start_index, column2=0, clear_mode="all"
         )
-        self._set_trial_selector()
+        self._make_image_widget()
+
+        self.previous_button = Button(description="Previous",
+                                      disabled=False,
+                                      value=False,
+                                      layout=Layout(width="auto"),
+                                      tooltip='previous trial',
+                                      icon='long-arrow-alt-left')
+        self.next_button = Button(description="Next",
+                                  layout=Layout(width="auto"),
+                                  disabled=False,
+                                  value=False,
+                                  tooltip='next trial',
+                                  icon='long-arrow-alt-right')
 
         self.datagrid.observe(self._row_changed, names="selections")
+        self.previous_button.on_click(self._previous_trial)
+        self.next_button.on_click(self._next_trial)
 
     def _get_selection_row(self) -> Union[int, None]:
         """Returns the index of the current selected row."""
@@ -88,19 +103,6 @@ class BehaviorVizContainer:
             return
 
         self.current_row_ix = index
-        self._set_trial_selector()
-
-    def _set_trial_selector(self):
-        """Creates trial selector widget for a given session."""
-        row = self._dataframe.iloc[self.current_row_ix]
-        options = [row["trial_id"]]
-
-        if self.trial_selector is None:
-            self.trial_selector = Select(options=options)
-        else:
-            self.trial_selector.options = options
-
-        self.selected_trial = self.trial_selector.value
 
         if self.image_widget is None:
             self._make_image_widget()
@@ -142,8 +144,35 @@ class BehaviorVizContainer:
         self.image_widget.set_data(data,
                                    reset_vmin_vmax=True)
 
+    def _previous_trial(self, obj):
+        """Event handler to go to the previous trial on click."""
+        self.datagrid.selections.clear()
+        if self.current_row_ix - 1 < 0:
+            self.datagrid.selections = [{'r1': len(self._dataframe.index) - 1, 'c1': 0, 'r2': len(self._dataframe.index) - 1, 'c2': 0}]
+        else:
+            self.datagrid.selections = [
+                {'r1': self.current_row_ix - 1, 'c1': 0, 'r2': self.current_row_ix - 1, 'c2': 0}]
+
+        self._row_changed()
+
+    def _next_trial(self, obj):
+        """Event handler to go to the next trial on click."""
+        self.datagrid.selections.clear()
+        if self.current_row_ix + 1 > len(self._dataframe.index) - 1:
+            self.datagrid.selections = [
+                {'r1': 0, 'c1': 0, 'r2': 0, 'c2': 0}]
+        else:
+            self.datagrid.selections = [
+                {'r1': self.current_row_ix + 1, 'c1': 0, 'r2': self.current_row_ix + 1, 'c2': 0}]
+
+        self._row_changed()
+
     def show(self):
         """Shows the widget."""
+        # box trial buttons together
+        trial_buttons = HBox([self.previous_button, self.next_button])
+
+        # return widget of all elements together
         return VBox(
-            [self.datagrid, HBox([self.image_widget.show(), self.trial_selector])]
+            [self.datagrid, HBox([self.image_widget.show(), trial_buttons])]
         )
