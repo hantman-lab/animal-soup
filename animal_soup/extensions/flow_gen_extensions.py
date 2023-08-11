@@ -67,7 +67,7 @@ class FlowGeneratorDataframeExtension:
             generator.
 
             +--------+-----------------+
-            | model  | mode            |
+            | mode  | model            |
             +========+=================+
             | fast   | TinyMotionNet   |
             +--------+-----------------+

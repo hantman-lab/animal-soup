@@ -97,11 +97,10 @@ def predict_single_video(
 
     dataset = VideoIterable(vid_path,
                             cpu_transform=cpu_transform,
-                            num_workers=num_workers,
                             sequence_length=flow_window,
                             mean_by_channels=mean_by_channels)
     
-    dataloader = torch.utils.data.DataLoader(dataset, num_workers=num_workers, batch_size=batch_size)
+    dataloader = torch.utils.data.DataLoader(dataset, num_workers=0, batch_size=batch_size)
     
     video_frame_num = len(dataset)
 

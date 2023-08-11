@@ -29,6 +29,8 @@ Modeled after [DeepEthogram](https://github.com/jbohnslav/deepethogram).
 `animal-soup` has pre-trained models that were initially trained with 1000 ground truth videos and hand-labeled ethograms.
 These models were specifically trained for the Hantman Lab reach-to-grab task. 
 
+Please see the demo notebook for downloading the pre-trained models from Zenodo. 
+
 ### Interactive Behavior Viewer
 Using `pydatagrid` and `fastplotlib` for visualization of behavior with corresponding ethograms.
 ![viewer](https://github.com/hantman-lab/animal-soup/assets/69729525/55736ffe-303d-4415-b3f1-446c236cc2ba)

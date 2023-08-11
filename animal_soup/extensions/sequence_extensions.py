@@ -6,6 +6,7 @@ from ..data import SequenceDataset
 from .feature_extr_extensions import BEHAVIOR_CLASSES
 import pprint
 from ..sequence_model import *
+from ..viewers.ethogram_utils import get_ethogram_from_disk, get_features_from_disk
 
 # default parameters for sequence
 DEFAULT_DATA_PARAMS = {
@@ -61,12 +62,14 @@ class SequenceModelDataframeExtension:
 
     def train(
             self,
+            mode: str = "fast",
             batch_size: int = 32,
             gpu_id: int = 0,
             initial_lr: float = 0.0001,
             stop_method: str = "learning_rate",
             model_in: Union[str, Path] = None,
-            model_out: Union[str, Path] = None
+            model_out: Union[str, Path] = None,
+            ethogram_mode: str = "inference"
     ):
         """
         Method for training the sequence model with trials in the current dataframe.
@@ -81,6 +84,9 @@ class SequenceModelDataframeExtension:
 
         Parameters
         ----------
+        mode: str, default "fast"
+            One of ["slow", "medium", "fast"]. Indicates which pre-trained TGMJ model to use for training.
+            Argument will be ignored if using non-default pre-trained model checkpoint for training.
         batch_size: int, default 32
             Batch size.
         gpu_id: int, default 0
@@ -106,7 +112,10 @@ class SequenceModelDataframeExtension:
             User provided location of where to store model output such as model checkpoint with updated weights,
             hdf5 file with model results/metrics, etc. Should be a directory. By default, the model output will get
             stored in the same directory as the dataframe.
-
+        ethogram_mode: str, default 'inference'
+            One of ["inference", "ground"]. Specifies the location of where to look for ground truth ethograms
+            for training. If "inference", will try to use ethograms stored from running inference. If "ground",
+            will look for a column in the dataframe called "ethograms" to use for training.
         """
         # check valid model_in if not None
         if model_in is not None:
@@ -126,6 +135,10 @@ class SequenceModelDataframeExtension:
             model_out = df_dir.joinpath("sequence_output")
         if os.listdir(model_out):
             raise ValueError(f"directory to store model output should be empty")
+
+        # check valid mode
+        if mode not in ["slow", "medium", "fast"]:
+            raise ValueError(f"mode argument must be one of ['slow', 'medium', 'fast'.")
 
         # validate experiment type
         exp_type = validate_exp_type(self._df)
@@ -149,33 +162,52 @@ class SequenceModelDataframeExtension:
                 f"stop_method argument must be one of {STOP_METHODS.keys()}"
             )
 
-        # to train sequence model must have ethograms in columns
-        ethograms = list(self._df["ethograms"])
-        for e in ethograms:
-            if e is None:
-                raise ValueError(
-                    "In order to train the sequence model you must have labels "
-                    f"in the ethograms column. Row {ethograms.index(e)} does not have an ethogram. "
-                    f"Either remove the row from the dataframe before attempting training or add "
-                    f"labels for this trial."
-                )
-            if e.shape[0] != len(BEHAVIOR_CLASSES):
-                raise ValueError(
-                    f"The ethogram in row {ethograms.index(e)} does not have the correct number of "
-                    f"behaviors. Each ethogram should have {len(BEHAVIOR_CLASSES)} rows. The current "
-                    f"behaviors are: {BEHAVIOR_CLASSES}"
-                )
+        # to train feature extractor must have ethograms in columns
+        # validate mode
+        if ethogram_mode not in ["ground", "inference"]:
+            raise ValueError("ethogram_mode must be one of ['inference', 'ground']")
+        # if ethogram mode is ground, look for ethograms in 'ethograms' column
+        if ethogram_mode == "ground":
+            if "ethograms" not in self._df.columns:
+                raise ValueError(f"If ethogram_mode is 'ground', the ethograms to be used for training the sequence "
+                                 f"model must be stored in the current dataframe in a column called 'ethograms'")
+            ethograms = list(self._df["ethograms"])
+            for e in ethograms:
+                if e is None:
+                    raise ValueError(
+                        "In order to train the feature extractor you must have labels "
+                        f"in the ethograms column. Row {ethograms.index(e)} does not have an ethogram. "
+                        f"Either remove the row from the dataframe before attempting training or add "
+                        f"labels for this trial."
+                    )
+                if e.shape[0] != len(BEHAVIOR_CLASSES):
+                    raise ValueError(
+                        f"The ethogram in row {ethograms.index(e)} does not have the correct number of "
+                        f"behaviors. Each ethogram should have {len(BEHAVIOR_CLASSES)} rows. The current "
+                        f"behaviors are: {BEHAVIOR_CLASSES}"
+                    )
+        else:  # ethogram_mode must be inference
+            ethograms = list()
+            for ix, row in self._df.iterrows():
+                # get a saved ethogram from disk and make sure it is the right shape
+                ground = get_ethogram_from_disk(row)
+                if ground.shape[0] != len(BEHAVIOR_CLASSES):
+                    raise ValueError(
+                        f"The ethogram in row {ix} does not have the correct number of "
+                        f"behaviors. Each ethogram should have {len(BEHAVIOR_CLASSES)} rows. The current "
+                        f"behaviors are: {BEHAVIOR_CLASSES}"
+                    )
+                ethograms.append(ground)
 
         # to train sequence model, must have already run feature extraction inference
-        extracted_features = list(self._df["features"])
-        for ef in extracted_features:
-            if ef is None:
-                raise ValueError(
-                    "In order to train the sequence model you must have extracted the features"
-                    f"of each row using 'row.feature_extractor.infer()'. Row {extracted_features.index(ef)}"
-                    f"does not have extracted features. Please run feature extractor inference on this row"
-                    f"before attempting training or remove the row from the dataframe."
-                )
+        extracted_features = list()
+        for ix, row in self._df.iterrows():
+            f = get_features_from_disk(row)
+            if f is None:
+                raise ValueError(f"feature extraction has not been run for the trial in row {ix}. Please "
+                                 f"remove the trial from the dataframe or run feature extraction before trying to "
+                                 f"train the sequence model.")
+            extracted_features.append(f)
 
         # create available dataset from items in df
         training_vids = list(self._df["vid_paths"].values)
@@ -207,7 +239,8 @@ class SequenceModelDataframeExtension:
             exp_type=exp_type,
             num_classes=num_classes,
             num_neg=datasets.num_neg,
-            num_pos=datasets.num_pos
+            num_pos=datasets.num_pos,
+            mode=mode
         )
 
         # lightning module

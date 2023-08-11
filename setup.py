@@ -14,7 +14,7 @@ install_requires = [
     "requests",
     "tables",
     "jupyter-rfb",
-    "jupyterlab==3.6.3",
+    "jupyterlab<4",
     "kornia",
     "omegaconf",  # needed because of how models are loaded from checkpoint
     "jupyterlab-widgets==3.0.7", # pinned bc of ipydatagrid

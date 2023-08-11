@@ -169,13 +169,15 @@ class EthogramVizContainer(BehaviorVizContainer):
 
     def show(self):
         """Shows the widget."""
+        trial_buttons = HBox([self.previous_button, self.next_button])
+
         return VBox(
             [
                 self.datagrid,
                 HBox(
                     [
                         self.image_widget.show(),
-                        VBox([self.trial_selector, self.behavior_count]),
+                        VBox([trial_buttons, self.behavior_count]),
                     ]
                 ),
                 self.plot.show(),
