@@ -8,7 +8,9 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN apt update && apt upgrade -y && apt-get install -y \
     curl \
     sudo \
-    git
+    git \
+    mesa-vulkan-drivers 
+#    libjpeg-turbo
 #    ffmpeg libsm6 libxext6 libxcb-icccm4 \
 #    libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-xinerama0 libxcb-xkb-dev libxkbcommon-x11-0 \
 #    libpulse-mainloop-glib0 ubuntu-restricted-extras libqt5multimedia5-plugins vlc \
