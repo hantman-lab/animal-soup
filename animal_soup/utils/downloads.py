@@ -64,7 +64,5 @@ def download_models():
 
 
 if __name__ == "__main__":
-    print(sample_data_dir)
-    print(pretrained_dir)
-    print(sample_data_file)
-    print(pretrained_file)
+    download_models()
+    download_data()
