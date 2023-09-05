@@ -33,6 +33,10 @@ The `-v /home:/home` assumes that the filesystem you want to mount (where your b
 a directory called `/home`. If your data is located somewhere else you will need to change the mount path when you run the container. 
 Mount paths should be in the form `-v /your/local/file/directories:/container/file/structure`.
 
+**Note:** You will only need to build the Docker image once. After you have built the image the first time, you will only need to execute the run command to start the container.
+
+**Important:** A running docker container will not save changes across different runnings of the container. This means that when you stop the docker container instance any changes made to files in the docker environment will not persist when you run the docker container again. However, this **DOES NOT** apply to mounted files. By default your behavior prediction will be saved under your `parent_data_path` that you set before running inference. The `parent_data_path` will be located under the mounted file volume so this will not be an issue. You just need to make sure any jupyter notebooks that you want saved are located under the mounted file volume and **NOT** in the filesystem of the container!
+
 ### Data Organization 
 Using `pandas.DataFrame` to organize Hantman Lab behavioral data.
 ![image](https://github.com/hantman-lab/animal-soup/assets/69729525/a3d979f2-9abb-4852-808e-0341b66767cc)
