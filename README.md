@@ -20,7 +20,7 @@ git clone https://github.com/hantman-lab/animal-soup.git
 cd animal_soup
 
 # build the docker image
-docker build -t ansoup 
+docker build -t ansoup .
 
 # run the docker image
 docker run --gpus all -w /animal-soup -it -p 9999:8888 -v /home:/home ansoup
