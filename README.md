@@ -12,12 +12,26 @@ https://animal-soup.readthedocs.io/
 
 ### Installation
 
+You will need to have [Docker Desktop](https://docs.docker.com/desktop/) installed.
+
 ```bash
+# clone the repo
 git clone https://github.com/hantman-lab/animal-soup.git
 cd animal_soup
 
-pip install -e .
+# build the docker image
+docker build -t ansoup 
+
+# run the docker image
+docker run --gpus all -w /animal-soup -it -p 9999:8888 -v /home:/home ansoup
+
+# launch jupyter lab from running container on `localhost:9000`
+jupyter lab --allow-root --ip=0.0.0.0
 ```
+
+The `-v /home:/home` assumes that the filesystem you want to mount (where your behavioral data is located) is under 
+a directory called `/home`. If your data is located somewhere else you will need to change the mount path when you run the container. 
+Mount paths should be in the form `-v /your/local/file/directories:/container/file/structure`.
 
 ### Data Organization 
 Using `pandas.DataFrame` to organize Hantman Lab behavioral data.
