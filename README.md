@@ -23,7 +23,7 @@ cd animal_soup
 docker build -t ansoup 
 
 # run the docker image
-docker run --gpus all -it -p 9999:8888 -v /home:/home ansoup
+docker run --gpus all -w /animal-soup -it -p 9999:8888 -v /home:/home ansoup
 
 # launch jupyter lab from running container on `localhost:9000`
 jupyter lab --allow-root --ip=0.0.0.0

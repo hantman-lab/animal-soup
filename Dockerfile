@@ -27,8 +27,8 @@ WORKDIR animal-soup/
 RUN pip install -e .
 
 # download the models and sample data
-RUN python -m animal_soup/utils/downloads
+WORKDIR animal_soup/utils
+RUN python -m downloads
 
 # Set the entrypoint
 ENTRYPOINT [ "/bin/bash" ]
-CMD ["pytest", "-s", "tests/"]
