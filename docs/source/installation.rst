@@ -13,8 +13,11 @@ As stated above, ``Docker`` creates an isolated environment to run ``animal-soup
 your machines' GPU(s) are installed and do **NOT** conflict with existing software or environments on your machine. The following image summarizes
 what a ``Docker`` environment does.
 
-# insert diagram
+.. image:: _static/docker.png
+    :width: 800
 
+The ``Docker`` container will be running in an isolated environment on your local host machine. We will bind a port on your local machine to the container
+in order to run jupyter lab. We will also mount your behavioral data on your local file system so that it can be accessed from within the container.
 
 In the subsequent steps, you will install ``animal-soup`` by building a ``Docker`` image and then running a ``Docker`` container based on
 the ``animal-soup`` image.
@@ -59,7 +62,7 @@ Start a ``Docker`` container to run the image.
 
 .. code-block:: python
 
-    docker run --gpus all -w /animal-soup -it -p 8888:8888 -v /home:/home ansoup
+    docker run --gpus all -w /animal-soup -it --rm -p 8888:8888 -v /home:/home ansoup
 
 The various flags do the following:
 
@@ -71,7 +74,7 @@ The various flags do the following:
 
 .. note::
     Here I am mounting ``/home:/home`` because these instructions were developed on a Linux machine. However, you should change the mount paths to be relevant
-    to your machine. If you are on Windows, this might look something like...
+    to your machine. If you are on Windows, you could mount a C drive like so: ``-v /C:/C``
 
 .. note::
     You can mount more than one volume by simply adding additional ``-v /path/on/local/host:/container/file/structure``. The host files that you are mounting need
@@ -102,6 +105,14 @@ If the tests have passed, the next thing to do is launch a jupyter lab server an
 
 This will start a jupyter lab terminal within the container. However, because we binded the local host port 8888 to the container port 8888.
 You can then launch your preferred browser and access the jupyter lab server running at ``localhost:8888``.
+
+.. note::
+    When you launch jupyter lab, it will give ask for a token. You can get the token from the terminal where you launched jupyter lab.
+
+**Example Token**
+
+.. image:: _static/token.png
+    :width: 700
 
 .. note::
     A running docker container **WILL NOT** save changes across different runnings of the container.

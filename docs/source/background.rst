@@ -19,7 +19,7 @@ There are three different flow generator models that can be used: TinyMotionNet3
 corresponding modes are listed below:
 
 +--------+-----------------+
-| mode   | model            |
+| mode   | model           |
 +========+=================+
 | fast   | TinyMotionNet   |
 +--------+-----------------+
