@@ -11,6 +11,7 @@ Welcome to animal-soup's documentation!
    :caption: Contents:
 
    Background <background>
+   Installation <installation>
    User Guide <user_guide>
    API<api/index>
 
