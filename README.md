@@ -12,6 +12,8 @@ https://animal-soup.readthedocs.io/
 
 ### Installation
 
+For more detailed instructions please see [here](https://animal-soup.readthedocs.io/en/latest/installation.html)
+
 You will need to have [Docker Desktop](https://docs.docker.com/desktop/) installed.
 
 ```bash
@@ -23,7 +25,7 @@ cd animal_soup
 docker build -t ansoup .
 
 # run the docker image
-docker run --gpus all -w /animal-soup -it -p 9999:8888 -v /home:/home ansoup
+docker run --gpus all -w /animal-soup -it --rm -p 8888:8888 -v /home:/home ansoup
 
 # launch jupyter lab from running container on `localhost:9000`
 jupyter lab --allow-root --ip=0.0.0.0
