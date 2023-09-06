@@ -26,13 +26,6 @@ with `fastplotlib <https://github.com/fastplotlib/fastplotlib>`_ for fast visual
 predicted behavioral labels. Behavioral classification training and inference has been adopted from
 `DeepEthogram <https://github.com/jbohnslav/deepethogram>`_.
 
-Installation
-============
-
-For installation, please see the instructions in the README on GitHub:
-
-https://github.com/hantman-lab/animal-soup
-
 Indices and tables
 ==================
 
