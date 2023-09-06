@@ -4,8 +4,7 @@ Installation
 ``animal-soup`` uses `Docker <https://www.docker.com/>`_ to create an isolated environment for using the package. The instructions below walk
 through a detailed installation process.
 
-Step 1
-******
+**Step 1**
 
 Install `Docker Desktop <https://www.docker.com/products/docker-desktop/>`_.
 
@@ -22,8 +21,7 @@ in order to run jupyter lab. We will also mount your behavioral data on your loc
 In the subsequent steps, you will install ``animal-soup`` by building a ``Docker`` image and then running a ``Docker`` container based on
 the ``animal-soup`` image.
 
-Step 2
-******
+**Step 2**
 
 Clone the ``animal-soup`` repo.
 
@@ -35,8 +33,7 @@ Clone the ``animal-soup`` repo.
     cd animal-soup
 
 
-Step 3
-******
+**Step 3**
 
 Build the ``Docker`` image for ``animal-soup``.
 
@@ -55,8 +52,7 @@ packages needed to run ``animal-soup``.
 Building the ``Docker`` image may take a few minutes. However, you will only need to build the image once. You are essentially creating an isolated
 environment, and then to use ``animal-soup`` you will simply "run" the image in a container.
 
-Step 4
-******
+**Step 4**
 
 Start a ``Docker`` container to run the image.
 
@@ -81,8 +77,7 @@ The various flags do the following:
     to be written as the path appears on your local machine, but you can create whatever path you would like to get to those files in the container. For example, if
     I wanted to mount my `data` directory under a folder called `behavioral_data`: ``-v /data/caitlin:/behavioral_data/``
 
-Step 5
-******
+**Step 5**
 
 Once you have the container running, try running the tests to make sure everything is working properly.
 
@@ -94,8 +89,7 @@ Once you have the container running, try running the tests to make sure everythi
 
 If the tests are not passing, please post an issue on the repo so that I can help!
 
-Step 6
-******
+**Step 6**
 
 If the tests have passed, the next thing to do is launch a jupyter lab server and start using ``animal-soup``!
 
