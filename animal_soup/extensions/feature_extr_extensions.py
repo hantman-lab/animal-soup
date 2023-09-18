@@ -235,7 +235,13 @@ class FeatureExtractorDataframeExtension:
             ethograms = list()
             for ix, row in self._df.iterrows():
                 # get a saved ethogram from disk and make sure it is the right shape
-                ground = get_ethogram_from_disk(row)
+                ground = get_ethogram_from_disk(row, mode=mode)
+                if ground is None:
+                    raise ValueError(
+                        f"Inference has not been run for he ethogram in row {ix} with mode = {mode}. Please remove"
+                        "the trial from the dataframe or clean an ethogram for this trial before trying to train "
+                        "the sequence model."
+                    )
                 if ground.shape[0] != len(BEHAVIOR_CLASSES):
                     raise ValueError(
                         f"The ethogram in row {ix} does not have the correct number of "

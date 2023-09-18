@@ -190,7 +190,13 @@ class SequenceModelDataframeExtension:
             ethograms = list()
             for ix, row in self._df.iterrows():
                 # get a saved ethogram from disk and make sure it is the right shape
-                ground = get_ethogram_from_disk(row)
+                ground = get_ethogram_from_disk(row=row, mode=mode)
+                if ground is None:
+                    raise ValueError(
+                        f"Inference has not been run for he ethogram in row {ix} with mode = {mode}. Please remove"
+                        "the trial from the dataframe or clean an ethogram for this trial before trying to train "
+                        "the sequence model."
+                    )
                 if ground.shape[0] != len(BEHAVIOR_CLASSES):
                     raise ValueError(
                         f"The ethogram in row {ix} does not have the correct number of "
@@ -202,11 +208,11 @@ class SequenceModelDataframeExtension:
         # to train sequence model, must have already run feature extraction inference
         extracted_features = list()
         for ix, row in self._df.iterrows():
-            f = get_features_from_disk(row)
+            f = get_features_from_disk(row=row, mode=mode)
             if f is None:
-                raise ValueError(f"feature extraction has not been run for the trial in row {ix}. Please "
-                                 f"remove the trial from the dataframe or run feature extraction before trying to "
-                                 f"train the sequence model.")
+                raise ValueError(f"feature extraction has not been run for the trial in row {ix} with mode = {mode}."
+                                 f" Please remove the trial from the dataframe or run feature extraction before trying"
+                                 f" to train the sequence model.")
             extracted_features.append(f)
 
         # create available dataset from items in df
@@ -418,11 +424,9 @@ class SequenceModelSeriesExtensions:
 
             # if exists, delete and regenerate, else just create
             if "ethograms" in f[curr_trial][mode].keys():
-                del f[curr_trial][mode]["ethograms"]
+                del f[curr_trial][mode]["ethogram"]
 
-            ethogram_group = f[curr_trial][mode].create_group("ethograms")
-
-            ethogram_group.create_dataset("ethogram",
+            f[curr_trial][mode].create_dataset("ethogram",
                                           data=final_ethogram)
 
         print("Successfully saved sequence outputs to disk!")

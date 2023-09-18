@@ -1,5 +1,5 @@
 import pandas as pd
-from ipywidgets import HBox, VBox, Textarea, Layout
+from ipywidgets import HBox, VBox, Textarea, Layout, ToggleButtons
 from fastplotlib import Plot
 from fastplotlib.graphics.selectors import LinearSelector
 import numpy as np
@@ -59,6 +59,27 @@ class EthogramVizContainer(BehaviorVizContainer):
 
         self.mode = mode
 
+        self.mode_selector = ToggleButtons(
+                                options=["slow", "medium", "fast"],
+                                description="Mode",
+                                disabled=False,
+                                button_style='',
+                                value="fast",
+                                layout=Layout(width='200px')
+        )
+
+        self.mode_selector.observe(self._toggle_mode, "value")
+
+        self._make_ethogram_plot()
+        self._set_behavior_frame_count()
+
+    def _toggle_mode(self, obj):
+        """Toggle ethogram for a trial based on prediction mode."""
+        # force clearing of event handlers for selectors
+        # seems to be an issue with fpl delete graphic method for selectors
+        if len(self.plot.selectors) > 0:
+            self.plot.selectors[0].selection._event_handlers.clear()
+        self.plot.clear()
         self._make_ethogram_plot()
         self._set_behavior_frame_count()
 
@@ -78,7 +99,12 @@ class EthogramVizContainer(BehaviorVizContainer):
             else:
                 self.ethogram_array = row["ethograms"]
         else: # mode must be inference
-            self.ethogram_array = get_ethogram_from_disk(row)
+            self.ethogram_array = get_ethogram_from_disk(row=row, mode=self.mode_selector.value)
+
+        # will return an empty plot when a mode has been selected that inference hasn't been run for
+        # allows for toggling between modes without throwing errors
+        if self.ethogram_array is None:
+            return
 
         y_bottom = 0
         for i, b in enumerate(ETHOGRAM_COLORS.keys()):
@@ -128,13 +154,29 @@ class EthogramVizContainer(BehaviorVizContainer):
 
         # force clearing of event handlers for selectors
         # seems to be an issue with fpl delete graphic method for selectors
-        self.plot.selectors[0].selection._event_handlers.clear()
+        if len(self.plot.selectors) > 0:
+            self.plot.selectors[0].selection._event_handlers.clear()
         self.plot.clear()
         self._make_ethogram_plot()
         self._set_behavior_frame_count()
 
     def _set_behavior_frame_count(self):
         """Sets the behavior duration for each behavior."""
+        # no durations to calculate if inference has not been run with currently selected mode
+        # blank plot currently being displayed
+        if self.ethogram_array is None:
+            self.behavior_count = Textarea(
+                value=f'lift: 0\n'
+                      f'handopen: 0\n'
+                      f'grab: 0\n'
+                      f'sup: 0\n'
+                      f'atmouth: 0\n'
+                      f'chew: 0',
+                description="Duration:",
+                disabled=True,
+                layout=Layout(height="65%", width="auto"),
+            )
+            return
         durations = self._get_behavior_frame_count()
         if self.behavior_count is None:
             self.behavior_count = Textarea(
@@ -177,7 +219,7 @@ class EthogramVizContainer(BehaviorVizContainer):
                 HBox(
                     [
                         self.image_widget.show(),
-                        VBox([trial_buttons, self.behavior_count]),
+                        VBox([trial_buttons, self.mode_selector, self.behavior_count]),
                     ]
                 ),
                 self.plot.show(),

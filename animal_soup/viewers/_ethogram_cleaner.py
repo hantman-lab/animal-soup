@@ -35,7 +35,7 @@ class EthogramCleanerVizContainer(EthogramVizContainer):
         if self.mode == "ground" and "cleaned_ethograms" not in self._dataframe.columns:
             self._dataframe.insert(loc=5, column="cleaned_ethograms", value=None)
 
-        self._dataframe.behavior.save_to_disk()
+            self._dataframe.behavior.save_to_disk()
 
     @property
     def current_behavior(self):
@@ -80,7 +80,12 @@ class EthogramCleanerVizContainer(EthogramVizContainer):
             else:
                 self.ethogram_array = row["ethograms"]
         else: # mode is inference look for cleaned ethogram to show and if not show predicted
-            self.ethogram_array = get_ethogram_from_disk(row)
+            self.ethogram_array = get_ethogram_from_disk(row=row, mode=self.mode_selector.value)
+
+        # will return an empty plot when a mode has been selected that inference hasn't been run for
+        # allows for toggling between modes without throwing errors
+        if self.ethogram_array is None:
+            return
 
         y_bottom = 0
         for i, b in enumerate(ETHOGRAM_COLORS.keys()):
