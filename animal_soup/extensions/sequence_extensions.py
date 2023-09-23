@@ -190,7 +190,13 @@ class SequenceModelDataframeExtension:
             ethograms = list()
             for ix, row in self._df.iterrows():
                 # get a saved ethogram from disk and make sure it is the right shape
-                ground = get_ethogram_from_disk(row)
+                ground = get_ethogram_from_disk(row=row, mode=mode)
+                if ground is None:
+                    raise ValueError(
+                        f"Inference has not been run for he ethogram in row {ix} with mode = {mode}. Please remove"
+                        "the trial from the dataframe or clean an ethogram for this trial before trying to train "
+                        "the sequence model."
+                    )
                 if ground.shape[0] != len(BEHAVIOR_CLASSES):
                     raise ValueError(
                         f"The ethogram in row {ix} does not have the correct number of "
@@ -202,11 +208,11 @@ class SequenceModelDataframeExtension:
         # to train sequence model, must have already run feature extraction inference
         extracted_features = list()
         for ix, row in self._df.iterrows():
-            f = get_features_from_disk(row)
+            f = get_features_from_disk(row=row, mode=mode)
             if f is None:
-                raise ValueError(f"feature extraction has not been run for the trial in row {ix}. Please "
-                                 f"remove the trial from the dataframe or run feature extraction before trying to "
-                                 f"train the sequence model.")
+                raise ValueError(f"feature extraction has not been run for the trial in row {ix} with mode = {mode}."
+                                 f" Please remove the trial from the dataframe or run feature extraction before trying"
+                                 f" to train the sequence model.")
             extracted_features.append(f)
 
         # create available dataset from items in df
@@ -360,16 +366,20 @@ class SequenceModelSeriesExtensions:
                 # not in keys, feature extraction has not been run
                 if curr_trial not in f.keys():
                     print(f"Feature extraction has not been run for this trial yet. Running feature extraction now"
-                          f" with default mode = {mode}")
+                          f" with mode = {mode}")
+                    self._series.feature_extractor.infer(mode=mode, gpu_id=gpu_id)
+                elif mode not in f[curr_trial].keys():
+                    print(f"Feature extraction has not been run for this trial with mode = {mode} yet. Running feature "
+                          f"extraction now with mode = {mode}")
                     self._series.feature_extractor.infer(mode=mode, gpu_id=gpu_id)
 
                 # load in features to pass to sequence model
                 features = dict()
 
-                features["logits"] = f[curr_trial]["features"]["logits"][:]
-                features["probabilities"] = f[curr_trial]["features"]["probabilities"][:]
-                features["spatial_features"] = f[curr_trial]["features"]["spatial"][:]
-                features["flow_features"] = f[curr_trial]["features"]["flow"][:]
+                features["logits"] = f[curr_trial][mode]["features"]["logits"][:]
+                features["probabilities"] = f[curr_trial][mode]["features"]["probabilities"][:]
+                features["spatial_features"] = f[curr_trial][mode]["features"]["spatial"][:]
+                features["flow_features"] = f[curr_trial][mode]["features"]["flow"][:]
 
         # set experiment type
         exp_type = self._series["exp_type"]
@@ -402,10 +412,10 @@ class SequenceModelSeriesExtensions:
         with h5py.File(output_path, "r+") as f:
 
             # if exists, delete and regenerate, else just create
-            if "sequence" in f[curr_trial].keys():
-                del f[curr_trial]["sequence"]
+            if "sequence" in f[curr_trial][mode].keys():
+                del f[curr_trial][mode]["sequence"]
 
-            sequence_group = f[curr_trial].create_group("sequence")
+            sequence_group = f[curr_trial][mode].create_group("sequence")
 
             sequence_group.create_dataset("logits",
                                           data=prediction_info["logits"])
@@ -413,12 +423,10 @@ class SequenceModelSeriesExtensions:
                                           data=prediction_info["probabilities"])
 
             # if exists, delete and regenerate, else just create
-            if "ethogram" in f[curr_trial].keys():
-                del f[curr_trial]["ethogram"]
+            if "ethograms" in f[curr_trial][mode].keys():
+                del f[curr_trial][mode]["ethogram"]
 
-            ethogram_group = f[curr_trial].create_group("ethograms")
-
-            ethogram_group.create_dataset("ethogram",
+            f[curr_trial][mode].create_dataset("ethogram",
                                           data=final_ethogram)
 
         print("Successfully saved sequence outputs to disk!")

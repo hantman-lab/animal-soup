@@ -13,7 +13,7 @@ from ..utils import get_parent_raw_data_path
 # import numpy as np
 
 
-def get_ethogram_from_disk(row: pd.Series):
+def get_ethogram_from_disk(row: pd.Series, mode: str):
     """Returns ethogram from disk for trial at given output_path."""
 
     output_path = get_parent_raw_data_path().joinpath(row["output_path"])
@@ -31,18 +31,20 @@ def get_ethogram_from_disk(row: pd.Series):
                              "inference on ALL trials in the dataframe before trying to "
                              "view them.")
 
-        # check if sequence inference has been run
-        elif "sequence" not in f[curr_trial].keys():
-            raise ValueError("Sequence inference has not been run for this trial yet. Please "
-                             "make sure that feature extraction and sequence inference has been "
-                             "completed for ALL trials in the dataframe before trying to view generated "
-                             "ethograms.")
+        # prefer returning cleaned ethogram always
+        if "cleaned_ethogram" in f[curr_trial].keys():
+            return f[curr_trial]["cleaned_ethogram"][:]
 
-        # ethogram exists! want to return cleaned ethogram if possible
-        if "cleaned_ethogram" in f[curr_trial]["ethograms"].keys():
-            return f[curr_trial]["ethograms"]["cleaned_ethogram"][:]
-        else:
-            return f[curr_trial]["ethograms"]["ethogram"][:]
+        if mode not in f[curr_trial].keys():
+            print(f"Inference has not been run for this trial with mode = {mode}.")
+            return None
+
+        # check if sequence inference has been run
+        elif "sequence" not in f[curr_trial][mode].keys():
+            print(f"Sequence inference has not been run for this trial yet with mode = {mode}.")
+            return None
+
+        return f[curr_trial][mode]["ethogram"][:]
 
 
 def save_ethogram_to_disk(row: pd.Series, cleaned_ethogram: np.ndarray):
@@ -55,16 +57,14 @@ def save_ethogram_to_disk(row: pd.Series, cleaned_ethogram: np.ndarray):
     # update h5 file with cleaned_ethogram
     with h5py.File(output_path, "r+") as f:
         # if exists, delete and regenerate, else just create
-        if "cleaned_ethogram" in f[curr_trial]["ethograms"].keys():
-            del f[curr_trial]["ethograms"]["cleaned_ethogram"]
+        if "cleaned_ethogram" in f[curr_trial].keys():
+            del f[curr_trial]["cleaned_ethogram"]
 
-        ethogram_group = f[curr_trial]["ethograms"]
-
-        ethogram_group.create_dataset("cleaned_ethogram",
+        f[curr_trial].create_dataset("cleaned_ethogram",
                                       data=cleaned_ethogram)
 
 
-def get_features_from_disk(row: pd.Series):
+def get_features_from_disk(row: pd.Series, mode: str):
     """Gets extracted features from disk."""
 
     output_path = get_parent_raw_data_path().joinpath(row["output_path"])
@@ -82,13 +82,18 @@ def get_features_from_disk(row: pd.Series):
             if curr_trial not in f.keys():
                 return None
 
+            if mode not in f[curr_trial].keys():
+                raise ValueError(f"Feature extraction has not been run for this trial with mode = {mode}. "
+                                 f"Please run feature extraction with mode = {mode} before trying to train"
+                                 f"the feature extractor.")
+
             # get features
             features = dict()
 
-            features["logits"] = f[curr_trial]["features"]["logits"][:]
-            features["probabilities"] = f[curr_trial]["features"]["probabilities"][:]
-            features["spatial_features"] = f[curr_trial]["features"]["spatial"][:]
-            features["flow_features"] = f[curr_trial]["features"]["flow"][:]
+            features["logits"] = f[curr_trial][mode]["features"]["logits"][:]
+            features["probabilities"] = f[curr_trial][mode]["features"]["probabilities"][:]
+            features["spatial_features"] = f[curr_trial][mode]["features"]["spatial"][:]
+            features["flow_features"] = f[curr_trial][mode]["features"]["flow"][:]
 
             return features
 

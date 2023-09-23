@@ -235,14 +235,20 @@ class FeatureExtractorDataframeExtension:
             ethograms = list()
             for ix, row in self._df.iterrows():
                 # get a saved ethogram from disk and make sure it is the right shape
-                ground = get_ethogram_from_disk(row)
+                ground = get_ethogram_from_disk(row, mode=mode)
+                if ground is None:
+                    raise ValueError(
+                        f"Inference has not been run for he ethogram in row {ix} with mode = {mode}. Please remove"
+                        "the trial from the dataframe or clean an ethogram for this trial before trying to train "
+                        "the sequence model."
+                    )
                 if ground.shape[0] != len(BEHAVIOR_CLASSES):
                     raise ValueError(
                         f"The ethogram in row {ix} does not have the correct number of "
                         f"behaviors. Each ethogram should have {len(BEHAVIOR_CLASSES)} rows. The current "
                         f"behaviors are: {BEHAVIOR_CLASSES}"
                     )
-                ethograms.append(ground)
+                ethograms.append(ground.astype(np.int_))
 
         # create available dataset from items in df
         training_vids = list(self._df["vid_paths"].values)
@@ -561,8 +567,9 @@ class FeatureExtractorSeriesExtensions:
             with h5py.File(output_path, "w") as f:
                 # create group for trial
                 trial = f.create_group(curr_trial)
-                # create feature group and add relevant datasets
-                feature_group = trial.create_group("features")
+                # create feature group based on mode and add relevant datasets
+                mode_group = trial.create_group(f"{mode}")
+                feature_group = mode_group.create_group("features")
                 feature_group.create_dataset("spatial",
                                              data=prediction_info["spatial_features"].numpy())
                 feature_group.create_dataset("flow",
@@ -576,13 +583,15 @@ class FeatureExtractorSeriesExtensions:
             with h5py.File(output_path, "r+") as f:
 
                 if curr_trial in f.keys():
-                    # delete and remake
-                    del f[curr_trial]
+                    if mode in f[curr_trial].keys():
+                        # delete and remake
+                        del f[curr_trial][mode]
+                else: # curr_trial not in keys, create
+                    trial = f.create_group(curr_trial)
 
-                trial = f.create_group(curr_trial)
-
-                # create feature group and add relevant datasets
-                feature_group = trial.create_group("features")
+                # create feature group based on mode and add relevant datasets
+                mode_group = f[curr_trial].create_group(f"{mode}")
+                feature_group = mode_group.create_group("features")
                 feature_group.create_dataset("spatial",
                                              data=prediction_info["spatial_features"].numpy())
                 feature_group.create_dataset("flow",
