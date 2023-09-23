@@ -166,12 +166,12 @@ class EthogramVizContainer(BehaviorVizContainer):
         # blank plot currently being displayed
         if self.ethogram_array is None:
             self.behavior_count = Textarea(
-                value=f'lift: 0\n'
-                      f'handopen: 0\n'
-                      f'grab: 0\n'
-                      f'sup: 0\n'
-                      f'atmouth: 0\n'
-                      f'chew: 0',
+                value=f'lift: {None}\n'
+                      f'handopen: {None}\n'
+                      f'grab: {None}\n'
+                      f'sup: {None}\n'
+                      f'atmouth: {None}\n'
+                      f'chew: {None}',
                 description="Duration:",
                 disabled=True,
                 layout=Layout(height="65%", width="auto"),

@@ -248,7 +248,7 @@ class FeatureExtractorDataframeExtension:
                         f"behaviors. Each ethogram should have {len(BEHAVIOR_CLASSES)} rows. The current "
                         f"behaviors are: {BEHAVIOR_CLASSES}"
                     )
-                ethograms.append(ground)
+                ethograms.append(ground.astype(np.int_))
 
         # create available dataset from items in df
         training_vids = list(self._df["vid_paths"].values)
