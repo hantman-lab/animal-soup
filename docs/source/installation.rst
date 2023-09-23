@@ -97,11 +97,12 @@ If the tests have passed, the next thing to do is launch a jupyter lab server an
 
     jupyter lab --allow-root --ip=0.0.0.0 --no-browser
 
-This will start a jupyter lab terminal within the container. However, because we binded the local host port 8888 to the container port 8888.
-You can then launch your preferred browser and access the jupyter lab server running at ``localhost:8888``.
+This will start a jupyter lab terminal within the container. Because we binded the local host port 8888 to the container port 8888,
+you can access the jupyter lab server running at ``localhost:8888``.
 
 .. note::
-    When you launch jupyter lab, it will give ask for a token. You can get the token from the terminal where you launched jupyter lab.
+    To launch the jupyterlab server you will need copy and paste the URL with the correct token from the terminal where you
+    launched the server. See below for reference.
 
 **Example Token**
 
