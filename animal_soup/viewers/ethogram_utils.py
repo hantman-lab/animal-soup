@@ -64,6 +64,30 @@ def save_ethogram_to_disk(row: pd.Series, cleaned_ethogram: np.ndarray):
                                       data=cleaned_ethogram)
 
 
+def _get_clean_ethogram(row: pd.Series):
+    """Hacky method for getting a manually labeled ethogram from disk if it exists."""
+    output_path = get_parent_raw_data_path().joinpath(row["output_path"])
+
+    curr_trial = str(row["trial_id"])
+
+    if not os.path.exists(Path(output_path)):
+        with h5py.File(output_path, "w") as f:
+            trial = f.create_group(curr_trial)
+
+        return
+
+    with h5py.File(output_path, "r+") as f:
+        # check if trial in keys
+        if curr_trial not in f.keys():
+            trial = f.create_group(curr_trial)
+
+            return
+
+        # prefer returning cleaned ethogram always
+        if "cleaned_ethogram" in f[curr_trial].keys():
+            return f[curr_trial]["cleaned_ethogram"][:]
+
+
 def get_features_from_disk(row: pd.Series, mode: str):
     """Gets extracted features from disk."""
 
