@@ -83,6 +83,31 @@ class BehaviorDataFrameExtension:
 
         return container
 
+    def manual_ethograms(
+            self,
+            start_index: int = 0
+    ):
+        """
+        Manually annotate ethograms for training the classifier.
+
+        Parameters
+        ----------
+        start_index: int, default 0
+            Row index to start visualization from
+
+        Returns
+        -------
+        container
+            Object that contains the datagrid of trials in the dataframe as behavior viewer and ethogram plot
+            for manual behavior annotation.
+        """
+        container = EthogramManualVizContainer(
+            dataframe=self._df,
+            start_index=start_index,
+        )
+
+        return container
+
     def compare_ethograms(self, start_index: int = 0):
         container = EthogramComparisonVizContainer(
             dataframe=self._df, start_index=start_index
