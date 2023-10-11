@@ -3,7 +3,7 @@ from pathlib import Path
 
 install_requires = [
     "numpy",
-    "fastplotlib",
+    "fastplotlib[notebook,tests,docs]",
     "ipydatagrid",
     "pandas>=1.5.0",
     "decord",
