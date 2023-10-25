@@ -174,5 +174,5 @@ class BehaviorVizContainer:
 
         # return widget of all elements together
         return VBox(
-            [self.datagrid, HBox([self.image_widget.show(), trial_buttons])]
+            [self.datagrid, HBox([self.image_widget.show(sidecar=False), trial_buttons])]
         )
