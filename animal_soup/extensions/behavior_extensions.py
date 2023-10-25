@@ -213,8 +213,8 @@ class BehaviorDataFrameExtension:
                         > 0
                     ):
                         raise ValueError(
-                            f"Item already exists with animal_id:\n{animal_id}\n\n "
-                            f"session_id:\n{session_dir.stem}\n\n trial_id:\n {int(trial[-3:])}\n\n. "
+                            f"Item already exists with animal_id:\n{animal_id}\n\n"
+                            f"session_id:\n{session_dir.stem}\n\ntrial_id:\n{int(trial[-3:])}\n\n"
                             f"Please remove the item before attempting to add again."
                         )
 
@@ -290,8 +290,8 @@ class BehaviorDataFrameExtension:
                         > 0
                     ):
                         raise ValueError(
-                            f"Item already exists with animal_id:\n{animal_id}\n\n "
-                            f"session_id:\n{session_id}\n\n trial_id:\n {int(trial[-3:])}\n\n. "
+                            f"Item already exists with animal_id:\n{animal_id}\n\n"
+                            f"session_id:\n{session_id}\n\ntrial_id:\n{int(trial[-3:])}\n\n"
                             f"Please remove the item before attempting to add again."
                         )
 
@@ -343,8 +343,8 @@ class BehaviorDataFrameExtension:
                     > 0
                 ):
                     raise ValueError(
-                        f"Item already exists with animal_id:\n{animal_id}\n\n "
-                        f"session_id:\n{session_id}\n\n trial_id:\n {trial_id}\n\n. "
+                        f"Item already exists with animal_id:\n{animal_id}\n\n"
+                        f"session_id:\n{session_id}\n\ntrial_id:\n {trial_id}\n\n"
                         f"Please remove the item before attempting to add again."
                     )
 

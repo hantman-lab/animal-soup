@@ -305,10 +305,10 @@ class EthogramManualVizContainer(BehaviorVizContainer):
                 self.datagrid,
                 HBox(
                     [
-                        self.image_widget.show(),
+                        self.image_widget.show(sidecar=False),
                         VBox([trial_buttons, self.behavior_count]),
                     ]
                 ),
-                self.plot.show(),
+                self.plot.show(sidecar=False),
             ]
         )

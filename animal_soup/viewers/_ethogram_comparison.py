@@ -115,8 +115,8 @@ class EthogramComparisonVizContainer(EthogramVizContainer):
         return VBox(
             [
                 self.datagrid,
-                HBox([self.image_widget.show(), trial_buttons]),
+                HBox([self.image_widget.show(sidecar=False), trial_buttons]),
                 self.plot.show(),
-                self.comparison_plot.show(),
+                self.comparison_plot.show(sidecar=False),
             ]
         )
